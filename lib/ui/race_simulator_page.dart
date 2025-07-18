@@ -5,7 +5,6 @@ import '../models/enums.dart';
 import '../services/performance_calculator.dart';
 import '../services/incident_simulator.dart';
 import '../services/strategy_engine.dart';
-import '../services/weather_service.dart';
 import '../data/driver_data.dart';
 import '../utils/constants.dart';
 
@@ -845,14 +844,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     if (degradation <= 1.5) return Colors.orange;
     if (degradation <= 2.0) return Colors.red[600]!;
     return Colors.red[800]!;
-  }
-
-  String _getTireWearStatus(double degradation) {
-    if (degradation <= 0.5) return 'FRESH';
-    if (degradation <= 1.0) return 'GOOD';
-    if (degradation <= 1.5) return 'WORN';
-    if (degradation <= 2.0) return 'POOR';
-    return 'CRITICAL';
   }
 
   Color _getTeamColor(String team) {
