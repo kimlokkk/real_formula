@@ -14,7 +14,7 @@ class F1RaceSimulator extends StatefulWidget {
   _F1RaceSimulatorState createState() => _F1RaceSimulatorState();
 }
 
-class _F1RaceSimulatorState extends State<F1RaceSimulator> {
+class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderStateMixin {
   List<Driver> drivers = [];
   int currentLap = 0;
   int totalLaps = F1Constants.defaultTotalLaps;
@@ -23,23 +23,38 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
   SimulationSpeed currentSpeed = SimulationSpeed.normal;
   WeatherCondition currentWeather = WeatherCondition.clear;
 
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  int selectedTab = 0; // 0: Standings, 1: Incidents
+
   @override
   void initState() {
     super.initState();
     _initializeRace();
+    _initializePulseAnimation();
+  }
+
+  void _initializePulseAnimation() {
+    _pulseController = AnimationController(
+      duration: Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(begin: 0.2, end: 0.6).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    _pulseController.repeat(reverse: true);
   }
 
   void _initializeRace() {
     drivers = DriverData.createDefaultDrivers();
     DriverData.initializeStartingGrid(drivers);
 
-    // Initialize tire compounds for current weather
     for (Driver driver in drivers) {
       driver.currentCompound = driver.getWeatherAppropriateStartingCompound(currentWeather);
     }
   }
 
-  /// Get all race incidents for display
   List<String> _getAllIncidents() {
     List<String> allIncidents = [];
     for (Driver driver in drivers) {
@@ -47,7 +62,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
         allIncidents.add("${driver.name}: $incident");
       }
     }
-    return allIncidents.reversed.take(F1Constants.incidentLogLimit).toList();
+    return allIncidents.reversed.take(20).toList();
   }
 
   void _simulateLap() {
@@ -59,14 +74,10 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
     setState(() {
       currentLap++;
 
-      // Check for pit stops before calculating lap times
       for (int i = 0; i < drivers.length; i++) {
         Driver driver = drivers[i];
-
-        // Skip DNF drivers
         if (driver.isDNF()) continue;
 
-        // Calculate gaps for strategic decisions
         double gapBehind = (i >= drivers.length - 1) ? 999.0 : drivers[i + 1].totalTime - driver.totalTime;
         double gapAhead = (i <= 0) ? 999.0 : driver.totalTime - drivers[i - 1].totalTime;
 
@@ -75,25 +86,18 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
         }
       }
 
-      // Process incidents and calculate lap times
       for (Driver driver in drivers) {
-        // Skip DNF drivers
         if (driver.isDNF()) continue;
 
-        // Process incidents with weather
         IncidentSimulator.processLapIncidents(driver, currentLap, totalLaps, currentWeather);
-
-        // Skip lap time calculation if driver DNF'd this lap
         if (driver.isDNF()) continue;
 
-        // Calculate lap time with weather
         double lapTime = PerformanceCalculator.calculateCurrentLapTime(driver, currentWeather);
         driver.totalTime += lapTime;
         driver.lapsCompleted++;
-        driver.lapsOnCurrentTires++; // Age the tires
+        driver.lapsOnCurrentTires++;
       }
 
-      // Sort drivers by total time (DNF drivers go to back)
       drivers.sort((a, b) {
         if (a.isDNF() && b.isDNF()) return 0;
         if (a.isDNF()) return 1;
@@ -101,7 +105,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
         return a.totalTime.compareTo(b.totalTime);
       });
 
-      // Update positions and calculate changes from starting grid
       for (int i = 0; i < drivers.length; i++) {
         drivers[i].updatePosition(i + 1);
       }
@@ -113,7 +116,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
       currentSpeed = newSpeed;
     });
 
-    // If racing, restart the timer with new speed
     if (isRacing) {
       raceTimer?.cancel();
       raceTimer = Timer.periodic(Duration(milliseconds: currentSpeed.intervalMs), (timer) {
@@ -157,290 +159,384 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
       WeatherCondition oldWeather = currentWeather;
       currentWeather = newWeather;
 
-      // Process weather change effects
-      List<String> weatherIncidents = WeatherService.processWeatherChange(drivers, oldWeather, newWeather);
-
-      // Add race-wide weather change log
       if (oldWeather != newWeather) {
         print("Weather changed: ${oldWeather.name} → ${newWeather.name}");
       }
     });
   }
 
-  void _resetCompoundsForWeather() {
-    setState(() {
-      WeatherService.resetCompoundsForWeather(drivers, currentWeather);
-    });
-  }
-
   @override
   void dispose() {
     raceTimer?.cancel();
+    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('F1 Race Simulator - Enhanced with Errors & Failures'),
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: Colors.black,
+      appBar: _buildF1AppBar(),
       body: Column(
         children: [
-          // Race Info Header
           _buildRaceHeader(),
-
-          // Race Incidents Log
-          _buildIncidentLog(),
-
-          SizedBox(height: 8),
-
-          // Drivers List
-          _buildDriversList(),
+          _buildTabBar(),
+          Expanded(
+            child: selectedTab == 0 ? _buildStandingsTable() : _buildIncidentsPanel(),
+          ),
         ],
       ),
+    );
+  }
+
+  PreferredSizeWidget _buildF1AppBar() {
+    return AppBar(
+      backgroundColor: Colors.red[600],
+      elevation: 0,
+      title: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'F1',
+              style: TextStyle(
+                color: Colors.red[600],
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'RACE SIMULATOR',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 2,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        Container(
+          margin: EdgeInsets.only(right: 16),
+          child: Center(
+            child: Text(
+              isRacing ? 'LIVE' : 'PAUSED',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildRaceHeader() {
     return Container(
-      padding: EdgeInsets.all(F1Constants.headerPadding),
-      color: Colors.grey[100],
+      color: Colors.grey[900],
+      padding: EdgeInsets.all(16),
       child: Column(
         children: [
-          // ROW 1: Lap Counter + Weather + Status
+          // Race Info Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Lap Counter
-              Text(
-                'Lap: $currentLap / $totalLaps',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'LAP',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    '$currentLap / $totalLaps',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-
-              // Weather Controls (Compact)
-              _buildWeatherControls(),
-
-              // Status
-              Text(
-                isRacing ? 'RACING' : (currentLap >= totalLaps ? 'FINISHED' : 'STOPPED'),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isRacing ? Colors.green : Colors.red,
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: currentWeather.color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      currentWeather.icon,
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      currentWeather.name.toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isRacing ? Colors.red[600] : Colors.grey[600],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  isRacing ? 'RACING' : (currentLap >= totalLaps ? 'FINISHED' : 'STOPPED'),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
-
-          SizedBox(height: 8),
-
-          // ROW 2: Control Buttons
-          _buildControlButtons(),
-
-          SizedBox(height: 8),
-
-          // ROW 3: Speed Controls + Compound Info
-          _buildSpeedAndCompoundInfo(),
+          SizedBox(height: 16),
+          // Control Buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildControlButton(
+                label: currentLap >= totalLaps ? 'NEW RACE' : 'START',
+                onPressed: isRacing ? null : _startRace,
+                isPrimary: true,
+              ),
+              _buildControlButton(
+                label: 'STOP',
+                onPressed: isRacing ? _stopRace : null,
+                isPrimary: false,
+              ),
+              _buildControlButton(
+                label: 'RESET',
+                onPressed: isRacing ? null : _resetRace,
+                isPrimary: false,
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          // Speed and Weather Controls
+          Row(
+            children: [
+              Expanded(child: _buildSpeedControl()),
+              SizedBox(width: 16),
+              Expanded(child: _buildWeatherControl()),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildWeatherControls() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: currentWeather.color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: currentWeather.color.withOpacity(0.3)),
+  Widget _buildControlButton({
+    required String label,
+    required VoidCallback? onPressed,
+    required bool isPrimary,
+  }) {
+    return Expanded(
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 4),
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: onPressed != null ? (isPrimary ? Colors.red[600] : Colors.grey[700]) : Colors.grey[800],
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            padding: EdgeInsets.symmetric(vertical: 12),
           ),
           child: Text(
-            "${currentWeather.icon} ${currentWeather.name}",
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ),
-        SizedBox(width: 4),
-        ElevatedButton(
-          onPressed: isRacing ? null : () => _changeWeather(WeatherCondition.clear),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: currentWeather == WeatherCondition.clear ? Colors.yellow : Colors.grey[300],
-            foregroundColor: currentWeather == WeatherCondition.clear ? Colors.black : Colors.black54,
-            minimumSize: Size(32, 28),
-            padding: EdgeInsets.all(4),
-          ),
-          child: Text("☀️", style: TextStyle(fontSize: 10)),
-        ),
-        SizedBox(width: 2),
-        ElevatedButton(
-          onPressed: isRacing ? null : () => _changeWeather(WeatherCondition.rain),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: currentWeather == WeatherCondition.rain ? Colors.blue : Colors.grey[300],
-            foregroundColor: currentWeather == WeatherCondition.rain ? Colors.white : Colors.black54,
-            minimumSize: Size(32, 28),
-            padding: EdgeInsets.all(4),
-          ),
-          child: Text("🌧️", style: TextStyle(fontSize: 10)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildControlButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        ElevatedButton(
-          onPressed: isRacing ? null : _startRace,
-          child: Text(currentLap >= totalLaps ? 'New Race' : 'Start Race'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: isRacing ? _stopRace : null,
-          child: Text('Stop'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: isRacing ? null : _resetRace,
-          child: Text('Reset'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSpeedAndCompoundInfo() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          // Speed Controls
-          _buildSpeedControls(),
-
-          SizedBox(width: 12),
-
-          // Compound Distribution
-          _buildCompoundDistribution(),
-
-          SizedBox(width: 8),
-
-          // Reset Tires Button
-          ElevatedButton(
-            onPressed: isRacing ? null : _resetCompoundsForWeather,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange[300],
-              foregroundColor: Colors.black87,
-              minimumSize: Size(60, 24),
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
             ),
-            child: Text("Reset Tires", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSpeedControls() {
+  Widget _buildSpeedControl() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Speed: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-          ...SimulationSpeed.values
-              .map((speed) => Padding(
-                    padding: EdgeInsets.only(right: 4),
-                    child: ElevatedButton(
-                      onPressed: () => _changeSpeed(speed),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: currentSpeed == speed ? Colors.blue : Colors.grey[300],
-                        foregroundColor: currentSpeed == speed ? Colors.white : Colors.black87,
-                        minimumSize: Size(35, 24),
-                        padding: EdgeInsets.all(4),
-                      ),
-                      child: Text(speed.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                  ))
-              .toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompoundDistribution() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text("Tires: ", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-          Text(
-            WeatherService.getCompoundDistributionString(drivers),
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIncidentLog() {
-    return Container(
-      height: F1Constants.containerHeight,
-      margin: EdgeInsets.symmetric(horizontal: 8),
       padding: EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.grey[800],
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Race Incidents',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            'SPEED',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           SizedBox(height: 4),
+          Row(
+            children: SimulationSpeed.values.map((speed) {
+              bool isSelected = currentSpeed == speed;
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(right: speed != SimulationSpeed.values.last ? 2 : 0),
+                  child: GestureDetector(
+                    onTap: () => _changeSpeed(speed),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.red[600] : Colors.grey[700],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Center(
+                        child: Text(
+                          speed.label,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherControl() {
+    return Container(
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[800],
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'WEATHER',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 4),
+          Row(
+            children: WeatherCondition.values.map((weather) {
+              bool isSelected = currentWeather == weather;
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(right: weather != WeatherCondition.values.last ? 2 : 0),
+                  child: GestureDetector(
+                    onTap: isRacing ? null : () => _changeWeather(weather),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected ? weather.color : Colors.grey[700],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Center(
+                        child: Text(
+                          weather.icon,
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      color: Colors.grey[800],
+      child: Row(
+        children: [
+          _buildTab('STANDINGS', 0),
+          _buildTab('INCIDENTS', 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int index) {
+    bool isSelected = selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => selectedTab = index),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.red[600] : Colors.transparent,
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? Colors.red[600]! : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey[400],
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStandingsTable() {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      color: Colors.grey[900],
+      child: Column(
+        children: [
+          _buildTableHeader(),
           Expanded(
             child: ListView.builder(
-              reverse: true,
-              itemCount: _getAllIncidents().length,
+              itemCount: drivers.length,
               itemBuilder: (context, index) {
-                String incident = _getAllIncidents()[index];
-                return Padding(
-                  padding: EdgeInsets.symmetric(vertical: 1),
-                  child: Text(
-                    incident,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
-                  ),
-                );
+                return _buildDriverRow(drivers[index], index);
               },
             ),
           ),
@@ -449,228 +545,403 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> {
     );
   }
 
-  Widget _buildDriversList() {
-    return Expanded(
-      child: ListView.builder(
-        itemCount: drivers.length,
-        itemBuilder: (context, index) {
-          Driver driver = drivers[index];
-          return _buildDriverCard(driver, index);
-        },
+  Widget _buildTableHeader() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[800],
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[700]!, width: 1),
+        ),
       ),
-    );
-  }
-
-  Widget _buildDriverCard(Driver driver, int index) {
-    double gapToLeader = index == 0 ? 0.0 : (driver.isDNF() ? 0.0 : driver.totalTime - drivers[0].totalTime);
-    double intervalGap = index == 0 ? 0.0 : (driver.isDNF() ? 0.0 : driver.totalTime - drivers[index - 1].totalTime);
-
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      elevation: driver.positionChangeFromStart != 0 ? F1Constants.cardElevation : F1Constants.cardElevationNormal,
-      color: _getCardColor(driver),
-      child: ListTile(
-        leading: _buildPositionIndicator(driver),
-        title: _buildDriverTitle(driver),
-        subtitle: _buildDriverSubtitle(driver),
-        trailing: _buildDriverTrailing(driver, index, gapToLeader, intervalGap),
-      ),
-    );
-  }
-
-  Color? _getCardColor(Driver driver) {
-    if (driver.isDNF()) return Colors.grey[100];
-    if (driver.positionChangeFromStart > 0) return Colors.green[50];
-    if (driver.positionChangeFromStart < 0) return Colors.red[50];
-    return null;
-  }
-
-  Widget _buildPositionIndicator(Driver driver) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(
-          backgroundColor: driver.isDNF() ? Colors.grey : driver.teamColor,
-          child: Text(
-            driver.isDNF() ? 'DNF' : '${driver.position}',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: driver.isDNF() ? 8 : 12,
-            ),
-          ),
-        ),
-        SizedBox(width: 8),
-        Container(
-          width: 30,
-          child: currentLap > 0 && driver.positionChangeFromStart != 0
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      driver.positionChangeFromStart > 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
-                      size: 16,
-                    ),
-                    Text(
-                      '${driver.positionChangeFromStart.abs()}',
-                      style: TextStyle(
-                        color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                )
-              : SizedBox(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDriverTitle(Driver driver) {
-    return Row(
-      children: [
-        Text(
-          driver.name,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: driver.isDNF() ? Colors.grey : Colors.black,
-          ),
-        ),
-        SizedBox(width: 8),
-        Text(
-          '(${driver.team})',
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-        ),
-        // Status indicators
-        if (driver.hasActiveMechanicalIssue) ...[
-          SizedBox(width: 8),
-          Icon(Icons.warning, color: Colors.orange, size: 16),
-        ],
-        if (driver.errorCount > 0) ...[
-          SizedBox(width: 4),
-          Icon(Icons.error_outline, color: Colors.red, size: 16),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildDriverSubtitle(Driver driver) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Car: ${driver.carPerformance}/100 | REL: ${driver.reliability}/100 | ${driver.skillsInfo}'),
-        Text(driver.degradationInfo),
-        // Status information
-        if (driver.statusInfo.isNotEmpty)
-          Text(
-            driver.statusInfo,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.orange[700],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        _buildDriverBadges(driver),
-      ],
-    );
-  }
-
-  Widget _buildDriverBadges(Driver driver) {
-    return Row(
-      children: [
-        Text('Started P${driver.startingPosition}', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-        SizedBox(width: 10),
-        if (driver.pitStops > 0) ...[
+      child: Row(
+        children: [
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: Colors.blue,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            width: 50,
             child: Text(
-              '${driver.pitStops} PIT${driver.pitStops > 1 ? 'S' : ''}',
-              style: TextStyle(color: Colors.white, fontSize: 9),
-            ),
-          ),
-          SizedBox(width: 4),
-        ],
-        if (driver.errorCount > 0) ...[
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${driver.errorCount} ERR',
-              style: TextStyle(color: Colors.white, fontSize: 9),
-            ),
-          ),
-          SizedBox(width: 4),
-        ],
-        if (driver.mechanicalIssuesCount > 0) ...[
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: Colors.orange,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${driver.mechanicalIssuesCount} MECH',
-              style: TextStyle(color: Colors.white, fontSize: 9),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildDriverTrailing(Driver driver, int index, double gapToLeader, double intervalGap) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Gap to Leader
-        Text(
-          driver.isDNF() ? 'DNF' : (index == 0 ? 'Leader' : '+${gapToLeader.toStringAsFixed(1)}s'),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: driver.isDNF() ? Colors.grey : (index == 0 ? Colors.amber : Colors.black87),
-            fontSize: 13,
-          ),
-        ),
-        // Interval Gap
-        if (index > 0 && !driver.isDNF())
-          Text(
-            'Δ${intervalGap.toStringAsFixed(1)}s',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        SizedBox(height: 2),
-        if (driver.positionChangeFromStart != 0 && currentLap > 0)
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              driver.positionChangeFromStart > 0
-                  ? '+${driver.positionChangeFromStart}'
-                  : '${driver.positionChangeFromStart}',
+              'POS',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                color: Colors.grey[400],
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
-      ],
+          Expanded(
+            flex: 3,
+            child: Text(
+              'DRIVER',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Container(
+            width: 60,
+            child: Text(
+              'TIRE',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Container(
+            width: 100,
+            child: Text(
+              'TIME/GAP',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverRow(Driver driver, int index) {
+    double gapToLeader = index == 0 ? 0.0 : (driver.isDNF() ? 0.0 : driver.totalTime - drivers[0].totalTime);
+    double intervalGap = index == 0 ? 0.0 : (driver.isDNF() ? 0.0 : driver.totalTime - drivers[index - 1].totalTime);
+    bool isLeader = index == 0;
+
+    return AnimatedContainer(
+      key: ValueKey(driver.name),
+      duration: Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _getRowColor(driver, index),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Position
+          Container(
+            width: 50,
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: Duration(milliseconds: 300),
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Center(
+                    child: AnimatedSwitcher(
+                      duration: Duration(milliseconds: 200),
+                      child: Text(
+                        driver.isDNF() ? 'DNF' : '${driver.position}',
+                        key: ValueKey(driver.isDNF() ? 'DNF' : driver.position),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: driver.isDNF() ? 8 : 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 4),
+                if (driver.positionChangeFromStart != 0)
+                  AnimatedSwitcher(
+                    duration: Duration(milliseconds: 300),
+                    child: Icon(
+                      driver.positionChangeFromStart > 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                      key: ValueKey(driver.positionChangeFromStart > 0 ? 'up' : 'down'),
+                      color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
+                      size: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Driver Info
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      driver.name.toUpperCase(),
+                      style: TextStyle(
+                        color: driver.isDNF() ? Colors.grey[500] : Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (driver.hasActiveMechanicalIssue) ...[
+                      SizedBox(width: 6),
+                      Icon(Icons.warning, color: Colors.orange, size: 16),
+                    ],
+                    if (driver.errorCount > 0) ...[
+                      SizedBox(width: 6),
+                      Icon(Icons.error, color: Colors.red, size: 16),
+                    ],
+                  ],
+                ),
+                Text(
+                  driver.team.toUpperCase(),
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 4),
+                // Status badges row - only pit stops
+                if (driver.pitStops > 0)
+                  AnimatedSwitcher(
+                    duration: Duration(milliseconds: 300),
+                    child: Container(
+                      key: ValueKey(driver.pitStops),
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${driver.pitStops} PIT${driver.pitStops > 1 ? 'S' : ''}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Tire Info
+          Container(
+            width: 60,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: Duration(milliseconds: 400),
+                      child: AnimatedBuilder(
+                        animation: _pulseAnimation,
+                        builder: (context, child) {
+                          bool isCritical = driver.calculateTyreDegradation() > 2.0;
+                          return Container(
+                            key: ValueKey(driver.currentCompound),
+                            padding: EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: isCritical ? Colors.red.withOpacity(_pulseAnimation.value) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              driver.currentCompound.icon,
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AnimatedSwitcher(
+                            duration: Duration(milliseconds: 200),
+                            child: Text(
+                              '${driver.lapsOnCurrentTires}',
+                              key: ValueKey(driver.lapsOnCurrentTires),
+                              style: TextStyle(
+                                color: _getTireWearColor(driver.calculateTyreDegradation()),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Container(
+                            height: 2,
+                            width: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[700],
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: (driver.calculateTyreDegradation() / 3.0).clamp(0.0, 1.0),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _getTireWearColor(driver.calculateTyreDegradation()),
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Gap/Time
+          Container(
+            width: 100,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                AnimatedSwitcher(
+                  duration: Duration(milliseconds: 300),
+                  child: Text(
+                    driver.isDNF() ? 'DNF' : (isLeader ? 'LEADER' : '+${gapToLeader.toStringAsFixed(1)}'),
+                    key: ValueKey(driver.isDNF() ? 'DNF' : (isLeader ? 'LEADER' : gapToLeader.toStringAsFixed(1))),
+                    style: TextStyle(
+                      color: driver.isDNF() ? Colors.grey[500] : (isLeader ? Colors.yellow : Colors.white),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                if (index > 0 && !driver.isDNF())
+                  AnimatedSwitcher(
+                    duration: Duration(milliseconds: 300),
+                    child: Text(
+                      'Δ${intervalGap.toStringAsFixed(1)}',
+                      key: ValueKey(intervalGap.toStringAsFixed(1)),
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getTireWearColor(double degradation) {
+    if (degradation <= 0.5) return Colors.green;
+    if (degradation <= 1.0) return Colors.yellow[700]!;
+    if (degradation <= 1.5) return Colors.orange;
+    if (degradation <= 2.0) return Colors.red[600]!;
+    return Colors.red[800]!;
+  }
+
+  String _getTireWearStatus(double degradation) {
+    if (degradation <= 0.5) return 'FRESH';
+    if (degradation <= 1.0) return 'GOOD';
+    if (degradation <= 1.5) return 'WORN';
+    if (degradation <= 2.0) return 'POOR';
+    return 'CRITICAL';
+  }
+
+  Color _getTeamColor(String team) {
+    switch (team) {
+      case "Mercedes":
+        return Colors.teal;
+      case "Red Bull":
+        return Colors.blue[700]!;
+      case "Ferrari":
+        return Colors.red[600]!;
+      case "McLaren":
+        return Colors.orange[600]!;
+      case "Aston Martin":
+        return Colors.green[600]!;
+      case "Williams":
+        return Colors.grey[600]!;
+      default:
+        return Colors.grey[600]!;
+    }
+  }
+
+  Color _getRowColor(Driver driver, int index) {
+    if (driver.isDNF()) return Colors.grey[850]!;
+
+    // F1 podium colors
+    if (index == 0) return Colors.yellow.withOpacity(0.1);
+    if (index == 1) return Colors.grey[300]!.withOpacity(0.1);
+    if (index == 2) return Colors.orange.withOpacity(0.1);
+
+    // Points positions
+    if (index < 10) return Colors.green.withOpacity(0.05);
+
+    return Colors.grey[900]!;
+  }
+
+  Widget _buildIncidentsPanel() {
+    List<String> incidents = _getAllIncidents();
+
+    return Container(
+      color: Colors.grey[900],
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[700]!, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  'RACE INCIDENTS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: incidents.length,
+              itemBuilder: (context, index) {
+                return Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
+                    ),
+                  ),
+                  child: Text(
+                    incidents[index],
+                    style: TextStyle(
+                      color: Colors.grey[300],
+                      fontSize: 12,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

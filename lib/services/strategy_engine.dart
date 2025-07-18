@@ -1,3 +1,4 @@
+// Enhanced Strategy Engine with Mandatory Compound Rule
 import 'dart:math';
 import '../models/driver.dart';
 import '../models/enums.dart';
@@ -16,6 +17,9 @@ class StrategyEngine {
     // MANDATORY PIT STOP: Must pit at least once
     bool mustPitSoon = driver.pitStops == 0 && currentLap >= totalLaps - F1Constants.lastMandatoryPitLaps;
 
+    // MANDATORY COMPOUND CHANGE: Must use different compound if only used one type
+    bool mustChangeCompound = _mustUseSecondCompound(driver, currentLap, totalLaps);
+
     // Enhanced pit strategy with skill-based thinking
     int basePitLap = F1Constants.basePitLapMin + (driver.tyreManagementSkill ~/ 4);
     int pitWindowVariation = Random().nextInt(F1Constants.pitVariation) - (F1Constants.pitVariation ~/ 2);
@@ -29,6 +33,11 @@ class StrategyEngine {
     // EMERGENCY: Tire degradation is killing pace
     if (currentDegradation > 2.0) return true;
 
+    // MANDATORY COMPOUND RULE: Force pit if must change compound and running out of time
+    if (mustChangeCompound && currentLap >= totalLaps - 15) {
+      return true;
+    }
+
     // STRATEGIC DECISIONS based on driver skills
     if (driver.pitStops == 0 && currentLap >= 18) {
       // SPEED-BASED STRATEGY: Higher speed = more confident in aggressive moves
@@ -37,9 +46,6 @@ class StrategyEngine {
       if (canUndercut && Random().nextDouble() < (0.1 + speedConfidence * 0.4)) {
         return true;
       }
-
-      // CONSISTENCY-BASED STRATEGY: More consistent = prefer safer strategies
-      double consistencyFactor = driver.consistency / 100.0;
 
       // SAFE PIT WINDOW: Large gap behind means minimal position loss
       bool safePitWindow = gapBehind > F1Constants.safeGap && currentDegradation > 0.6;
@@ -51,6 +57,11 @@ class StrategyEngine {
       double tireConfidence = driver.tyreManagementSkill / 100.0;
       double stayOutThreshold = 0.8 + (tireConfidence * 0.8);
       bool shouldStayOut = currentDegradation < stayOutThreshold && currentLap <= idealPitLap + 3;
+
+      // Override stay out decision if must change compound
+      if (mustChangeCompound) {
+        shouldStayOut = false;
+      }
 
       if (!shouldStayOut && currentLap >= idealPitLap) {
         return true;
@@ -96,6 +107,10 @@ class StrategyEngine {
 
       if (inMidfield) {
         double aggressionChance = 0.1 + (speedConfidence * 0.3);
+        // Increase aggression if must change compound
+        if (mustChangeCompound) {
+          aggressionChance *= 1.3;
+        }
         if (currentDegradation > 0.9 && Random().nextDouble() < aggressionChance) {
           return true;
         }
@@ -103,6 +118,10 @@ class StrategyEngine {
 
       if (atBack) {
         double desperationChance = 0.2 + (speedConfidence * 0.4);
+        // Increase desperation if must change compound
+        if (mustChangeCompound) {
+          desperationChance *= 1.4;
+        }
         if (currentDegradation > 0.6 && Random().nextDouble() < desperationChance) {
           return true;
         }
@@ -113,6 +132,57 @@ class StrategyEngine {
     if (mustPitSoon) return true;
 
     return false;
+  }
+
+  /// Checks if driver must use a second compound type
+  static bool _mustUseSecondCompound(Driver driver, int currentLap, int totalLaps) {
+    // Rule doesn't apply in wet conditions
+    if (driver.currentCompound == TireCompound.intermediate || driver.currentCompound == TireCompound.wet) {
+      return false;
+    }
+
+    // If driver has only used one type of dry compound, they must use another
+    List<TireCompound> dryCompoundsUsed = driver.usedCompounds
+        .where((compound) =>
+            compound == TireCompound.soft || compound == TireCompound.medium || compound == TireCompound.hard)
+        .toSet()
+        .toList();
+
+    // Add current compound if not already tracked
+    if (!dryCompoundsUsed.contains(driver.currentCompound) &&
+        (driver.currentCompound == TireCompound.soft ||
+            driver.currentCompound == TireCompound.medium ||
+            driver.currentCompound == TireCompound.hard)) {
+      dryCompoundsUsed.add(driver.currentCompound);
+    }
+
+    // Must use second compound if only used one type and race is progressing
+    return dryCompoundsUsed.length == 1 && currentLap >= 10;
+  }
+
+  /// Gets mandatory compound info for UI display
+  static String getMandatoryCompoundStatus(Driver driver) {
+    List<TireCompound> dryCompoundsUsed = driver.usedCompounds
+        .where((compound) =>
+            compound == TireCompound.soft || compound == TireCompound.medium || compound == TireCompound.hard)
+        .toSet()
+        .toList();
+
+    // Add current compound if not already tracked
+    if (!dryCompoundsUsed.contains(driver.currentCompound) &&
+        (driver.currentCompound == TireCompound.soft ||
+            driver.currentCompound == TireCompound.medium ||
+            driver.currentCompound == TireCompound.hard)) {
+      dryCompoundsUsed.add(driver.currentCompound);
+    }
+
+    if (dryCompoundsUsed.length >= 2) {
+      return "✅ Rule satisfied";
+    } else if (dryCompoundsUsed.length == 1) {
+      return "⚠️ Must use 2nd compound";
+    } else {
+      return "🔄 No compounds used";
+    }
   }
 
   static double calculatePitStopTime(Driver driver) {
@@ -155,8 +225,22 @@ class StrategyEngine {
       return TireCompound.intermediate;
     }
 
-    // BASE STRATEGIC PREFERENCE (position-based)
-    List<TireCompound> strategicOptions = _getStrategicOptions(driver, currentLap, totalLaps, gapAhead, gapBehind);
+    // MANDATORY COMPOUND RULE: Must use different compound if only used one type
+    List<TireCompound> availableCompounds = _getAvailableCompounds(driver, weather);
+
+    if (availableCompounds.isEmpty) {
+      // Fallback - this shouldn't happen but safety first
+      return TireCompound.medium;
+    }
+
+    // BASE STRATEGIC PREFERENCE (position-based) - filtered by available compounds
+    List<TireCompound> strategicOptions = _getStrategicOptions(driver, currentLap, totalLaps, gapAhead, gapBehind)
+        .where((compound) => availableCompounds.contains(compound))
+        .toList();
+
+    if (strategicOptions.isEmpty) {
+      strategicOptions = availableCompounds;
+    }
 
     // ADD VARIABILITY FACTORS
     Map<TireCompound, double> compoundProbabilities = {};
@@ -178,9 +262,36 @@ class StrategyEngine {
     return _selectFromWeightedProbabilities(compoundProbabilities);
   }
 
+  /// Gets available compounds considering mandatory compound rule
+  static List<TireCompound> _getAvailableCompounds(Driver driver, WeatherCondition weather) {
+    // In wet weather, all wet compounds are available
+    if (weather == WeatherCondition.rain) {
+      return [TireCompound.intermediate, TireCompound.wet];
+    }
+
+    // Get all dry compounds
+    List<TireCompound> allDryCompounds = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+
+    // Get dry compounds already used
+    List<TireCompound> dryCompoundsUsed =
+        driver.usedCompounds.where((compound) => allDryCompounds.contains(compound)).toSet().toList();
+
+    // Add current compound if not already tracked
+    if (!dryCompoundsUsed.contains(driver.currentCompound) && allDryCompounds.contains(driver.currentCompound)) {
+      dryCompoundsUsed.add(driver.currentCompound);
+    }
+
+    // If only used one compound type, must use different compounds
+    if (dryCompoundsUsed.length == 1) {
+      return allDryCompounds.where((compound) => !dryCompoundsUsed.contains(compound)).toList();
+    }
+
+    // If already used 2+ compounds, can use any
+    return allDryCompounds;
+  }
+
   static List<TireCompound> _getStrategicOptions(
       Driver driver, int currentLap, int totalLaps, double gapAhead, double gapBehind) {
-    double raceProgress = currentLap / totalLaps;
     List<TireCompound> options = [];
 
     // POSITION-BASED STRATEGIC FOUNDATION
@@ -310,7 +421,7 @@ class StrategyEngine {
   static double _getCompoundHistoryMultiplier(Driver driver, TireCompound compound) {
     double multiplier = 1.0;
 
-    // AVOID REPEATING RECENT COMPOUND
+    // AVOID REPEATING RECENT COMPOUND (but this is now handled by _getAvailableCompounds)
     if (driver.usedCompounds.isNotEmpty && driver.usedCompounds.last == compound) {
       multiplier *= 0.8;
     }
@@ -353,7 +464,7 @@ class StrategyEngine {
       driver.usedCompounds.add(driver.currentCompound);
     }
 
-    // SELECT NEW COMPOUND STRATEGICALLY
+    // SELECT NEW COMPOUND STRATEGICALLY (with mandatory compound rule)
     TireCompound oldCompound = driver.currentCompound;
     driver.currentCompound = selectCompoundDynamic(driver, weather, currentLap, totalLaps, gapAhead, gapBehind);
 
@@ -367,14 +478,17 @@ class StrategyEngine {
 
     driver.totalTime += pitTime;
 
-    // Log compound change with more detail
+    // Log compound change with mandatory rule info
     String stopType = pitTime < 22.0 || pitTime > 27.0 ? " (EXCEPTIONAL)" : " (normal)";
     String compoundChange = oldCompound == driver.currentCompound
         ? "${driver.currentCompound.name}"
         : "${oldCompound.name} → ${driver.currentCompound.name}";
 
+    // Add mandatory compound rule indicator
+    String ruleInfo = _mustUseSecondCompound(driver, currentLap, totalLaps) ? " [MANDATORY]" : "";
+
     String incident =
-        "Lap ${driver.lapsCompleted + 1}: Pit stop - $compoundChange (${pitTime.toStringAsFixed(1)}s$stopType)";
+        "Lap ${driver.lapsCompleted + 1}: Pit stop - $compoundChange (${pitTime.toStringAsFixed(1)}s$stopType)$ruleInfo";
     driver.recordIncident(incident);
   }
 }

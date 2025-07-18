@@ -85,7 +85,88 @@ class Driver {
     return statusList.join(" | ");
   }
 
-  // Basic calculation methods (these will be moved to services later)
+  /// Enhanced compound tracking info for UI
+  String get compoundRuleInfo {
+    List<TireCompound> dryCompoundsUsed = usedCompounds
+        .where((compound) =>
+            compound == TireCompound.soft || compound == TireCompound.medium || compound == TireCompound.hard)
+        .toSet()
+        .toList();
+
+    // Add current compound if not already tracked and is dry
+    if (!dryCompoundsUsed.contains(currentCompound) &&
+        (currentCompound == TireCompound.soft ||
+            currentCompound == TireCompound.medium ||
+            currentCompound == TireCompound.hard)) {
+      dryCompoundsUsed.add(currentCompound);
+    }
+
+    if (dryCompoundsUsed.length >= 2) {
+      return "✅ Compound rule satisfied (${dryCompoundsUsed.length} compounds used)";
+    } else if (dryCompoundsUsed.length == 1) {
+      String usedCompound = dryCompoundsUsed.first.name;
+      return "⚠️ Must use 2nd compound (only used $usedCompound)";
+    } else {
+      return "🔄 No dry compounds used yet";
+    }
+  }
+
+  /// Gets compound history string for UI
+  String get compoundHistoryInfo {
+    if (usedCompounds.isEmpty) {
+      return "No compounds used yet";
+    }
+
+    List<String> compoundStrings = [];
+    for (int i = 0; i < usedCompounds.length; i++) {
+      TireCompound compound = usedCompounds[i];
+      compoundStrings.add("${compound.icon}${compound.name}");
+    }
+
+    return "Used: ${compoundStrings.join(" → ")}";
+  }
+
+  /// Checks if driver has satisfied the mandatory compound rule
+  bool get hasUsedTwoCompounds {
+    List<TireCompound> dryCompoundsUsed = usedCompounds
+        .where((compound) =>
+            compound == TireCompound.soft || compound == TireCompound.medium || compound == TireCompound.hard)
+        .toSet()
+        .toList();
+
+    // Add current compound if not already tracked and is dry
+    if (!dryCompoundsUsed.contains(currentCompound) &&
+        (currentCompound == TireCompound.soft ||
+            currentCompound == TireCompound.medium ||
+            currentCompound == TireCompound.hard)) {
+      dryCompoundsUsed.add(currentCompound);
+    }
+
+    return dryCompoundsUsed.length >= 2;
+  }
+
+  /// Gets remaining compounds that can be used
+  List<TireCompound> get availableDryCompounds {
+    List<TireCompound> allDryCompounds = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+
+    List<TireCompound> dryCompoundsUsed =
+        usedCompounds.where((compound) => allDryCompounds.contains(compound)).toSet().toList();
+
+    // Add current compound if not already tracked
+    if (!dryCompoundsUsed.contains(currentCompound) && allDryCompounds.contains(currentCompound)) {
+      dryCompoundsUsed.add(currentCompound);
+    }
+
+    // If only used one compound type, must use different compounds
+    if (dryCompoundsUsed.length == 1) {
+      return allDryCompounds.where((compound) => !dryCompoundsUsed.contains(compound)).toList();
+    }
+
+    // If already used 2+ compounds, can use any
+    return allDryCompounds;
+  }
+
+  // Basic calculation methods
   double calculateTyreDegradation() {
     double factor = 0.0;
 
@@ -165,6 +246,43 @@ class Driver {
   void recordIncident(String incident) {
     raceIncidents.add(incident);
     print(incident);
+  }
+
+  /// Records compound usage for tracking
+  void recordCompoundUsage(TireCompound compound) {
+    if (!usedCompounds.contains(compound)) {
+      usedCompounds.add(compound);
+    }
+  }
+
+  /// Validates pit stop compound selection
+  bool canUseCompound(TireCompound compound, WeatherCondition weather) {
+    // In wet weather, only wet compounds are valid
+    if (weather == WeatherCondition.rain) {
+      return compound == TireCompound.intermediate || compound == TireCompound.wet;
+    }
+
+    // In dry weather, check mandatory compound rule
+    List<TireCompound> available = availableDryCompounds;
+    return available.contains(compound);
+  }
+
+  /// Gets compound selection advice for UI
+  String getCompoundAdvice(WeatherCondition weather) {
+    if (weather == WeatherCondition.rain) {
+      return "Use wet compounds (Inter/Wet)";
+    }
+
+    List<TireCompound> available = availableDryCompounds;
+    if (available.length == 3) {
+      return "Any compound allowed";
+    } else if (available.length == 2) {
+      return "Must use: ${available.map((c) => c.name).join(" or ")}";
+    } else if (available.length == 1) {
+      return "Must use: ${available.first.name}";
+    }
+
+    return "No valid compounds available";
   }
 
   bool isDNF() {
