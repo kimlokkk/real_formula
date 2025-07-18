@@ -1,0 +1,380 @@
+import 'dart:math';
+import '../models/driver.dart';
+import '../models/enums.dart';
+import '../utils/constants.dart';
+
+class StrategyEngine {
+  static bool shouldPitStop(Driver driver, int currentLap, int totalLaps, double gapBehind, double gapAhead) {
+    // SAFETY CONSTRAINTS FIRST (prevent unrealistic decisions)
+    if (currentLap < F1Constants.minLapsBeforePit) return false;
+    if (driver.pitStops >= F1Constants.maxPitStops) return false;
+    if (driver.lapsOnCurrentTires < F1Constants.minLapsForPit) return false;
+    if (currentLap > totalLaps - F1Constants.lastLapsToPit) return false;
+
+    double currentDegradation = driver.calculateTyreDegradation();
+
+    // MANDATORY PIT STOP: Must pit at least once
+    bool mustPitSoon = driver.pitStops == 0 && currentLap >= totalLaps - F1Constants.lastMandatoryPitLaps;
+
+    // Enhanced pit strategy with skill-based thinking
+    int basePitLap = F1Constants.basePitLapMin + (driver.tyreManagementSkill ~/ 4);
+    int pitWindowVariation = Random().nextInt(F1Constants.pitVariation) - (F1Constants.pitVariation ~/ 2);
+    int idealPitLap = basePitLap + pitWindowVariation;
+
+    // Track position influences
+    bool inLeadingGroup = driver.position <= 3;
+    bool inMidfield = driver.position >= 4 && driver.position <= 7;
+    bool atBack = driver.position >= 8;
+
+    // EMERGENCY: Tire degradation is killing pace
+    if (currentDegradation > 2.0) return true;
+
+    // STRATEGIC DECISIONS based on driver skills
+    if (driver.pitStops == 0 && currentLap >= 18) {
+      // SPEED-BASED STRATEGY: Higher speed = more confident in aggressive moves
+      double speedConfidence = driver.speed / 100.0;
+      bool canUndercut = gapAhead < F1Constants.underCutGap && currentDegradation > 0.8 && currentLap >= 22;
+      if (canUndercut && Random().nextDouble() < (0.1 + speedConfidence * 0.4)) {
+        return true;
+      }
+
+      // CONSISTENCY-BASED STRATEGY: More consistent = prefer safer strategies
+      double consistencyFactor = driver.consistency / 100.0;
+
+      // SAFE PIT WINDOW: Large gap behind means minimal position loss
+      bool safePitWindow = gapBehind > F1Constants.safeGap && currentDegradation > 0.6;
+      if (safePitWindow && currentLap >= idealPitLap - 5) {
+        return true;
+      }
+
+      // TIRE MANAGEMENT STRATEGY: Better tire management = willing to stay out longer
+      double tireConfidence = driver.tyreManagementSkill / 100.0;
+      double stayOutThreshold = 0.8 + (tireConfidence * 0.8);
+      bool shouldStayOut = currentDegradation < stayOutThreshold && currentLap <= idealPitLap + 3;
+
+      if (!shouldStayOut && currentLap >= idealPitLap) {
+        return true;
+      }
+
+      // Position-specific strategies influenced by skills
+      if (inLeadingGroup) {
+        // SPECIAL LEADER LOGIC: P1 can make strategic moves
+        if (driver.position == 1) {
+          // DEFENSIVE UNDERCUT: Prevent P2 from undercutting
+          bool defensiveUndercut = gapBehind < 18.0 && currentDegradation > 0.6;
+          if (defensiveUndercut && Random().nextDouble() < 0.4) {
+            return true;
+          }
+
+          // STRATEGIC UNDERCUT: Large gap allows safe early pit
+          bool strategicUndercut = gapBehind > 28.0 && currentDegradation > 0.8;
+          if (strategicUndercut && Random().nextDouble() < (0.15 + speedConfidence * 0.15)) {
+            return true;
+          }
+        }
+
+        // P2-P3 UNDERCUT ATTEMPTS: Attack the leader
+        if (driver.position >= 2 && driver.position <= 3) {
+          bool canAttackAhead = gapAhead < 25.0 && currentDegradation > 0.7 && currentLap >= 22;
+          if (canAttackAhead && Random().nextDouble() < (speedConfidence * 0.4)) {
+            return true;
+          }
+        }
+
+        // TRADITIONAL LEADER LOGIC: Conservative degradation-based pitting
+        double leaderThreshold = 1.0 + (tireConfidence * 0.6);
+
+        // Consistent drivers are more conservative with thresholds
+        if (driver.consistency > 85) {
+          leaderThreshold *= 0.9;
+        }
+
+        if (currentDegradation > leaderThreshold && (gapBehind > 20.0 || gapAhead < 15.0)) {
+          return true;
+        }
+      }
+
+      if (inMidfield) {
+        double aggressionChance = 0.1 + (speedConfidence * 0.3);
+        if (currentDegradation > 0.9 && Random().nextDouble() < aggressionChance) {
+          return true;
+        }
+      }
+
+      if (atBack) {
+        double desperationChance = 0.2 + (speedConfidence * 0.4);
+        if (currentDegradation > 0.6 && Random().nextDouble() < desperationChance) {
+          return true;
+        }
+      }
+    }
+
+    // MANDATORY PIT: Force pit stop if really running out of time
+    if (mustPitSoon) return true;
+
+    return false;
+  }
+
+  static double calculatePitStopTime(Driver driver) {
+    // Base pit stop time calculation based on team performance
+    double performanceRange = 98.0 - 75.0;
+
+    // Calculate base time: better performance = faster pit stops
+    double teamEfficiencyFactor = (driver.carPerformance - 75.0) / performanceRange;
+    double baseTime =
+        F1Constants.maxPitTime - (teamEfficiencyFactor * (F1Constants.maxPitTime - F1Constants.minPitTime));
+
+    // 25% chance of "exceptional" pit stop (good or bad)
+    bool isExceptionalStop = Random().nextDouble() < F1Constants.exceptionalPitChance;
+
+    if (isExceptionalStop) {
+      // Exceptional stops have much more variance
+      double performanceFactor = driver.carPerformance / 100.0;
+      double exceptionRange = F1Constants.exceptionalPitVariation;
+      double bias = (performanceFactor - 0.75) / 0.23;
+
+      // Biased random: good teams lean toward negative (faster), bad teams toward positive (slower)
+      double biasedRandom = (Random().nextDouble() - 0.5 + (bias - 0.5) * 0.6) * 2;
+      double exceptionalVariation = biasedRandom * exceptionRange;
+
+      double finalTime = baseTime + exceptionalVariation;
+      return finalTime.clamp(20.0, 30.0);
+    } else {
+      // Normal stops with small variance
+      double normalVariation =
+          (Random().nextDouble() * F1Constants.normalPitVariation * 2) - F1Constants.normalPitVariation;
+      double finalTime = baseTime + normalVariation;
+      return finalTime.clamp(22.0, 27.0);
+    }
+  }
+
+  static TireCompound selectCompoundDynamic(
+      Driver driver, WeatherCondition weather, int currentLap, int totalLaps, double gapAhead, double gapBehind) {
+    // WEATHER FIRST (mandatory)
+    if (weather == WeatherCondition.rain) {
+      return TireCompound.intermediate;
+    }
+
+    // BASE STRATEGIC PREFERENCE (position-based)
+    List<TireCompound> strategicOptions = _getStrategicOptions(driver, currentLap, totalLaps, gapAhead, gapBehind);
+
+    // ADD VARIABILITY FACTORS
+    Map<TireCompound, double> compoundProbabilities = {};
+
+    for (TireCompound compound in strategicOptions) {
+      double probability = _getBaseProbability(compound, strategicOptions);
+
+      // Apply all variability factors
+      probability *= _getSkillMultiplier(driver, compound);
+      probability *= _getPerformancePressureMultiplier(driver, compound);
+      probability *= _getTeamStrategyMultiplier(driver, compound);
+      probability *= _getRandomDecisionMultiplier();
+      probability *= _getCompoundHistoryMultiplier(driver, compound);
+
+      compoundProbabilities[compound] = probability;
+    }
+
+    // SELECT COMPOUND BASED ON WEIGHTED PROBABILITIES
+    return _selectFromWeightedProbabilities(compoundProbabilities);
+  }
+
+  static List<TireCompound> _getStrategicOptions(
+      Driver driver, int currentLap, int totalLaps, double gapAhead, double gapBehind) {
+    double raceProgress = currentLap / totalLaps;
+    List<TireCompound> options = [];
+
+    // POSITION-BASED STRATEGIC FOUNDATION
+    if (driver.position <= 3) {
+      // LEADERS: Usually avoid extremes unless situation demands
+      if (gapBehind < 10.0) {
+        // Under pressure: more aggressive options
+        options = [TireCompound.soft, TireCompound.medium];
+      } else if (gapBehind > 30.0) {
+        // Safe lead: conservative options
+        options = [TireCompound.medium, TireCompound.hard];
+      } else {
+        // Balanced situation: all options available
+        options = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+      }
+    } else if (driver.position <= 7) {
+      // MIDFIELD: Usually more aggressive to gain positions
+      if (gapAhead < 15.0) {
+        // Close to overtaking: aggressive options
+        options = [TireCompound.soft, TireCompound.medium];
+      } else {
+        // Standard midfield: balanced options
+        options = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+      }
+    } else {
+      // BACKMARKERS: Often desperate, all options available
+      options = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+    }
+
+    return options;
+  }
+
+  static double _getBaseProbability(TireCompound compound, List<TireCompound> options) {
+    return 1.0 / options.length;
+  }
+
+  static double _getSkillMultiplier(Driver driver, TireCompound compound) {
+    double multiplier = 1.0;
+
+    // HIGH SPEED DRIVERS: Prefer softs
+    if (driver.speed > 90) {
+      if (compound == TireCompound.soft) multiplier *= 1.2;
+      if (compound == TireCompound.hard) multiplier *= 0.9;
+    }
+
+    // HIGH CONSISTENCY DRIVERS: Prefer medium/hard
+    if (driver.consistency > 85) {
+      if (compound == TireCompound.medium || compound == TireCompound.hard) multiplier *= 1.15;
+      if (compound == TireCompound.soft) multiplier *= 0.9;
+    }
+
+    // HIGH TIRE MANAGEMENT: Prefer harder compounds
+    if (driver.tyreManagementSkill > 85) {
+      if (compound == TireCompound.hard) multiplier *= 1.2;
+      if (compound == TireCompound.soft) multiplier *= 0.95;
+    }
+
+    // ROOKIE/LOW SKILL: More unpredictable
+    if (driver.speed < 70 || driver.consistency < 60) {
+      multiplier *= 0.9 + (Random().nextDouble() * 0.2);
+    }
+
+    return multiplier;
+  }
+
+  static double _getPerformancePressureMultiplier(Driver driver, TireCompound compound) {
+    double multiplier = 1.0;
+
+    // UNDER-PERFORMING vs EXPECTATIONS
+    int performanceDelta = driver.position - driver.startingPosition;
+
+    if (performanceDelta > 2) {
+      // Performing worse: more desperate/aggressive
+      if (compound == TireCompound.soft) multiplier *= 1.15;
+      if (compound == TireCompound.hard) multiplier *= 0.9;
+    } else if (performanceDelta < -2) {
+      // Performing better: more conservative
+      if (compound == TireCompound.soft) multiplier *= 0.9;
+      if (compound == TireCompound.hard) multiplier *= 1.1;
+    }
+
+    // RECENT ERRORS increase desperation
+    if (driver.errorCount > 0) {
+      double desperationFactor = 1.0 + (driver.errorCount * 0.05);
+      if (compound == TireCompound.soft) multiplier *= desperationFactor;
+    }
+
+    return multiplier;
+  }
+
+  static double _getTeamStrategyMultiplier(Driver driver, TireCompound compound) {
+    double multiplier = 1.0;
+
+    // HIGH PERFORMANCE TEAMS: More willing to take risks
+    if (driver.carPerformance > 90) {
+      if (compound == TireCompound.soft) multiplier *= 1.1;
+    }
+
+    // LOW RELIABILITY TEAMS: More conservative
+    if (driver.reliability < 80) {
+      if (compound == TireCompound.hard) multiplier *= 1.15;
+      if (compound == TireCompound.soft) multiplier *= 0.9;
+    }
+
+    // TEAM STRATEGY TENDENCIES
+    String teamStrategy = driver.getTeamStrategyTendency();
+    switch (teamStrategy) {
+      case "aggressive":
+        if (compound == TireCompound.soft) multiplier *= 1.1;
+        break;
+      case "conservative":
+        if (compound == TireCompound.hard) multiplier *= 1.1;
+        break;
+      case "balanced":
+      default:
+        if (compound == TireCompound.medium) multiplier *= 1.05;
+        break;
+    }
+
+    return multiplier;
+  }
+
+  static double _getRandomDecisionMultiplier() {
+    return 0.925 + (Random().nextDouble() * 0.15);
+  }
+
+  static double _getCompoundHistoryMultiplier(Driver driver, TireCompound compound) {
+    double multiplier = 1.0;
+
+    // AVOID REPEATING RECENT COMPOUND
+    if (driver.usedCompounds.isNotEmpty && driver.usedCompounds.last == compound) {
+      multiplier *= 0.8;
+    }
+
+    // PREFER COMPOUNDS NOT YET USED
+    if (!driver.usedCompounds.contains(compound)) {
+      multiplier *= 1.1;
+    }
+
+    return multiplier;
+  }
+
+  static TireCompound _selectFromWeightedProbabilities(Map<TireCompound, double> probabilities) {
+    // Normalize probabilities
+    double totalWeight = probabilities.values.reduce((a, b) => a + b);
+
+    // Generate random number
+    double random = Random().nextDouble() * totalWeight;
+
+    // Select compound based on weighted probability
+    double cumulative = 0.0;
+    for (MapEntry<TireCompound, double> entry in probabilities.entries) {
+      cumulative += entry.value;
+      if (random <= cumulative) {
+        return entry.key;
+      }
+    }
+
+    // Fallback
+    return probabilities.keys.first;
+  }
+
+  static void executePitStop(
+      Driver driver, WeatherCondition weather, int currentLap, int totalLaps, double gapAhead, double gapBehind) {
+    driver.pitStops++;
+    driver.lapsOnCurrentTires = 0;
+
+    // Track old compound usage
+    if (!driver.usedCompounds.contains(driver.currentCompound)) {
+      driver.usedCompounds.add(driver.currentCompound);
+    }
+
+    // SELECT NEW COMPOUND STRATEGICALLY
+    TireCompound oldCompound = driver.currentCompound;
+    driver.currentCompound = selectCompoundDynamic(driver, weather, currentLap, totalLaps, gapAhead, gapBehind);
+
+    // Calculate pit time
+    double pitTime = calculatePitStopTime(driver);
+
+    // Slight penalty for compound changes
+    if (oldCompound != driver.currentCompound) {
+      pitTime += 0.5;
+    }
+
+    driver.totalTime += pitTime;
+
+    // Log compound change with more detail
+    String stopType = pitTime < 22.0 || pitTime > 27.0 ? " (EXCEPTIONAL)" : " (normal)";
+    String compoundChange = oldCompound == driver.currentCompound
+        ? "${driver.currentCompound.name}"
+        : "${oldCompound.name} → ${driver.currentCompound.name}";
+
+    String incident =
+        "Lap ${driver.lapsCompleted + 1}: Pit stop - $compoundChange (${pitTime.toStringAsFixed(1)}s$stopType)";
+    driver.recordIncident(incident);
+  }
+}
