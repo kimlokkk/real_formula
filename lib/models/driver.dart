@@ -183,6 +183,8 @@ class Driver {
     double managementMultiplier = 1.0 - (tyreManagementSkill / 200.0);
     double compoundMultiplier = currentCompound.degradationMultiplier;
 
+    // NOTE: Track multiplier is applied in PerformanceCalculator.calculateCurrentLapTime()
+    // to avoid circular dependencies
     return factor * managementMultiplier * compoundMultiplier;
   }
 

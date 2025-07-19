@@ -1,11 +1,13 @@
-// Enhanced Strategy Engine with Mandatory Compound Rule
+// Enhanced Strategy Engine with Mandatory Compound Rule and Track Awareness
 import 'dart:math';
 import '../models/driver.dart';
 import '../models/enums.dart';
+import '../models/track.dart';
 import '../utils/constants.dart';
 
 class StrategyEngine {
-  static bool shouldPitStop(Driver driver, int currentLap, int totalLaps, double gapBehind, double gapAhead) {
+  static bool shouldPitStop(
+      Driver driver, int currentLap, int totalLaps, double gapBehind, double gapAhead, Track track) {
     // SAFETY CONSTRAINTS FIRST (prevent unrealistic decisions)
     if (currentLap < F1Constants.minLapsBeforePit) return false;
     if (driver.pitStops >= F1Constants.maxPitStops) return false;
@@ -20,6 +22,23 @@ class StrategyEngine {
     // MANDATORY COMPOUND CHANGE: Must use different compound if only used one type
     bool mustChangeCompound = _mustUseSecondCompound(driver, currentLap, totalLaps);
 
+    // TRACK-SPECIFIC STRATEGY ADJUSTMENTS
+    double trackAggressionMultiplier = 1.0;
+
+    // Hard-to-overtake tracks reduce pit aggression (Monaco, Hungary)
+    if (track.overtakingDifficulty < 0.4) {
+      trackAggressionMultiplier *= 0.7; // Much more conservative
+    }
+    // Easy-to-overtake tracks increase pit aggression (Monza, Spa)
+    else if (track.overtakingDifficulty > 0.7) {
+      trackAggressionMultiplier *= 1.3; // More aggressive
+    }
+
+    // High tire degradation tracks encourage earlier pit stops
+    if (track.tireDegradationMultiplier > 1.2) {
+      trackAggressionMultiplier *= 1.2;
+    }
+
     // Enhanced pit strategy with skill-based thinking
     int basePitLap = F1Constants.basePitLapMin + (driver.tyreManagementSkill ~/ 4);
     int pitWindowVariation = Random().nextInt(F1Constants.pitVariation) - (F1Constants.pitVariation ~/ 2);
@@ -30,8 +49,8 @@ class StrategyEngine {
     bool inMidfield = driver.position >= 4 && driver.position <= 7;
     bool atBack = driver.position >= 8;
 
-    // EMERGENCY: Tire degradation is killing pace
-    if (currentDegradation > 2.0) return true;
+    // EMERGENCY: Tire degradation is killing pace (apply track multiplier)
+    if (currentDegradation * track.tireDegradationMultiplier > 2.0) return true;
 
     // MANDATORY COMPOUND RULE: Force pit if must change compound and running out of time
     if (mustChangeCompound && currentLap >= totalLaps - 15) {
@@ -42,20 +61,22 @@ class StrategyEngine {
     if (driver.pitStops == 0 && currentLap >= 18) {
       // SPEED-BASED STRATEGY: Higher speed = more confident in aggressive moves
       double speedConfidence = driver.speed / 100.0;
-      bool canUndercut = gapAhead < F1Constants.underCutGap && currentDegradation > 0.8 && currentLap >= 22;
-      if (canUndercut && Random().nextDouble() < (0.1 + speedConfidence * 0.4)) {
+      bool canUndercut = gapAhead < F1Constants.underCutGap &&
+          currentDegradation > (0.8 / trackAggressionMultiplier) &&
+          currentLap >= 22;
+      if (canUndercut && Random().nextDouble() < (0.1 + speedConfidence * 0.4) * trackAggressionMultiplier) {
         return true;
       }
 
       // SAFE PIT WINDOW: Large gap behind means minimal position loss
-      bool safePitWindow = gapBehind > F1Constants.safeGap && currentDegradation > 0.6;
+      bool safePitWindow = gapBehind > F1Constants.safeGap && currentDegradation > (0.6 / trackAggressionMultiplier);
       if (safePitWindow && currentLap >= idealPitLap - 5) {
         return true;
       }
 
       // TIRE MANAGEMENT STRATEGY: Better tire management = willing to stay out longer
       double tireConfidence = driver.tyreManagementSkill / 100.0;
-      double stayOutThreshold = 0.8 + (tireConfidence * 0.8);
+      double stayOutThreshold = (0.8 + (tireConfidence * 0.8)) / trackAggressionMultiplier;
       bool shouldStayOut = currentDegradation < stayOutThreshold && currentLap <= idealPitLap + 3;
 
       // Override stay out decision if must change compound
@@ -72,28 +93,30 @@ class StrategyEngine {
         // SPECIAL LEADER LOGIC: P1 can make strategic moves
         if (driver.position == 1) {
           // DEFENSIVE UNDERCUT: Prevent P2 from undercutting
-          bool defensiveUndercut = gapBehind < 18.0 && currentDegradation > 0.6;
-          if (defensiveUndercut && Random().nextDouble() < 0.4) {
+          bool defensiveUndercut = gapBehind < 18.0 && currentDegradation > (0.6 / trackAggressionMultiplier);
+          if (defensiveUndercut && Random().nextDouble() < 0.4 * trackAggressionMultiplier) {
             return true;
           }
 
           // STRATEGIC UNDERCUT: Large gap allows safe early pit
-          bool strategicUndercut = gapBehind > 28.0 && currentDegradation > 0.8;
-          if (strategicUndercut && Random().nextDouble() < (0.15 + speedConfidence * 0.15)) {
+          bool strategicUndercut = gapBehind > 28.0 && currentDegradation > (0.8 / trackAggressionMultiplier);
+          if (strategicUndercut &&
+              Random().nextDouble() < (0.15 + speedConfidence * 0.15) * trackAggressionMultiplier) {
             return true;
           }
         }
 
         // P2-P3 UNDERCUT ATTEMPTS: Attack the leader
         if (driver.position >= 2 && driver.position <= 3) {
-          bool canAttackAhead = gapAhead < 25.0 && currentDegradation > 0.7 && currentLap >= 22;
-          if (canAttackAhead && Random().nextDouble() < (speedConfidence * 0.4)) {
+          bool canAttackAhead =
+              gapAhead < 25.0 && currentDegradation > (0.7 / trackAggressionMultiplier) && currentLap >= 22;
+          if (canAttackAhead && Random().nextDouble() < (speedConfidence * 0.4) * trackAggressionMultiplier) {
             return true;
           }
         }
 
         // TRADITIONAL LEADER LOGIC: Conservative degradation-based pitting
-        double leaderThreshold = 1.0 + (tireConfidence * 0.6);
+        double leaderThreshold = (1.0 + (tireConfidence * 0.6)) / trackAggressionMultiplier;
 
         // Consistent drivers are more conservative with thresholds
         if (driver.consistency > 85) {
@@ -106,23 +129,23 @@ class StrategyEngine {
       }
 
       if (inMidfield) {
-        double aggressionChance = 0.1 + (speedConfidence * 0.3);
+        double aggressionChance = (0.1 + (speedConfidence * 0.3)) * trackAggressionMultiplier;
         // Increase aggression if must change compound
         if (mustChangeCompound) {
           aggressionChance *= 1.3;
         }
-        if (currentDegradation > 0.9 && Random().nextDouble() < aggressionChance) {
+        if (currentDegradation > (0.9 / trackAggressionMultiplier) && Random().nextDouble() < aggressionChance) {
           return true;
         }
       }
 
       if (atBack) {
-        double desperationChance = 0.2 + (speedConfidence * 0.4);
+        double desperationChance = (0.2 + (speedConfidence * 0.4)) * trackAggressionMultiplier;
         // Increase desperation if must change compound
         if (mustChangeCompound) {
           desperationChance *= 1.4;
         }
-        if (currentDegradation > 0.6 && Random().nextDouble() < desperationChance) {
+        if (currentDegradation > (0.6 / trackAggressionMultiplier) && Random().nextDouble() < desperationChance) {
           return true;
         }
       }
@@ -185,7 +208,7 @@ class StrategyEngine {
     }
   }
 
-  static double calculatePitStopTime(Driver driver) {
+  static double calculatePitStopTime(Driver driver, Track track) {
     // Base pit stop time calculation based on team performance
     double performanceRange = 98.0 - 75.0;
 
@@ -208,18 +231,20 @@ class StrategyEngine {
       double exceptionalVariation = biasedRandom * exceptionRange;
 
       double finalTime = baseTime + exceptionalVariation;
-      return finalTime.clamp(20.0, 30.0);
+      finalTime += track.pitStopTimePenalty; // Add track pit lane penalty
+      return finalTime.clamp(20.0, 30.0 + track.pitStopTimePenalty);
     } else {
       // Normal stops with small variance
       double normalVariation =
           (Random().nextDouble() * F1Constants.normalPitVariation * 2) - F1Constants.normalPitVariation;
       double finalTime = baseTime + normalVariation;
-      return finalTime.clamp(22.0, 27.0);
+      finalTime += track.pitStopTimePenalty; // Add track pit lane penalty
+      return finalTime.clamp(22.0, 27.0 + track.pitStopTimePenalty);
     }
   }
 
-  static TireCompound selectCompoundDynamic(
-      Driver driver, WeatherCondition weather, int currentLap, int totalLaps, double gapAhead, double gapBehind) {
+  static TireCompound selectCompoundDynamic(Driver driver, WeatherCondition weather, int currentLap, int totalLaps,
+      double gapAhead, double gapBehind, Track track) {
     // WEATHER FIRST (mandatory)
     if (weather == WeatherCondition.rain) {
       return TireCompound.intermediate;
@@ -454,8 +479,8 @@ class StrategyEngine {
     return probabilities.keys.first;
   }
 
-  static void executePitStop(
-      Driver driver, WeatherCondition weather, int currentLap, int totalLaps, double gapAhead, double gapBehind) {
+  static void executePitStop(Driver driver, WeatherCondition weather, int currentLap, int totalLaps, double gapAhead,
+      double gapBehind, Track track) {
     driver.pitStops++;
     driver.lapsOnCurrentTires = 0;
 
@@ -466,10 +491,10 @@ class StrategyEngine {
 
     // SELECT NEW COMPOUND STRATEGICALLY (with mandatory compound rule)
     TireCompound oldCompound = driver.currentCompound;
-    driver.currentCompound = selectCompoundDynamic(driver, weather, currentLap, totalLaps, gapAhead, gapBehind);
+    driver.currentCompound = selectCompoundDynamic(driver, weather, currentLap, totalLaps, gapAhead, gapBehind, track);
 
-    // Calculate pit time
-    double pitTime = calculatePitStopTime(driver);
+    // Calculate pit time with track penalty
+    double pitTime = calculatePitStopTime(driver, track);
 
     // Slight penalty for compound changes
     if (oldCompound != driver.currentCompound) {
@@ -479,7 +504,9 @@ class StrategyEngine {
     driver.totalTime += pitTime;
 
     // Log compound change with mandatory rule info
-    String stopType = pitTime < 22.0 || pitTime > 27.0 ? " (EXCEPTIONAL)" : " (normal)";
+    double maxNormalTime = 27.0 + track.pitStopTimePenalty;
+    double minNormalTime = 22.0;
+    String stopType = pitTime < minNormalTime || pitTime > maxNormalTime ? " (EXCEPTIONAL)" : " (normal)";
     String compoundChange = oldCompound == driver.currentCompound
         ? "${driver.currentCompound.name}"
         : "${oldCompound.name} → ${driver.currentCompound.name}";
@@ -490,5 +517,14 @@ class StrategyEngine {
     String incident =
         "Lap ${driver.lapsCompleted + 1}: Pit stop - $compoundChange (${pitTime.toStringAsFixed(1)}s$stopType)$ruleInfo";
     driver.recordIncident(incident);
+  }
+
+  // Helper functions for gap analysis (if not already defined elsewhere)
+  static bool hasSignificantAdvantage(Driver driver, double gapBehind) {
+    return gapBehind > 20.0;
+  }
+
+  static bool hasSmallOpportunity(Driver driver, double gapAhead) {
+    return gapAhead < 15.0;
   }
 }

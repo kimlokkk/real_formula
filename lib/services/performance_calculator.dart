@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'package:real_formula/models/track.dart';
+
 import '../models/driver.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
@@ -107,7 +109,7 @@ class PerformanceCalculator {
     return penalty;
   }
 
-  static double calculateCurrentLapTime(Driver driver, WeatherCondition weather) {
+  static double calculateCurrentLapTime(Driver driver, WeatherCondition weather, Track currentTrack) {
     double baseTime = calculateBaseLapTime(driver);
     double skillsImpact = calculateDriverSkillsImpact(driver);
     double tyreDeg = driver.calculateTyreDegradation();

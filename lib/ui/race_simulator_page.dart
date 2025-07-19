@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../models/driver.dart';
 import '../models/enums.dart';
+import '../models/track.dart';
 import '../services/performance_calculator.dart';
 import '../services/incident_simulator.dart';
 import '../services/strategy_engine.dart';
 import '../data/driver_data.dart';
+import '../data/track_data.dart';
 import '../utils/constants.dart';
 
 class F1RaceSimulator extends StatefulWidget {
@@ -21,6 +23,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   Timer? raceTimer;
   SimulationSpeed currentSpeed = SimulationSpeed.normal;
   WeatherCondition currentWeather = WeatherCondition.clear;
+  Track currentTrack = TrackData.getDefaultTrack();
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -48,6 +51,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   void _initializeRace() {
     drivers = DriverData.createDefaultDrivers();
     DriverData.initializeStartingGrid(drivers);
+    totalLaps = currentTrack.totalLaps;
 
     for (Driver driver in drivers) {
       driver.currentCompound = driver.getWeatherAppropriateStartingCompound(currentWeather);
@@ -80,18 +84,19 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         double gapBehind = (i >= drivers.length - 1) ? 999.0 : drivers[i + 1].totalTime - driver.totalTime;
         double gapAhead = (i <= 0) ? 999.0 : driver.totalTime - drivers[i - 1].totalTime;
 
-        if (StrategyEngine.shouldPitStop(driver, currentLap, totalLaps, gapBehind, gapAhead)) {
-          StrategyEngine.executePitStop(driver, currentWeather, currentLap, totalLaps, gapAhead, gapBehind);
+        if (StrategyEngine.shouldPitStop(driver, currentLap, totalLaps, gapBehind, gapAhead, currentTrack)) {
+          StrategyEngine.executePitStop(
+              driver, currentWeather, currentLap, totalLaps, gapAhead, gapBehind, currentTrack);
         }
       }
 
       for (Driver driver in drivers) {
         if (driver.isDNF()) continue;
 
-        IncidentSimulator.processLapIncidents(driver, currentLap, totalLaps, currentWeather);
+        IncidentSimulator.processLapIncidents(driver, currentLap, totalLaps, currentWeather, currentTrack);
         if (driver.isDNF()) continue;
 
-        double lapTime = PerformanceCalculator.calculateCurrentLapTime(driver, currentWeather);
+        double lapTime = PerformanceCalculator.calculateCurrentLapTime(driver, currentWeather, currentTrack);
         driver.totalTime += lapTime;
         driver.lapsCompleted++;
         driver.lapsOnCurrentTires++;
@@ -148,6 +153,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     setState(() {
       currentLap = 0;
       isRacing = false;
+      totalLaps = currentTrack.totalLaps;
       DriverData.resetAllDriversForNewRace(drivers, currentWeather);
     });
     raceTimer?.cancel();
@@ -160,6 +166,18 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
       if (oldWeather != newWeather) {
         print("Weather changed: ${oldWeather.name} → ${newWeather.name}");
+      }
+    });
+  }
+
+  void _changeTrack(Track newTrack) {
+    setState(() {
+      currentTrack = newTrack;
+      totalLaps = newTrack.totalLaps;
+
+      // If race is not active, reset everything for new track
+      if (!isRacing) {
+        _resetRace();
       }
     });
   }
@@ -179,6 +197,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       body: Column(
         children: [
           _buildRaceHeader(),
+          _buildTrackInfo(),
           _buildTabBar(),
           Expanded(
             child: selectedTab == 0 ? _buildStandingsTable() : _buildIncidentsPanel(),
@@ -335,12 +354,14 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
             ],
           ),
           SizedBox(height: 16),
-          // Speed and Weather Controls
+          // Speed, Weather and Track Controls
           Row(
             children: [
               Expanded(child: _buildSpeedControl()),
-              SizedBox(width: 16),
+              SizedBox(width: 8),
               Expanded(child: _buildWeatherControl()),
+              SizedBox(width: 8),
+              Expanded(child: _buildTrackControl()),
             ],
           ),
         ],
@@ -479,6 +500,171 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         ],
       ),
     );
+  }
+
+  Widget _buildTrackControl() {
+    return Container(
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[800],
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TRACK',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            child: DropdownButton<Track>(
+              value: currentTrack,
+              onChanged: isRacing
+                  ? null
+                  : (Track? newTrack) {
+                      if (newTrack != null) _changeTrack(newTrack);
+                    },
+              dropdownColor: Colors.grey[700],
+              style: TextStyle(color: Colors.white, fontSize: 10),
+              underline: Container(),
+              isExpanded: true,
+              items: TrackData.tracks.map<DropdownMenuItem<Track>>((Track track) {
+                return DropdownMenuItem<Track>(
+                  value: track,
+                  child: Text(
+                    track.name,
+                    style: TextStyle(fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackInfo() {
+    return Container(
+      color: Colors.grey[850],
+      padding: EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    currentTrack.name.toUpperCase(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${currentTrack.country.toUpperCase()} • ${currentTrack.typeDescription.toUpperCase()}',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${currentTrack.totalLaps} LAPS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '~${currentTrack.baseLapTime.toStringAsFixed(1)}s LAP TIME',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          // Track characteristics
+          Text(
+            currentTrack.characteristicsInfo.toUpperCase(),
+            style: TextStyle(
+              color: Colors.orange[300],
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 8),
+          // Track stats row
+          Row(
+            children: [
+              _buildTrackStat("OVERTAKING", _formatDifficulty(currentTrack.overtakingDifficulty)),
+              SizedBox(width: 16),
+              _buildTrackStat("TIRE WEAR", _formatMultiplier(currentTrack.tireDegradationMultiplier)),
+              SizedBox(width: 16),
+              _buildTrackStat("ERROR RATE", _formatMultiplier(currentTrack.errorProbabilityMultiplier)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackStat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[500],
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDifficulty(double difficulty) {
+    if (difficulty < 0.3) return "VERY HARD";
+    if (difficulty < 0.5) return "HARD";
+    if (difficulty < 0.7) return "MODERATE";
+    return "EASY";
+  }
+
+  String _formatMultiplier(double multiplier) {
+    if (multiplier < 0.8) return "LOW";
+    if (multiplier < 1.1) return "NORMAL";
+    if (multiplier < 1.3) return "HIGH";
+    return "VERY HIGH";
   }
 
   Widget _buildTabBar() {
@@ -737,7 +923,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                       child: AnimatedBuilder(
                         animation: _pulseAnimation,
                         builder: (context, child) {
-                          bool isCritical = driver.calculateTyreDegradation() > 2.0;
+                          bool isCritical =
+                              driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier > 2.0;
                           return Container(
                             key: ValueKey(driver.currentCompound),
                             padding: EdgeInsets.all(2),
@@ -764,7 +951,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                               '${driver.lapsOnCurrentTires}',
                               key: ValueKey(driver.lapsOnCurrentTires),
                               style: TextStyle(
-                                color: _getTireWearColor(driver.calculateTyreDegradation()),
+                                color: _getTireWearColor(
+                                    driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier),
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -780,10 +968,13 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                             ),
                             child: FractionallySizedBox(
                               alignment: Alignment.centerLeft,
-                              widthFactor: (driver.calculateTyreDegradation() / 3.0).clamp(0.0, 1.0),
+                              widthFactor:
+                                  ((driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier) / 3.0)
+                                      .clamp(0.0, 1.0),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: _getTireWearColor(driver.calculateTyreDegradation()),
+                                  color: _getTireWearColor(
+                                      driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier),
                                   borderRadius: BorderRadius.circular(1),
                                 ),
                               ),

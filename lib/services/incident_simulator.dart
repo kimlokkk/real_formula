@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'package:real_formula/models/track.dart';
+
 import '../models/driver.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
@@ -242,7 +244,8 @@ class IncidentSimulator {
     return immediatePenalty;
   }
 
-  static void processLapIncidents(Driver driver, int currentLap, int totalLaps, WeatherCondition weather) {
+  static void processLapIncidents(
+      Driver driver, int currentLap, int totalLaps, WeatherCondition weather, Track currentTrack) {
     // Check for driver errors
     DriverErrorType? driverError = processDriverError(driver, currentLap, totalLaps, weather);
     if (driverError != null) {
