@@ -1,3 +1,5 @@
+// lib/models/driver.dart - Clean version without debug logging
+
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'enums.dart';
@@ -183,8 +185,6 @@ class Driver {
     double managementMultiplier = 1.0 - (tyreManagementSkill / 200.0);
     double compoundMultiplier = currentCompound.degradationMultiplier;
 
-    // NOTE: Track multiplier is applied in PerformanceCalculator.calculateCurrentLapTime()
-    // to avoid circular dependencies
     return factor * managementMultiplier * compoundMultiplier;
   }
 
@@ -247,7 +247,6 @@ class Driver {
 
   void recordIncident(String incident) {
     raceIncidents.add(incident);
-    print(incident);
   }
 
   /// Records compound usage for tracking

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../models/driver.dart';
@@ -22,48 +24,89 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
   @override
   void initState() {
     super.initState();
-    _loadRaceData();
+    // Remove the addPostFrameCallback and use didChangeDependencies instead
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (!dataLoaded) {
+      _loadRaceData();
+    }
   }
 
   void _loadRaceData() {
-    // Load data in initState to avoid repeated calls
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
-      print("=== RACE RESULTS DEBUG ===");
-      print("Arguments received: $args");
+    print("=== RACE RESULTS DEBUG ===");
+    print("Arguments received: $args");
 
-      if (args != null && mounted) {
-        setState(() {
-          // DON'T create new instances - use the original drivers directly
-          drivers = args['drivers'] ?? [];
-          track = args['track'] ?? TrackData.getDefaultTrack();
-          weather = args['weather'] ?? WeatherCondition.clear;
-          totalLaps = args['totalLaps'] ?? 50;
+    if (args != null) {
+      setState(() {
+        List<dynamic>? driversData = args['drivers'];
+        if (driversData != null) {
+          drivers = driversData.cast<Driver>();
 
-          print("Drivers received: ${drivers.length}");
-          if (drivers.isNotEmpty) {
-            print("First driver: ${drivers[0].name}, Pits: ${drivers[0].pitStops}, Errors: ${drivers[0].errorCount}");
-            print("Second driver: ${drivers[1].name}, Pits: ${drivers[1].pitStops}, Errors: ${drivers[1].errorCount}");
+          // PRESERVE ORIGINAL DATA - create a snapshot before any potential modifications
+          Map<String, Map<String, dynamic>> driverDataSnapshot = {};
+          for (Driver driver in drivers) {
+            driverDataSnapshot[driver.name] = {
+              'pitStops': driver.pitStops,
+              'errorCount': driver.errorCount,
+              'mechanicalIssuesCount': driver.mechanicalIssuesCount,
+              'position': driver.position,
+              'startingPosition': driver.startingPosition,
+              'totalTime': driver.totalTime,
+            };
           }
 
-          // Sort drivers by position
-          if (drivers.isNotEmpty) {
-            drivers.sort((a, b) {
-              if (a.isDNF() && b.isDNF()) return 0;
-              if (a.isDNF()) return 1;
-              if (b.isDNF()) return -1;
-              return a.position.compareTo(b.position);
-            });
-          }
+          print("=== DATA SNAPSHOT ===");
+          driverDataSnapshot.forEach((name, data) {
+            print("$name: ${data}");
+          });
 
-          dataLoaded = true;
-        });
-      } else {
-        print("No arguments received - creating mock data");
-        _createMockData();
-      }
-    });
+          // If data gets corrupted, restore from snapshot
+          Timer(Duration(milliseconds: 100), () {
+            bool dataCorrupted = false;
+            for (Driver driver in drivers) {
+              var snapshot = driverDataSnapshot[driver.name];
+              if (snapshot != null) {
+                if (driver.pitStops != snapshot['pitStops'] ||
+                    driver.errorCount != snapshot['errorCount'] ||
+                    driver.mechanicalIssuesCount != snapshot['mechanicalIssuesCount']) {
+                  dataCorrupted = true;
+                  print("=== DATA CORRUPTED for ${driver.name}, RESTORING ===");
+                  driver.pitStops = snapshot['pitStops'];
+                  driver.errorCount = snapshot['errorCount'];
+                  driver.mechanicalIssuesCount = snapshot['mechanicalIssuesCount'];
+                  driver.position = snapshot['position'];
+                  driver.startingPosition = snapshot['startingPosition'];
+                  driver.totalTime = snapshot['totalTime'];
+                }
+              }
+            }
+            if (dataCorrupted) {
+              setState(() {}); // Trigger rebuild with restored data
+            }
+          });
+        }
+
+        track = args['track'] ?? TrackData.getDefaultTrack();
+        weather = args['weather'] ?? WeatherCondition.clear;
+        totalLaps = args['totalLaps'] ?? 50;
+
+        // Sort by position without modifying other data
+        if (drivers.isNotEmpty) {
+          drivers.sort((a, b) => a.position.compareTo(b.position));
+        }
+
+        dataLoaded = true;
+      });
+    } else {
+      print("No arguments received - creating mock data");
+      _createMockData();
+    }
   }
 
   void _createMockData() {
@@ -86,6 +129,11 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
       dataLoaded = true;
 
       print("Mock data created with ${drivers.length} drivers");
+      print("=== MOCK DATA DEBUG ===");
+      for (Driver d in drivers) {
+        print(
+            "Mock Driver ${d.name}: Pits=${d.pitStops}, Errors=${d.errorCount}, Mechanical=${d.mechanicalIssuesCount}");
+      }
     });
   }
 
@@ -329,7 +377,17 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
   Widget _buildTabContent() {
     if (!dataLoaded) {
       return Center(
-        child: CircularProgressIndicator(color: Colors.red[600]),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Colors.red[600]),
+            SizedBox(height: 16),
+            Text(
+              'Loading race results...',
+              style: TextStyle(color: Colors.grey[400]),
+            ),
+          ],
+        ),
       );
     }
 
@@ -881,6 +939,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     int totalMechanical = 0;
     int finishers = 0;
 
+    // Ensure we're calculating from actual driver data
     for (Driver driver in drivers) {
       totalPitStops += driver.pitStops;
       totalErrors += driver.errorCount;
@@ -888,7 +947,8 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
       if (!driver.isDNF()) finishers++;
     }
 
-    print("=== RACE OVERVIEW STATS ===");
+    print("=== RACE OVERVIEW STATS DEBUG ===");
+    print("Drivers count: ${drivers.length}");
     print("Total pit stops: $totalPitStops");
     print("Total errors: $totalErrors");
     print("Total mechanical: $totalMechanical");
@@ -908,6 +968,10 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
   }
 
   List<Widget> _buildDriverPerformanceStats() {
+    if (drivers.isEmpty) {
+      return [_buildStatRow('No Data', 'No drivers found')];
+    }
+
     String mostPitStops = 'None';
     String fewestErrors = 'None';
     String mostReliable = 'None';
@@ -916,15 +980,15 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     int maxPits = 0;
     int minErrors = 999;
     int minMechanical = 999;
-    int maxClimb = 0;
+    int maxClimb = -999;
 
     List<Driver> finishers = drivers.where((d) => !d.isDNF()).toList();
 
-    print("=== STATISTICS CALCULATION DEBUG ===");
+    print("=== DRIVER PERFORMANCE STATS DEBUG ===");
     print("Total drivers: ${drivers.length}");
     print("Finishers: ${finishers.length}");
 
-    // Most pit stops
+    // Most pit stops (all drivers)
     for (Driver driver in drivers) {
       print(
           "Driver ${driver.name}: Pits=${driver.pitStops}, Errors=${driver.errorCount}, Mechanical=${driver.mechanicalIssuesCount}");
@@ -935,44 +999,50 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     }
 
     // Fewest errors (finishers only)
-    for (Driver driver in finishers) {
-      if (driver.errorCount < minErrors) {
-        minErrors = driver.errorCount;
-        fewestErrors = '${driver.name} ($minErrors)';
+    if (finishers.isNotEmpty) {
+      for (Driver driver in finishers) {
+        if (driver.errorCount < minErrors) {
+          minErrors = driver.errorCount;
+          fewestErrors = '${driver.name} ($minErrors)';
+        }
       }
-    }
 
-    // Most reliable (finishers only)
-    for (Driver driver in finishers) {
-      if (driver.mechanicalIssuesCount < minMechanical) {
-        minMechanical = driver.mechanicalIssuesCount;
-        mostReliable = '${driver.name} ($minMechanical issues)';
+      // Most reliable (finishers only)
+      for (Driver driver in finishers) {
+        if (driver.mechanicalIssuesCount < minMechanical) {
+          minMechanical = driver.mechanicalIssuesCount;
+          mostReliable = '${driver.name} ($minMechanical issues)';
+        }
       }
-    }
 
-    // Biggest climber (finishers only)
-    for (Driver driver in finishers) {
-      int positionChange = driver.startingPosition - driver.position; // Positive = gained positions
-      print(
-          "Driver ${driver.name}: Started P${driver.startingPosition}, Finished P${driver.position}, Change: $positionChange");
-      if (positionChange > maxClimb) {
-        maxClimb = positionChange;
-        biggestClimber = '${driver.name} (+$maxClimb)';
+      // Biggest climber (finishers only)
+      for (Driver driver in finishers) {
+        int positionChange = driver.startingPosition - driver.position; // Positive = gained positions
+        print(
+            "Driver ${driver.name}: Started P${driver.startingPosition}, Finished P${driver.position}, Change: $positionChange");
+        if (positionChange > maxClimb) {
+          maxClimb = positionChange;
+          biggestClimber = '${driver.name} (+$maxClimb)';
+        }
       }
     }
 
     print(
-        "Results: MostPits=$mostPitStops, FewestErrors=$fewestErrors, MostReliable=$mostReliable, BiggestClimber=$biggestClimber");
+        "Final stats: MostPits=$mostPitStops, FewestErrors=$fewestErrors, MostReliable=$mostReliable, BiggestClimber=$biggestClimber");
 
     return [
       _buildStatRow('Most Pit Stops', maxPits > 0 ? mostPitStops : 'None'),
       _buildStatRow('Fewest Errors', finishers.isNotEmpty ? fewestErrors : 'All DNF'),
       _buildStatRow('Most Reliable', finishers.isNotEmpty ? mostReliable : 'All DNF'),
-      _buildStatRow('Biggest Climber', maxClimb > 0 ? biggestClimber : 'None'),
+      _buildStatRow('Biggest Climber', maxClimb > -999 ? biggestClimber : 'None'),
     ];
   }
 
   List<Widget> _buildTeamPerformanceStats() {
+    if (drivers.isEmpty) {
+      return [_buildStatRow('No Data', 'No drivers found')];
+    }
+
     Map<String, String> teamResults = {};
 
     for (Driver driver in drivers) {
