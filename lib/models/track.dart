@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 enum TrackType {
   street, // Monaco, Singapore - High consistency emphasis
   power, // Monza, Spa - High speed/car performance emphasis

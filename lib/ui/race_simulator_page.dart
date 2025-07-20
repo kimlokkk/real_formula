@@ -132,7 +132,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
     setState(() {
       currentLap++;
-      print("=== SIMULATING LAP $currentLap ===");
 
       for (int i = 0; i < drivers.length; i++) {
         Driver driver = drivers[i];
@@ -142,10 +141,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         double gapAhead = (i <= 0) ? 999.0 : driver.totalTime - drivers[i - 1].totalTime;
 
         if (StrategyEngine.shouldPitStop(driver, currentLap, totalLaps, gapBehind, gapAhead, currentTrack)) {
-          print("${driver.name} is pitting on lap $currentLap");
           StrategyEngine.executePitStop(
               driver, currentWeather, currentLap, totalLaps, gapAhead, gapBehind, currentTrack);
-          print("${driver.name} now has ${driver.pitStops} pit stops");
         }
       }
 
@@ -170,16 +167,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
       for (int i = 0; i < drivers.length; i++) {
         drivers[i].updatePosition(i + 1);
-      }
-
-      // Debug output every 10 laps
-      if (currentLap % 10 == 0) {
-        print("=== LAP $currentLap SUMMARY ===");
-        for (int i = 0; i < min(3, drivers.length); i++) {
-          Driver d = drivers[i];
-          print(
-              "P${d.position}: ${d.name} - Pits: ${d.pitStops}, Errors: ${d.errorCount}, Time: ${d.totalTime.toStringAsFixed(1)}");
-        }
       }
     });
 
@@ -233,49 +220,14 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     raceTimer?.cancel();
   }
 
-  void _changeWeather(WeatherCondition newWeather) {
-    setState(() {
-      WeatherCondition oldWeather = currentWeather;
-      currentWeather = newWeather;
-
-      if (oldWeather != newWeather) {
-        print("Weather changed: ${oldWeather.name} → ${newWeather.name}");
-      }
-    });
-  }
-
-  void _changeTrack(Track newTrack) {
-    setState(() {
-      currentTrack = newTrack;
-      totalLaps = newTrack.totalLaps;
-
-      if (!isRacing) {
-        _resetRace();
-      }
-    });
-  }
-
   void _navigateToResults() {
-    // Add debugging to see what data we're passing
-    print("=== NAVIGATING TO RESULTS ===");
-    print("Current lap: $currentLap");
-    print("Total laps: $totalLaps");
-    print("Number of drivers: ${drivers.length}");
-
-    // Debug driver data before passing
-    for (int i = 0; i < drivers.length; i++) {
-      Driver d = drivers[i];
-      print(
-          "Driver ${d.name}: Position=${d.position}, Pits=${d.pitStops}, Errors=${d.errorCount}, Mechanical=${d.mechanicalIssuesCount}, TotalTime=${d.totalTime}");
-    }
-
     Future.delayed(Duration(seconds: 2), () {
       if (mounted) {
         Navigator.pushReplacementNamed(
           context,
           '/results',
           arguments: {
-            'drivers': drivers, // Make sure we're passing the CURRENT drivers, not reset ones
+            'drivers': drivers,
             'track': currentTrack,
             'weather': currentWeather,
             'totalLaps': totalLaps,
@@ -300,8 +252,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       appBar: _buildF1AppBar(),
       body: Column(
         children: [
-          _buildRaceHeader(),
-          _buildTrackInfo(),
+          _buildSimpleRaceHeader(),
           _buildTabBar(),
           Expanded(
             child: _buildTabContent(),
@@ -400,15 +351,18 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
-  Widget _buildRaceHeader() {
+  // Simplified race header - removed unnecessary controls
+  Widget _buildSimpleRaceHeader() {
     return Container(
       color: Colors.grey[900],
       padding: EdgeInsets.all(16),
       child: Column(
         children: [
+          // Essential race info only
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Lap counter
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -430,31 +384,40 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                   ),
                 ],
               ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: currentWeather.color,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      currentWeather.icon,
-                      style: TextStyle(fontSize: 16),
+
+              // Track and weather info (compact)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    currentTrack.name.toUpperCase(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                     ),
-                    SizedBox(width: 4),
-                    Text(
-                      currentWeather.name.toUpperCase(),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentWeather.icon,
+                        style: TextStyle(fontSize: 14),
                       ),
-                    ),
-                  ],
-                ),
+                      SizedBox(width: 4),
+                      Text(
+                        currentWeather.name.toUpperCase(),
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
+
+              // Race status
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -472,35 +435,45 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
               ),
             ],
           ),
+
           SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildControlButton(
-                label: currentLap >= totalLaps ? 'NEW RACE' : 'START',
-                onPressed: isRacing ? null : _startRace,
-                isPrimary: true,
-              ),
-              _buildControlButton(
-                label: 'STOP',
-                onPressed: isRacing ? _stopRace : null,
-                isPrimary: false,
-              ),
-              _buildControlButton(
-                label: 'RESET',
-                onPressed: isRacing ? null : _resetRace,
-                isPrimary: false,
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
+
+          // Control buttons
           Row(
             children: [
-              Expanded(child: _buildSpeedControl()),
-              SizedBox(width: 8),
-              Expanded(child: _buildWeatherControl()),
-              SizedBox(width: 8),
-              Expanded(child: _buildTrackControl()),
+              // Race controls
+              Expanded(
+                flex: 3,
+                child: Row(
+                  children: [
+                    _buildControlButton(
+                      label: currentLap >= totalLaps ? 'NEW RACE' : 'START',
+                      onPressed: isRacing ? null : _startRace,
+                      isPrimary: true,
+                    ),
+                    SizedBox(width: 8),
+                    _buildControlButton(
+                      label: 'STOP',
+                      onPressed: isRacing ? _stopRace : null,
+                      isPrimary: false,
+                    ),
+                    SizedBox(width: 8),
+                    _buildControlButton(
+                      label: 'RESET',
+                      onPressed: isRacing ? null : _resetRace,
+                      isPrimary: false,
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(width: 16),
+
+              // Speed control only
+              Expanded(
+                flex: 2,
+                child: _buildSpeedControl(),
+              ),
             ],
           ),
         ],
@@ -514,23 +487,20 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     required bool isPrimary,
   }) {
     return Expanded(
-      child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 4),
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: onPressed != null ? (isPrimary ? Colors.red[600] : Colors.grey[700]) : Colors.grey[800],
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            padding: EdgeInsets.symmetric(vertical: 12),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: onPressed != null ? (isPrimary ? Colors.red[600] : Colors.grey[700]) : Colors.grey[800],
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          padding: EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -591,221 +561,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
-  Widget _buildWeatherControl() {
-    return Container(
-      padding: EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.grey[800],
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'WEATHER',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: 4),
-          Row(
-            children: WeatherCondition.values.map((weather) {
-              bool isSelected = currentWeather == weather;
-              return Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(right: weather != WeatherCondition.values.last ? 2 : 0),
-                  child: GestureDetector(
-                    onTap: isRacing ? null : () => _changeWeather(weather),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? weather.color : Colors.grey[700],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Center(
-                        child: Text(
-                          weather.icon,
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackControl() {
-    return Container(
-      padding: EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.grey[800],
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'TRACK',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: 4),
-          Container(
-            width: double.infinity,
-            child: DropdownButton<Track>(
-              value: currentTrack,
-              onChanged: isRacing
-                  ? null
-                  : (Track? newTrack) {
-                      if (newTrack != null) _changeTrack(newTrack);
-                    },
-              dropdownColor: Colors.grey[700],
-              style: TextStyle(color: Colors.white, fontSize: 10),
-              underline: Container(),
-              isExpanded: true,
-              items: TrackData.tracks.map<DropdownMenuItem<Track>>((Track track) {
-                return DropdownMenuItem<Track>(
-                  value: track,
-                  child: Text(
-                    track.name,
-                    style: TextStyle(fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackInfo() {
-    return Container(
-      color: Colors.grey[850],
-      padding: EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    currentTrack.name.toUpperCase(),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '${currentTrack.country.toUpperCase()} • ${currentTrack.typeDescription.toUpperCase()}',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${currentTrack.totalLaps} LAPS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '~${currentTrack.baseLapTime.toStringAsFixed(1)}s LAP TIME',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text(
-            currentTrack.characteristicsInfo.toUpperCase(),
-            style: TextStyle(
-              color: Colors.orange[300],
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              _buildTrackStat("OVERTAKING", _formatDifficulty(currentTrack.overtakingDifficulty)),
-              SizedBox(width: 16),
-              _buildTrackStat("TIRE WEAR", _formatMultiplier(currentTrack.tireDegradationMultiplier)),
-              SizedBox(width: 16),
-              _buildTrackStat("ERROR RATE", _formatMultiplier(currentTrack.errorProbabilityMultiplier)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackStat(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[500],
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDifficulty(double difficulty) {
-    if (difficulty < 0.3) return "VERY HARD";
-    if (difficulty < 0.5) return "HARD";
-    if (difficulty < 0.7) return "MODERATE";
-    return "EASY";
-  }
-
-  String _formatMultiplier(double multiplier) {
-    if (multiplier < 0.8) return "LOW";
-    if (multiplier < 1.1) return "NORMAL";
-    if (multiplier < 1.3) return "HIGH";
-    return "VERY HIGH";
-  }
-
   Widget _buildTabBar() {
-    List<String> tabs = ['STANDINGS', 'TRACK VIEW', 'INCIDENTS'];
+    List<String> tabs = ['STANDINGS', 'LIVE TRACK', 'INCIDENTS'];
     List<IconData> icons = [Icons.format_list_numbered, Icons.track_changes, Icons.warning];
 
     return Container(
@@ -861,7 +618,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       case 0:
         return _buildStandingsTable();
       case 1:
-        return _buildTrackVisualization();
+        return _buildCleanTrackVisualization();
       case 2:
         return _buildIncidentsPanel();
       default:
@@ -869,13 +626,15 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     }
   }
 
-  Widget _buildTrackVisualization() {
+  // Clean, simple track visualization - Linear view only
+  Widget _buildCleanTrackVisualization() {
     return Container(
       color: Colors.grey[900],
       child: Column(
         children: [
+          // Simple header
           Container(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.grey[800],
               border: Border(
@@ -887,7 +646,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                 Icon(Icons.track_changes, color: Colors.orange, size: 16),
                 SizedBox(width: 8),
                 Text(
-                  'LIVE TRACK VIEW',
+                  'LIVE TRACK POSITIONS',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -895,20 +654,24 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                   ),
                 ),
                 Spacer(),
-                Text(
-                  currentTrack.name.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                // Live statistics
+                Row(
+                  children: [
+                    _buildQuickStat('ACTIVE', '${drivers.where((d) => !d.isDNF()).length}', Colors.green),
+                    SizedBox(width: 16),
+                    _buildQuickStat('ERRORS', '${drivers.fold(0, (sum, d) => sum + d.errorCount)}', Colors.red),
+                    SizedBox(width: 16),
+                    _buildQuickStat('PITS', '${drivers.fold(0, (sum, d) => sum + d.pitStops)}', Colors.blue),
+                  ],
                 ),
               ],
             ),
           ),
+
+          // Track visualization takes most of the space
           Expanded(
             child: CustomPaint(
-              painter: TrackPainter(
+              painter: CleanTrackPainter(
                 drivers: drivers,
                 currentLap: currentLap,
                 totalLaps: totalLaps,
@@ -919,6 +682,29 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuickStat(String label, String value, Color color) {
+    return Row(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 10,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1005,7 +791,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
   Widget _buildDriverRow(Driver driver, int index) {
     double gapToLeader = index == 0 ? 0.0 : (driver.isDNF() ? 0.0 : driver.totalTime - drivers[0].totalTime);
-    double intervalGap = index == 0 ? 0.0 : (driver.isDNF() ? 0.0 : driver.totalTime - drivers[index - 1].totalTime);
     bool isLeader = index == 0;
 
     return AnimatedContainer(
@@ -1034,30 +819,22 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Center(
-                    child: AnimatedSwitcher(
-                      duration: Duration(milliseconds: 200),
-                      child: Text(
-                        driver.isDNF() ? 'DNF' : '${driver.position}',
-                        key: ValueKey(driver.isDNF() ? 'DNF' : driver.position),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: driver.isDNF() ? 8 : 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    child: Text(
+                      driver.isDNF() ? 'DNF' : '${driver.position}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: driver.isDNF() ? 8 : 12,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
                 SizedBox(width: 4),
                 if (driver.positionChangeFromStart != 0)
-                  AnimatedSwitcher(
-                    duration: Duration(milliseconds: 300),
-                    child: Icon(
-                      driver.positionChangeFromStart > 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                      key: ValueKey(driver.positionChangeFromStart > 0 ? 'up' : 'down'),
-                      color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
-                      size: 12,
-                    ),
+                  Icon(
+                    driver.positionChangeFromStart > 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                    color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
+                    size: 12,
                   ),
               ],
             ),
@@ -1087,148 +864,94 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                     ],
                   ],
                 ),
-                Text(
-                  driver.team.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 4),
-                if (driver.pitStops > 0)
-                  AnimatedSwitcher(
-                    duration: Duration(milliseconds: 300),
-                    child: Container(
-                      key: ValueKey(driver.pitStops),
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${driver.pitStops} PIT${driver.pitStops > 1 ? 'S' : ''}',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            width: 60,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
                 Row(
                   children: [
-                    AnimatedSwitcher(
-                      duration: Duration(milliseconds: 400),
-                      child: AnimatedBuilder(
-                        animation: _pulseAnimation,
-                        builder: (context, child) {
-                          bool isCritical =
-                              driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier > 2.0;
-                          return Container(
-                            key: ValueKey(driver.currentCompound),
-                            padding: EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: isCritical ? Colors.red.withOpacity(_pulseAnimation.value) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              driver.currentCompound.icon,
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          );
-                        },
+                    Text(
+                      driver.team.toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    SizedBox(width: 4),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AnimatedSwitcher(
-                            duration: Duration(milliseconds: 200),
-                            child: Text(
-                              '${driver.lapsOnCurrentTires}',
-                              key: ValueKey(driver.lapsOnCurrentTires),
-                              style: TextStyle(
-                                color: _getTireWearColor(
-                                    driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier),
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                    if (driver.pitStops > 0) ...[
+                      SizedBox(width: 8),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${driver.pitStops} PIT${driver.pitStops > 1 ? 'S' : ''}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
                           ),
-                          SizedBox(height: 2),
-                          Container(
-                            height: 2,
-                            width: 32,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[700],
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                            child: FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor:
-                                  ((driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier) / 3.0)
-                                      .clamp(0.0, 1.0),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _getTireWearColor(
-                                      driver.calculateTyreDegradation() * currentTrack.tireDegradationMultiplier),
-                                  borderRadius: BorderRadius.circular(1),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
           Container(
-            width: 100,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            width: 60,
+            child: Row(
               children: [
-                AnimatedSwitcher(
-                  duration: Duration(milliseconds: 300),
-                  child: Text(
-                    driver.isDNF() ? 'DNF' : (isLeader ? 'LEADER' : '+${gapToLeader.toStringAsFixed(1)}'),
-                    key: ValueKey(driver.isDNF() ? 'DNF' : (isLeader ? 'LEADER' : gapToLeader.toStringAsFixed(1))),
-                    style: TextStyle(
-                      color: driver.isDNF() ? Colors.grey[500] : (isLeader ? Colors.yellow : Colors.white),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.right,
+                Text(
+                  driver.currentCompound.icon,
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(width: 4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${driver.lapsOnCurrentTires}',
+                        style: TextStyle(
+                          color: _getTireWearColor(driver.calculateTyreDegradation()),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Container(
+                        height: 2,
+                        width: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[700],
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: (driver.calculateTyreDegradation() / 3.0).clamp(0.0, 1.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _getTireWearColor(driver.calculateTyreDegradation()),
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (index > 0 && !driver.isDNF())
-                  AnimatedSwitcher(
-                    duration: Duration(milliseconds: 300),
-                    child: Text(
-                      'Δ${intervalGap.toStringAsFixed(1)}',
-                      key: ValueKey(intervalGap.toStringAsFixed(1)),
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
               ],
+            ),
+          ),
+          Container(
+            width: 100,
+            child: Text(
+              driver.isDNF() ? 'DNF' : (isLeader ? 'LEADER' : '+${gapToLeader.toStringAsFixed(1)}'),
+              style: TextStyle(
+                color: driver.isDNF() ? Colors.grey[500] : (isLeader ? Colors.yellow : Colors.white),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.right,
             ),
           ),
         ],
@@ -1265,13 +988,10 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
   Color _getRowColor(Driver driver, int index) {
     if (driver.isDNF()) return Colors.grey[850]!;
-
     if (index == 0) return Colors.yellow.withOpacity(0.1);
     if (index == 1) return Colors.grey[300]!.withOpacity(0.1);
     if (index == 2) return Colors.orange.withOpacity(0.1);
-
     if (index < 10) return Colors.green.withOpacity(0.05);
-
     return Colors.grey[900]!;
   }
 
@@ -1333,13 +1053,14 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   }
 }
 
-class TrackPainter extends CustomPainter {
+// Clean, simple track painter - Linear view optimized for clarity
+class CleanTrackPainter extends CustomPainter {
   final List<Driver> drivers;
   final int currentLap;
   final int totalLaps;
   final Animation<double> trackAnimation;
 
-  TrackPainter({
+  CleanTrackPainter({
     required this.drivers,
     required this.currentLap,
     required this.totalLaps,
@@ -1348,209 +1069,225 @@ class TrackPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final trackRadius = min(size.width, size.height) * 0.35;
-    final pitLaneRadius = trackRadius + 30;
+    _paintLinearTrack(canvas, size);
+  }
+
+  void _paintLinearTrack(Canvas canvas, Size size) {
+    // Use much more space - track takes up most of the screen
+    final trackHeight = size.height * 0.5; // 50% of screen height
+    final trackY = size.height * 0.15; // Start higher up
+    final trackWidth = size.width - 40; // Use almost full width
+    final trackStartX = 20.0;
 
     // Draw track
-    _drawTrack(canvas, center, trackRadius);
+    _drawCleanTrack(canvas, trackStartX, trackY, trackWidth, trackHeight);
 
-    // Draw pit lane
-    _drawPitLane(canvas, center, pitLaneRadius, trackRadius);
-
-    // Draw start/finish line
-    _drawStartFinishLine(canvas, center, trackRadius);
+    // Draw lap markers
+    _drawLapMarkers(canvas, trackStartX, trackY, trackWidth, trackHeight);
 
     // Draw cars
-    _drawCars(canvas, center, trackRadius);
+    _drawCarsOnTrack(canvas, trackStartX, trackY, trackWidth, trackHeight);
 
-    // Draw track info
-    _drawTrackInfo(canvas, size);
+    // Draw info
+    _drawTrackInfo(canvas, size, trackStartX, trackY, trackWidth);
   }
 
-  void _drawTrack(Canvas canvas, Offset center, double radius) {
+  void _drawCleanTrack(Canvas canvas, double startX, double trackY, double width, double height) {
+    // Much larger track background
     final trackPaint = Paint()
       ..color = Colors.grey[700]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 40;
+      ..style = PaintingStyle.fill;
 
-    final trackOutlinePaint = Paint()
-      ..color = Colors.grey[600]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 44;
-
-    // Outer outline
-    canvas.drawCircle(center, radius, trackOutlinePaint);
-    // Track surface
-    canvas.drawCircle(center, radius, trackPaint);
-
-    // Track markings (dashed line in middle)
-    final dashPaint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    const dashLength = 10.0;
-    const dashSpace = 5.0;
-    final circumference = 2 * pi * radius;
-    final totalDashes = circumference / (dashLength + dashSpace);
-
-    for (int i = 0; i < totalDashes; i++) {
-      final angle = (i / totalDashes) * 2 * pi;
-      final startAngle = angle;
-      final endAngle = angle + (dashLength / circumference) * 2 * pi;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle - pi / 2,
-        endAngle - startAngle,
-        false,
-        dashPaint,
-      );
-    }
-  }
-
-  void _drawPitLane(Canvas canvas, Offset center, double pitRadius, double trackRadius) {
-    final pitPaint = Paint()
-      ..color = Colors.blue[800]!.withOpacity(0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 20;
-
-    // Draw pit lane (partial arc on the right side)
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: pitRadius),
-      -pi / 3, // Start angle
-      2 * pi / 3, // Sweep angle
-      false,
-      pitPaint,
+    final trackRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(startX, trackY, width, height),
+      Radius.circular(16),
     );
 
-    // Pit lane entrance/exit lines
-    final linePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+    canvas.drawRRect(trackRect, trackPaint);
 
-    // Entrance line
-    final entranceAngle = -pi / 3;
-    final entranceStart = Offset(
-      center.dx + (trackRadius - 20) * cos(entranceAngle),
-      center.dy + (trackRadius - 20) * sin(entranceAngle),
-    );
-    final entranceEnd = Offset(
-      center.dx + (pitRadius + 10) * cos(entranceAngle),
-      center.dy + (pitRadius + 10) * sin(entranceAngle),
-    );
-    canvas.drawLine(entranceStart, entranceEnd, linePaint);
-
-    // Exit line
-    final exitAngle = pi / 3;
-    final exitStart = Offset(
-      center.dx + (trackRadius - 20) * cos(exitAngle),
-      center.dy + (trackRadius - 20) * sin(exitAngle),
-    );
-    final exitEnd = Offset(
-      center.dx + (pitRadius + 10) * cos(exitAngle),
-      center.dy + (pitRadius + 10) * sin(exitAngle),
-    );
-    canvas.drawLine(exitStart, exitEnd, linePaint);
-  }
-
-  void _drawStartFinishLine(Canvas canvas, Offset center, double radius) {
-    final linePaint = Paint()
+    // Thicker track boundaries
+    final boundaryPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6;
 
-    final checkeredPaint = Paint()
+    canvas.drawRRect(trackRect, boundaryPaint);
+
+    // More prominent racing line in center
+    final racingLinePaint = Paint()
+      ..color = Colors.blue.withOpacity(0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5;
+
+    canvas.drawLine(
+      Offset(startX + 40, trackY + height / 2),
+      Offset(startX + width - 40, trackY + height / 2),
+      racingLinePaint,
+    );
+
+    // Larger start/finish line
+    final startLinePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8;
+
+    canvas.drawLine(
+      Offset(startX + 40, trackY - 10),
+      Offset(startX + 40, trackY + height + 10),
+      startLinePaint,
+    );
+
+    // Larger checkered pattern for start/finish
+    final checkerPaint = Paint()
       ..color = Colors.black
       ..style = PaintingStyle.fill;
 
-    // Start/finish line at top of track
-    final lineStart = Offset(center.dx, center.dy - radius - 20);
-    final lineEnd = Offset(center.dx, center.dy - radius + 20);
-
-    canvas.drawLine(lineStart, lineEnd, linePaint);
-
-    // Checkered pattern
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 10; i++) {
       if (i % 2 == 0) {
-        final rect = Rect.fromLTWH(
-          center.dx - 3 + (i % 2) * 3,
-          center.dy - radius - 20 + i * 5,
-          3,
-          5,
+        canvas.drawRect(
+          Rect.fromLTWH(startX + 36 + (i % 2) * 4, trackY + i * 8, 4, 8),
+          checkerPaint,
         );
-        canvas.drawRect(rect, checkeredPaint);
       }
     }
 
-    // "START/FINISH" text
-    final textPainter = TextPainter(
+    // Add "START/FINISH" text
+    final startTextPainter = TextPainter(
       text: TextSpan(
         text: 'START/FINISH',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: FontWeight.bold,
           letterSpacing: 1,
         ),
       ),
       textDirection: TextDirection.ltr,
     );
-    textPainter.layout();
-    textPainter.paint(
+    startTextPainter.layout();
+    startTextPainter.paint(
       canvas,
-      Offset(center.dx - textPainter.width / 2, center.dy - radius - 45),
+      Offset(startX + 45, trackY - 50),
     );
   }
 
-  void _drawCars(Canvas canvas, Offset center, double radius) {
-    if (drivers.isEmpty || totalLaps == 0) return;
+  void _drawLapMarkers(Canvas canvas, double startX, double trackY, double width, double height) {
+    // Draw lap markers every 10 laps
+    for (int lap = 0; lap <= totalLaps; lap += 10) {
+      if (lap == 0) continue; // Skip start line
 
-    // Sort drivers by position for better visual
-    List<Driver> sortedDrivers = List.from(drivers);
-    sortedDrivers.sort((a, b) => a.position.compareTo(b.position));
+      double x = startX + 40 + (lap / totalLaps) * (width - 80);
 
-    for (int i = 0; i < sortedDrivers.length; i++) {
-      final driver = sortedDrivers[i];
-      if (driver.isDNF()) continue;
+      final markerPaint = Paint()
+        ..color = Colors.white.withOpacity(0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
 
-      // Calculate car position on track
-      double lapProgress = 0.0;
-      if (currentLap > 0 && driver.lapsCompleted > 0) {
-        // Estimate lap progress based on time gaps
-        if (i == 0) {
-          // Leader - estimate based on current lap progress
-          lapProgress = (currentLap - 1) + 0.5; // Rough estimation
-        } else {
-          // Other drivers - position based on gap to leader
-          double gapToLeader = driver.totalTime - drivers[0].totalTime;
-          double estimatedLapTime = 90.0; // Rough average
-          double lapsBehind = gapToLeader / estimatedLapTime;
-          lapProgress = max(0, (currentLap - 1) + 0.5 - lapsBehind);
-        }
-      }
-
-      // Convert to angle (0 = top of track, clockwise)
-      double trackPosition = (lapProgress / totalLaps) * 2 * pi;
-      double angle = trackPosition - pi / 2; // Adjust so 0 is at top
-
-      // Add small offset so cars don't overlap
-      double carRadius = radius + (i % 3 - 1) * 8; // Spread cars across track width
-
-      // Calculate car position
-      final carPos = Offset(
-        center.dx + carRadius * cos(angle),
-        center.dy + carRadius * sin(angle),
+      canvas.drawLine(
+        Offset(x, trackY + 20),
+        Offset(x, trackY + height - 20),
+        markerPaint,
       );
 
-      // Draw car
-      _drawCar(canvas, carPos, driver, angle);
+      // Larger lap numbers
+      final lapTextPainter = TextPainter(
+        text: TextSpan(
+          text: '$lap',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      lapTextPainter.layout();
+      lapTextPainter.paint(canvas, Offset(x - lapTextPainter.width / 2, trackY - 30));
     }
   }
 
-  void _drawCar(Canvas canvas, Offset position, Driver driver, double angle) {
+  void _drawCarsOnTrack(Canvas canvas, double startX, double trackY, double width, double height) {
+    if (drivers.isEmpty || totalLaps == 0) return;
+
+    // Calculate car positions based on their progress
+    List<CarTrackPosition> carPositions = _calculateCarTrackPositions(startX, trackY, width, height);
+
+    // Draw cars in order
+    for (CarTrackPosition carPos in carPositions) {
+      _drawCarOnTrack(canvas, carPos);
+    }
+
+    // Draw position gaps
+    _drawPositionGaps(canvas, carPositions);
+  }
+
+  List<CarTrackPosition> _calculateCarTrackPositions(double startX, double trackY, double width, double height) {
+    List<CarTrackPosition> positions = [];
+
+    if (drivers.isEmpty) return positions;
+
+    // Get leader for reference
+    Driver leader = drivers.firstWhere((d) => !d.isDNF(), orElse: () => drivers.first);
+    double leaderTime = leader.totalTime;
+
+    // Available height for cars - use more lanes to spread them out
+    final availableHeight = height - 40; // Leave margins
+    final numLanes = min(12, max(8, drivers.length)); // 8-12 lanes depending on driver count
+    final laneHeight = availableHeight / numLanes;
+
+    for (int i = 0; i < drivers.length; i++) {
+      Driver driver = drivers[i];
+      if (driver.isDNF()) continue;
+
+      // Better progress calculation - spread cars out more
+      double progress;
+      if (currentLap == 0) {
+        // At start, spread cars out in starting grid formation
+        progress = 0.02 + (i * 0.015); // Small spacing at start
+      } else {
+        // During race, use time gaps
+        double timeGap = driver.totalTime - leaderTime;
+        double averageLapTime = 90.0;
+        double lapsBehind = timeGap / averageLapTime;
+
+        // Enhanced progress calculation
+        progress = ((currentLap + driver.lapsCompleted - lapsBehind) / totalLaps);
+        progress = progress.clamp(0.0, 0.95); // Don't let cars go off track
+      }
+
+      // Position on track - use more width
+      double x = startX + 40 + progress * (width - 80);
+
+      // Better lane assignment - distribute more evenly
+      int lane;
+      if (i < 3) {
+        // Top 3 in center lanes
+        lane = numLanes ~/ 2 + (i - 1);
+      } else {
+        // Others distributed around
+        lane = i % numLanes;
+      }
+
+      double y = trackY + 20 + (lane * laneHeight) + (laneHeight / 2);
+
+      positions.add(CarTrackPosition(
+        driver: driver,
+        x: x,
+        y: y,
+        progress: progress,
+        timeGap: driver.totalTime - leaderTime,
+      ));
+    }
+
+    return positions;
+  }
+
+  void _drawCarOnTrack(Canvas canvas, CarTrackPosition carPos) {
+    final driver = carPos.driver;
+    final x = carPos.x;
+    final y = carPos.y;
+
+    // Much larger car body since we have more space
     final carPaint = Paint()
       ..color = _getTeamColor(driver.team)
       ..style = PaintingStyle.fill;
@@ -1558,49 +1295,283 @@ class TrackPainter extends CustomPainter {
     final outlinePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 3;
 
-    // Car body (rounded rectangle)
+    // Larger car shape
     final carRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: position, width: 16, height: 8),
-      Radius.circular(4),
+      Rect.fromCenter(center: Offset(x, y), width: 60, height: 24),
+      Radius.circular(12),
     );
 
     canvas.drawRRect(carRect, carPaint);
     canvas.drawRRect(carRect, outlinePaint);
 
-    // Position number
-    final textPainter = TextPainter(
+    // Much larger position number
+    final positionTextPainter = TextPainter(
       text: TextSpan(
         text: '${driver.position}',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 10,
+          fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
       ),
       textDirection: TextDirection.ltr,
     );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        position.dx - textPainter.width / 2,
-        position.dy - textPainter.height / 2,
+    positionTextPainter.layout();
+
+    // Position background
+    final numberBgPaint = Paint()
+      ..color = Colors.black.withOpacity(0.8)
+      ..style = PaintingStyle.fill;
+
+    final numberRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(x, y),
+        width: positionTextPainter.width + 10,
+        height: positionTextPainter.height + 6,
       ),
+      Radius.circular(6),
     );
 
-    // Tire compound indicator (small colored dot)
+    canvas.drawRRect(numberRect, numberBgPaint);
+    positionTextPainter.paint(
+      canvas,
+      Offset(x - positionTextPainter.width / 2, y - positionTextPainter.height / 2),
+    );
+
+    // Driver name above car (larger)
+    final nameTextPainter = TextPainter(
+      text: TextSpan(
+        text: driver.name.toUpperCase(),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    nameTextPainter.layout();
+    nameTextPainter.paint(
+      canvas,
+      Offset(x - nameTextPainter.width / 2, y - 45),
+    );
+
+    // Larger tire compound indicator
     final tireColor = _getTireCompoundColor(driver.currentCompound);
     final tirePaint = Paint()
       ..color = tireColor
       ..style = PaintingStyle.fill;
 
-    canvas.drawCircle(
-      Offset(position.dx + 10, position.dy - 6),
-      3,
-      tirePaint,
+    canvas.drawCircle(Offset(x + 35, y - 15), 8, tirePaint);
+
+    // Larger status indicators
+    if (driver.hasActiveMechanicalIssue) {
+      final mechanicalPaint = Paint()
+        ..color = Colors.orange
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(x + 35, y + 15), 6, mechanicalPaint);
+    }
+
+    if (driver.errorCount > 0) {
+      final errorPaint = Paint()
+        ..color = Colors.red
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(x - 35, y + 15), 6, errorPaint);
+    }
+  }
+
+  void _drawPositionGaps(Canvas canvas, List<CarTrackPosition> positions) {
+    // Draw gap lines between consecutive positions
+    final gapPaint = Paint()
+      ..color = Colors.yellow.withOpacity(0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    for (int i = 1; i < positions.length; i++) {
+      CarTrackPosition current = positions[i];
+      CarTrackPosition previous = positions[i - 1];
+
+      // Only show gaps less than 30 seconds
+      if (current.timeGap > 30.0) continue;
+
+      // Draw connection line
+      canvas.drawLine(
+        Offset(previous.x, previous.y + 12),
+        Offset(current.x, current.y + 12),
+        gapPaint,
+      );
+
+      // Gap time text
+      if (current.timeGap > 0.1) {
+        final gapTextPainter = TextPainter(
+          text: TextSpan(
+            text: '+${current.timeGap.toStringAsFixed(1)}s',
+            style: TextStyle(
+              color: Colors.yellow,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        gapTextPainter.layout();
+
+        double midX = (previous.x + current.x) / 2;
+        double midY = (previous.y + current.y) / 2 + 20;
+
+        gapTextPainter.paint(
+          canvas,
+          Offset(midX - gapTextPainter.width / 2, midY),
+        );
+      }
+    }
+  }
+
+  void _drawTrackInfo(Canvas canvas, Size size, double startX, double trackY, double width) {
+    // Position progress bar below the track
+    double progressBarY = trackY + size.height * 0.5 + 20;
+    double progress = (currentLap / totalLaps).clamp(0.0, 1.0);
+
+    // Progress background
+    final progressBgPaint = Paint()
+      ..color = Colors.grey[800]!
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(startX, progressBarY, width, 12),
+        Radius.circular(6),
+      ),
+      progressBgPaint,
     );
+
+    // Progress fill
+    final progressPaint = Paint()
+      ..color = Colors.red[600]!
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(startX, progressBarY, width * progress, 12),
+        Radius.circular(6),
+      ),
+      progressPaint,
+    );
+
+    // Lap indicator (larger text)
+    final lapTextPainter = TextPainter(
+      text: TextSpan(
+        text: 'LAP $currentLap / $totalLaps',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    lapTextPainter.layout();
+    lapTextPainter.paint(canvas, Offset(startX, progressBarY + 25));
+
+    // Race completion percentage
+    final percentTextPainter = TextPainter(
+      text: TextSpan(
+        text: '${(progress * 100).toInt()}% COMPLETE',
+        style: TextStyle(
+          color: Colors.grey[400],
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    percentTextPainter.layout();
+    percentTextPainter.paint(canvas, Offset(size.width - startX - percentTextPainter.width, progressBarY + 25));
+
+    // Legend at bottom
+    _drawSimpleLegend(canvas, size);
+  }
+
+  void _drawSimpleLegend(Canvas canvas, Size size) {
+    final legendY = size.height - 60; // Closer to bottom
+
+    // Tire compounds (more compact)
+    final compounds = [
+      {'name': 'SOFT', 'color': Colors.red},
+      {'name': 'MED', 'color': Colors.yellow},
+      {'name': 'HARD', 'color': Colors.white},
+      {'name': 'INTER', 'color': Colors.green},
+      {'name': 'WET', 'color': Colors.blue},
+    ];
+
+    double compoundStartX = 30.0;
+    for (int i = 0; i < compounds.length; i++) {
+      final compound = compounds[i];
+      final x = compoundStartX + i * 70;
+
+      final tirePaint = Paint()
+        ..color = compound['color'] as Color
+        ..style = PaintingStyle.fill;
+
+      // Larger tire indicators
+      canvas.drawCircle(Offset(x, legendY), 10, tirePaint);
+
+      // White outline for visibility
+      final outlinePaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawCircle(Offset(x, legendY), 10, outlinePaint);
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: compound['name'] as String,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(x - textPainter.width / 2, legendY + 15));
+    }
+
+    // Status indicators (right side, more compact)
+    final statusStartX = size.width - 180;
+    final statusItems = [
+      {'label': 'ERROR', 'color': Colors.red},
+      {'label': 'MECHANICAL', 'color': Colors.orange},
+    ];
+
+    for (int i = 0; i < statusItems.length; i++) {
+      final item = statusItems[i];
+      final x = statusStartX + i * 90;
+
+      final statusPaint = Paint()
+        ..color = item['color'] as Color
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(Offset(x, legendY), 8, statusPaint);
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: item['label'] as String,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(x + 12, legendY - textPainter.height / 2));
+    }
   }
 
   Color _getTeamColor(String team) {
@@ -1637,69 +1608,27 @@ class TrackPainter extends CustomPainter {
     }
   }
 
-  void _drawTrackInfo(Canvas canvas, Size size) {
-    // Draw legend
-    final legendY = size.height - 100;
-
-    // Tire compound legend
-    final compounds = [
-      {'name': 'SOFT', 'color': Colors.red, 'icon': '🔴'},
-      {'name': 'MEDIUM', 'color': Colors.yellow, 'icon': '🟡'},
-      {'name': 'HARD', 'color': Colors.white, 'icon': '⚪'},
-      {'name': 'INTER', 'color': Colors.green, 'icon': '🟢'},
-      {'name': 'WET', 'color': Colors.blue, 'icon': '🔵'},
-    ];
-
-    for (int i = 0; i < compounds.length; i++) {
-      final compound = compounds[i];
-      final x = 20.0 + i * 60;
-
-      // Draw tire indicator
-      final tirePaint = Paint()
-        ..color = compound['color'] as Color
-        ..style = PaintingStyle.fill;
-
-      canvas.drawCircle(Offset(x, legendY), 6, tirePaint);
-
-      // Draw label
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: compound['name'] as String,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x - textPainter.width / 2, legendY + 10));
-    }
-
-    // Current lap info
-    final lapTextPainter = TextPainter(
-      text: TextSpan(
-        text: 'LAP $currentLap / $totalLaps',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    lapTextPainter.layout();
-    lapTextPainter.paint(
-      canvas,
-      Offset(size.width - lapTextPainter.width - 20, 20),
-    );
-  }
-
   @override
-  bool shouldRepaint(TrackPainter oldDelegate) {
+  bool shouldRepaint(CleanTrackPainter oldDelegate) {
     return oldDelegate.currentLap != currentLap ||
         oldDelegate.drivers != drivers ||
         oldDelegate.trackAnimation != trackAnimation;
   }
+}
+
+// Helper class for car positioning on linear track
+class CarTrackPosition {
+  final Driver driver;
+  final double x;
+  final double y;
+  final double progress;
+  final double timeGap;
+
+  CarTrackPosition({
+    required this.driver,
+    required this.x,
+    required this.y,
+    required this.progress,
+    required this.timeGap,
+  });
 }
