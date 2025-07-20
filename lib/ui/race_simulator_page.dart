@@ -27,7 +27,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   Track currentTrack = TrackData.getDefaultTrack();
 
   late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
 
   // Track visualization animations
   late AnimationController _trackController;
@@ -71,9 +70,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     _pulseController = AnimationController(
       duration: Duration(milliseconds: 800),
       vsync: this,
-    );
-    _pulseAnimation = Tween<double>(begin: 0.2, end: 0.6).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _pulseController.repeat(reverse: true);
   }
