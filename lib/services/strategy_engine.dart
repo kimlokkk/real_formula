@@ -1,4 +1,4 @@
-// Enhanced Strategy Engine with Mandatory Compound Rule and Track Awareness
+// Enhanced Strategy Engine with Realistic Tire Degradation and Track Awareness
 import 'dart:math';
 import '../models/driver.dart';
 import '../models/enums.dart';
@@ -15,6 +15,7 @@ class StrategyEngine {
     if (currentLap > totalLaps - F1Constants.lastLapsToPit) return false;
 
     double currentDegradation = driver.calculateTyreDegradation();
+    double trackAdjustedDegradation = currentDegradation * track.tireDegradationMultiplier;
 
     // MANDATORY PIT STOP: Must pit at least once
     bool mustPitSoon = driver.pitStops == 0 && currentLap >= totalLaps - F1Constants.lastMandatoryPitLaps;
@@ -23,64 +24,72 @@ class StrategyEngine {
     bool mustChangeCompound = _mustUseSecondCompound(driver, currentLap, totalLaps);
 
     // TRACK-SPECIFIC STRATEGY ADJUSTMENTS
-    double trackAggressionMultiplier = 1.0;
+    double trackAggressionMultiplier = _calculateTrackAggressionMultiplier(track);
 
-    // Hard-to-overtake tracks reduce pit aggression (Monaco, Hungary)
-    if (track.overtakingDifficulty < 0.4) {
-      trackAggressionMultiplier *= 0.7; // Much more conservative
-    }
-    // Easy-to-overtake tracks increase pit aggression (Monza, Spa)
-    else if (track.overtakingDifficulty > 0.7) {
-      trackAggressionMultiplier *= 1.3; // More aggressive
-    }
+    // ENHANCED: Compound-specific emergency thresholds
+    double emergencyThreshold = _getEmergencyThreshold(driver.currentCompound);
+    double aggressiveThreshold = _getAggressiveThreshold(driver.currentCompound);
+    double conservativeThreshold = _getConservativeThreshold(driver.currentCompound);
 
-    // High tire degradation tracks encourage earlier pit stops
-    if (track.tireDegradationMultiplier > 1.2) {
-      trackAggressionMultiplier *= 1.2;
+    // EMERGENCY: Tire degradation is killing pace
+    if (trackAdjustedDegradation > emergencyThreshold) {
+      return true;
     }
 
-    // Enhanced pit strategy with skill-based thinking
-    int basePitLap = F1Constants.basePitLapMin + (driver.tyreManagementSkill ~/ 4);
-    int pitWindowVariation = Random().nextInt(F1Constants.pitVariation) - (F1Constants.pitVariation ~/ 2);
-    int idealPitLap = basePitLap + pitWindowVariation;
-
-    // Track position influences
-    bool inLeadingGroup = driver.position <= 3;
-    bool inMidfield = driver.position >= 4 && driver.position <= 7;
-    bool atBack = driver.position >= 8;
-
-    // EMERGENCY: Tire degradation is killing pace (apply track multiplier)
-    if (currentDegradation * track.tireDegradationMultiplier > 2.0) return true;
+    // CLIFF WARNING: Approaching tire performance cliff
+    if (driver.isApproachingTireCliff()) {
+      // Force pit if degradation is already significant and approaching cliff
+      if (trackAdjustedDegradation > (conservativeThreshold * 0.7)) {
+        return true;
+      }
+    }
 
     // MANDATORY COMPOUND RULE: Force pit if must change compound and running out of time
     if (mustChangeCompound && currentLap >= totalLaps - 15) {
       return true;
     }
 
-    // STRATEGIC DECISIONS based on driver skills
+    // Enhanced pit strategy with skill-based thinking
+    int basePitLap = F1Constants.basePitLapMin + (driver.tyreManagementSkill ~/ 4);
+    int pitWindowVariation = Random().nextInt(F1Constants.pitVariation) - (F1Constants.pitVariation ~/ 2);
+
+    // ENHANCED: Adjust pit window based on compound being used
+    int compoundAdjustment = _getCompoundPitAdjustment(driver.currentCompound);
+    int idealPitLap = basePitLap + pitWindowVariation + compoundAdjustment;
+
+    // Track position influences
+    bool inLeadingGroup = driver.position <= 3;
+    bool inMidfield = driver.position >= 4 && driver.position <= 7;
+    bool atBack = driver.position >= 8;
+
+    // STRATEGIC DECISIONS based on driver skills and realistic thresholds
     if (driver.pitStops == 0 && currentLap >= 18) {
       // SPEED-BASED STRATEGY: Higher speed = more confident in aggressive moves
       double speedConfidence = driver.speed / 100.0;
+
+      // ENHANCED: Use compound-specific thresholds for undercut attempts
       bool canUndercut = gapAhead < F1Constants.underCutGap &&
-          currentDegradation > (0.8 / trackAggressionMultiplier) &&
+          trackAdjustedDegradation > (aggressiveThreshold / trackAggressionMultiplier) &&
           currentLap >= 22;
       if (canUndercut && Random().nextDouble() < (0.1 + speedConfidence * 0.4) * trackAggressionMultiplier) {
         return true;
       }
 
       // SAFE PIT WINDOW: Large gap behind means minimal position loss
-      bool safePitWindow = gapBehind > F1Constants.safeGap && currentDegradation > (0.6 / trackAggressionMultiplier);
+      bool safePitWindow = gapBehind > F1Constants.safeGap &&
+          trackAdjustedDegradation > (conservativeThreshold / trackAggressionMultiplier);
       if (safePitWindow && currentLap >= idealPitLap - 5) {
         return true;
       }
 
       // TIRE MANAGEMENT STRATEGY: Better tire management = willing to stay out longer
       double tireConfidence = driver.tyreManagementSkill / 100.0;
-      double stayOutThreshold = (0.8 + (tireConfidence * 0.8)) / trackAggressionMultiplier;
-      bool shouldStayOut = currentDegradation < stayOutThreshold && currentLap <= idealPitLap + 3;
+      double stayOutThreshold =
+          (conservativeThreshold + (tireConfidence * aggressiveThreshold)) / trackAggressionMultiplier;
+      bool shouldStayOut = trackAdjustedDegradation < stayOutThreshold && currentLap <= idealPitLap + 3;
 
-      // Override stay out decision if must change compound
-      if (mustChangeCompound) {
+      // Override stay out decision if must change compound or approaching cliff
+      if (mustChangeCompound || driver.isApproachingTireCliff()) {
         shouldStayOut = false;
       }
 
@@ -88,18 +97,20 @@ class StrategyEngine {
         return true;
       }
 
-      // Position-specific strategies influenced by skills
+      // Position-specific strategies influenced by skills and realistic thresholds
       if (inLeadingGroup) {
         // SPECIAL LEADER LOGIC: P1 can make strategic moves
         if (driver.position == 1) {
           // DEFENSIVE UNDERCUT: Prevent P2 from undercutting
-          bool defensiveUndercut = gapBehind < 18.0 && currentDegradation > (0.6 / trackAggressionMultiplier);
+          bool defensiveUndercut =
+              gapBehind < 18.0 && trackAdjustedDegradation > (conservativeThreshold / trackAggressionMultiplier);
           if (defensiveUndercut && Random().nextDouble() < 0.4 * trackAggressionMultiplier) {
             return true;
           }
 
           // STRATEGIC UNDERCUT: Large gap allows safe early pit
-          bool strategicUndercut = gapBehind > 28.0 && currentDegradation > (0.8 / trackAggressionMultiplier);
+          bool strategicUndercut =
+              gapBehind > 28.0 && trackAdjustedDegradation > (aggressiveThreshold / trackAggressionMultiplier);
           if (strategicUndercut &&
               Random().nextDouble() < (0.15 + speedConfidence * 0.15) * trackAggressionMultiplier) {
             return true;
@@ -108,22 +119,24 @@ class StrategyEngine {
 
         // P2-P3 UNDERCUT ATTEMPTS: Attack the leader
         if (driver.position >= 2 && driver.position <= 3) {
-          bool canAttackAhead =
-              gapAhead < 25.0 && currentDegradation > (0.7 / trackAggressionMultiplier) && currentLap >= 22;
+          bool canAttackAhead = gapAhead < 25.0 &&
+              trackAdjustedDegradation > (aggressiveThreshold / trackAggressionMultiplier) &&
+              currentLap >= 22;
           if (canAttackAhead && Random().nextDouble() < (speedConfidence * 0.4) * trackAggressionMultiplier) {
             return true;
           }
         }
 
         // TRADITIONAL LEADER LOGIC: Conservative degradation-based pitting
-        double leaderThreshold = (1.0 + (tireConfidence * 0.6)) / trackAggressionMultiplier;
+        double leaderThreshold =
+            (aggressiveThreshold + (tireConfidence * conservativeThreshold)) / trackAggressionMultiplier;
 
         // Consistent drivers are more conservative with thresholds
         if (driver.consistency > 85) {
           leaderThreshold *= 0.9;
         }
 
-        if (currentDegradation > leaderThreshold && (gapBehind > 20.0 || gapAhead < 15.0)) {
+        if (trackAdjustedDegradation > leaderThreshold && (gapBehind > 20.0 || gapAhead < 15.0)) {
           return true;
         }
       }
@@ -134,7 +147,8 @@ class StrategyEngine {
         if (mustChangeCompound) {
           aggressionChance *= 1.3;
         }
-        if (currentDegradation > (0.9 / trackAggressionMultiplier) && Random().nextDouble() < aggressionChance) {
+        if (trackAdjustedDegradation > (aggressiveThreshold / trackAggressionMultiplier) &&
+            Random().nextDouble() < aggressionChance) {
           return true;
         }
       }
@@ -145,7 +159,8 @@ class StrategyEngine {
         if (mustChangeCompound) {
           desperationChance *= 1.4;
         }
-        if (currentDegradation > (0.6 / trackAggressionMultiplier) && Random().nextDouble() < desperationChance) {
+        if (trackAdjustedDegradation > (conservativeThreshold / trackAggressionMultiplier) &&
+            Random().nextDouble() < desperationChance) {
           return true;
         }
       }
@@ -155,6 +170,94 @@ class StrategyEngine {
     if (mustPitSoon) return true;
 
     return false;
+  }
+
+  // ENHANCED: Compound-specific emergency thresholds
+  static double _getEmergencyThreshold(TireCompound compound) {
+    switch (compound) {
+      case TireCompound.soft:
+        return F1Constants.softEmergencyThreshold;
+      case TireCompound.medium:
+        return F1Constants.mediumEmergencyThreshold;
+      case TireCompound.hard:
+        return F1Constants.hardEmergencyThreshold;
+      case TireCompound.intermediate:
+        return 1.8;
+      case TireCompound.wet:
+        return 2.2;
+    }
+  }
+
+  static double _getAggressiveThreshold(TireCompound compound) {
+    switch (compound) {
+      case TireCompound.soft:
+        return F1Constants.softAggressiveThreshold;
+      case TireCompound.medium:
+        return F1Constants.mediumAggressiveThreshold;
+      case TireCompound.hard:
+        return F1Constants.hardAggressiveThreshold;
+      case TireCompound.intermediate:
+        return 0.9;
+      case TireCompound.wet:
+        return 1.1;
+    }
+  }
+
+  static double _getConservativeThreshold(TireCompound compound) {
+    switch (compound) {
+      case TireCompound.soft:
+        return F1Constants.softConservativeThreshold;
+      case TireCompound.medium:
+        return F1Constants.mediumConservativeThreshold;
+      case TireCompound.hard:
+        return F1Constants.hardConservativeThreshold;
+      case TireCompound.intermediate:
+        return 0.6;
+      case TireCompound.wet:
+        return 0.8;
+    }
+  }
+
+  // ENHANCED: Compound-specific pit window adjustments
+  static int _getCompoundPitAdjustment(TireCompound compound) {
+    switch (compound) {
+      case TireCompound.soft:
+        return -5; // Pit earlier on softs
+      case TireCompound.medium:
+        return 0; // Standard timing
+      case TireCompound.hard:
+        return 8; // Can stay out longer on hards
+      case TireCompound.intermediate:
+        return -3;
+      case TireCompound.wet:
+        return -5;
+    }
+  }
+
+  // ENHANCED: More sophisticated track aggression calculation
+  static double _calculateTrackAggressionMultiplier(Track track) {
+    double multiplier = 1.0;
+
+    // Hard-to-overtake tracks reduce pit aggression (Monaco, Hungary)
+    if (track.overtakingDifficulty < 0.4) {
+      multiplier *= 0.6; // Much more conservative
+    }
+    // Easy-to-overtake tracks increase pit aggression (Monza, Spa)
+    else if (track.overtakingDifficulty > 0.7) {
+      multiplier *= 1.4; // More aggressive
+    }
+
+    // High tire degradation tracks encourage earlier pit stops
+    if (track.tireDegradationMultiplier > 1.2) {
+      multiplier *= 1.3;
+    }
+
+    // Tracks that favor two-stop strategies
+    if (track.favorsTwoStop) {
+      multiplier *= 1.2;
+    }
+
+    return multiplier;
   }
 
   /// Checks if driver must use a second compound type
@@ -258,20 +361,19 @@ class StrategyEngine {
       return TireCompound.medium;
     }
 
-    // BASE STRATEGIC PREFERENCE (position-based) - filtered by available compounds
-    List<TireCompound> strategicOptions = _getStrategicOptions(driver, currentLap, totalLaps, gapAhead, gapBehind)
-        .where((compound) => availableCompounds.contains(compound))
-        .toList();
+    // ENHANCED: Calculate remaining stint length to choose optimal compound
+    int estimatedStintLength = _estimateRemainingStintLength(currentLap, totalLaps, driver.pitStops);
 
-    if (strategicOptions.isEmpty) {
-      strategicOptions = availableCompounds;
-    }
+    // ENHANCED: Choose compound based on stint length requirements and track characteristics
+    TireCompound optimalCompound =
+        _selectOptimalCompoundForStint(availableCompounds, estimatedStintLength, track.tireDegradationMultiplier);
 
-    // ADD VARIABILITY FACTORS
+    // Apply variability factors with bias toward optimal compound
     Map<TireCompound, double> compoundProbabilities = {};
 
-    for (TireCompound compound in strategicOptions) {
-      double probability = _getBaseProbability(compound, strategicOptions);
+    for (TireCompound compound in availableCompounds) {
+      // Start with higher probability for optimal compound
+      double probability = compound == optimalCompound ? 0.6 : 0.2;
 
       // Apply all variability factors
       probability *= _getSkillMultiplier(driver, compound);
@@ -315,42 +417,43 @@ class StrategyEngine {
     return allDryCompounds;
   }
 
-  static List<TireCompound> _getStrategicOptions(
-      Driver driver, int currentLap, int totalLaps, double gapAhead, double gapBehind) {
-    List<TireCompound> options = [];
+  // ENHANCED: Calculate remaining stint length for smarter compound selection
+  static int _estimateRemainingStintLength(int currentLap, int totalLaps, int pitStops) {
+    int remainingLaps = totalLaps - currentLap;
 
-    // POSITION-BASED STRATEGIC FOUNDATION
-    if (driver.position <= 3) {
-      // LEADERS: Usually avoid extremes unless situation demands
-      if (gapBehind < 10.0) {
-        // Under pressure: more aggressive options
-        options = [TireCompound.soft, TireCompound.medium];
-      } else if (gapBehind > 30.0) {
-        // Safe lead: conservative options
-        options = [TireCompound.medium, TireCompound.hard];
+    if (pitStops == 0) {
+      // First stint, assume one more pit stop needed
+      return remainingLaps ~/ 2;
+    } else if (pitStops == 1) {
+      // Second stint, probably going to the end unless very long race
+      if (remainingLaps > 35) {
+        return remainingLaps ~/ 2; // Another stop likely
       } else {
-        // Balanced situation: all options available
-        options = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
-      }
-    } else if (driver.position <= 7) {
-      // MIDFIELD: Usually more aggressive to gain positions
-      if (gapAhead < 15.0) {
-        // Close to overtaking: aggressive options
-        options = [TireCompound.soft, TireCompound.medium];
-      } else {
-        // Standard midfield: balanced options
-        options = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+        return remainingLaps; // Go to the end
       }
     } else {
-      // BACKMARKERS: Often desperate, all options available
-      options = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+      // Multiple stops already, definitely going to the end
+      return remainingLaps;
     }
-
-    return options;
   }
 
-  static double _getBaseProbability(TireCompound compound, List<TireCompound> options) {
-    return 1.0 / options.length;
+  // ENHANCED: Select optimal compound based on stint length and track characteristics
+  static TireCompound _selectOptimalCompoundForStint(
+      List<TireCompound> available, int stintLength, double trackMultiplier) {
+    // Adjust stint thresholds based on track tire degradation
+    int softLimit = (15 / trackMultiplier).round(); // Softs good for shorter stints on easy tracks
+    int mediumLimit = (25 / trackMultiplier).round(); // Mediums good for medium stints
+
+    if (stintLength <= softLimit && available.contains(TireCompound.soft)) {
+      return TireCompound.soft;
+    } else if (stintLength <= mediumLimit && available.contains(TireCompound.medium)) {
+      return TireCompound.medium;
+    } else if (available.contains(TireCompound.hard)) {
+      return TireCompound.hard;
+    }
+
+    // Fallback to first available
+    return available.first;
   }
 
   static double _getSkillMultiplier(Driver driver, TireCompound compound) {

@@ -27,9 +27,9 @@ enum WeatherCondition {
 }
 
 enum TireCompound {
-  soft("Soft", "🔴", -0.8, 2.5, Colors.red),
-  medium("Medium", "🟡", 0.0, 1.0, Colors.yellow),
-  hard("Hard", "⚪", 0.6, 0.4, Colors.grey),
+  soft("Soft", "🔴", -0.8, 4.0, Colors.red), // Increased from 2.5 to 4.0 - much faster degradation
+  medium("Medium", "🟡", 0.0, 1.0, Colors.yellow), // Baseline unchanged
+  hard("Hard", "⚪", 0.6, 0.3, Colors.grey), // Decreased from 0.4 to 0.3 - even more durable
   intermediate("Inter", "🟢", 2.0, 1.5, Colors.green),
   wet("Wet", "🔵", 4.0, 1.0, Colors.blue);
 
@@ -37,7 +37,7 @@ enum TireCompound {
   final String name;
   final String icon;
   final double lapTimeDelta; // Seconds faster/slower than medium
-  final double degradationMultiplier; // Degradation rate vs medium
+  final double degradationMultiplier; // Degradation rate vs medium - now much more extreme
   final Color color;
 }
 

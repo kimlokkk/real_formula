@@ -2,7 +2,7 @@ import '../models/track.dart';
 
 class TrackData {
   static const List<Track> tracks = [
-    // Monaco - Ultimate driver track
+    // Monaco - Ultimate driver track, easy on tires due to low speed
     Track(
       name: "Monaco",
       country: "Monaco",
@@ -13,7 +13,7 @@ class TrackData {
       consistencyEmphasis: 1.4, // Consistency critical
       tireManagementEmphasis: 0.8, // Less tire management needed
       carPerformanceEmphasis: 0.7, // Car performance less important
-      tireDegradationMultiplier: 0.7, // Easy on tires
+      tireDegradationMultiplier: 0.6, // Very easy on tires (was 0.7)
       errorProbabilityMultiplier: 1.8, // High error probability
       mechanicalStressMultiplier: 0.9, // Lower mechanical stress
       weatherImpactMultiplier: 1.5, // Rain is devastating
@@ -22,7 +22,7 @@ class TrackData {
       favorsTwoStop: false, // Usually one-stop
     ),
 
-    // Monza - Power track
+    // Monza - Power track, moderate on tires
     Track(
       name: "Monza",
       country: "Italy",
@@ -33,7 +33,7 @@ class TrackData {
       consistencyEmphasis: 0.8, // Consistency less critical
       tireManagementEmphasis: 1.1, // Some tire management
       carPerformanceEmphasis: 1.4, // Car performance critical
-      tireDegradationMultiplier: 1.1, // Moderate tire wear
+      tireDegradationMultiplier: 1.1, // Moderate tire wear (unchanged)
       errorProbabilityMultiplier: 0.9, // Lower error probability
       mechanicalStressMultiplier: 1.3, // High mechanical stress
       weatherImpactMultiplier: 1.0, // Standard weather impact
@@ -42,7 +42,7 @@ class TrackData {
       favorsTwoStop: false, // Usually one-stop
     ),
 
-    // Silverstone - High-speed technical
+    // Silverstone - High-speed technical, hard on tires
     Track(
       name: "Silverstone",
       country: "United Kingdom",
@@ -53,7 +53,7 @@ class TrackData {
       consistencyEmphasis: 1.0, // Standard consistency needs
       tireManagementEmphasis: 1.2, // Tire management important
       carPerformanceEmphasis: 1.1, // Car performance important
-      tireDegradationMultiplier: 1.3, // Hard on tires
+      tireDegradationMultiplier: 1.4, // Very hard on tires (was 1.3)
       errorProbabilityMultiplier: 1.0, // Standard error rate
       mechanicalStressMultiplier: 1.1, // Moderate mechanical stress
       weatherImpactMultiplier: 1.2, // British weather!
@@ -62,7 +62,7 @@ class TrackData {
       favorsTwoStop: true, // Often favors two-stop
     ),
 
-    // Hungary - Technical/tire management
+    // Hungary - Technical/tire management, VERY hard on tires
     Track(
       name: "Hungaroring",
       country: "Hungary",
@@ -73,7 +73,7 @@ class TrackData {
       consistencyEmphasis: 1.2, // Consistency important
       tireManagementEmphasis: 1.4, // Tire management critical
       carPerformanceEmphasis: 0.9, // Car performance less important
-      tireDegradationMultiplier: 1.2, // Moderate-high tire wear
+      tireDegradationMultiplier: 1.5, // VERY hard on tires (was 1.2) - makes 35-lap stints impossible
       errorProbabilityMultiplier: 1.1, // Slightly higher error rate
       mechanicalStressMultiplier: 0.9, // Lower mechanical stress
       weatherImpactMultiplier: 1.1, // Moderate weather impact
@@ -82,7 +82,7 @@ class TrackData {
       favorsTwoStop: false, // Usually one-stop due to difficulty overtaking
     ),
 
-    // Spa - Mixed high-speed
+    // Spa - Mixed high-speed, moderate on tires
     Track(
       name: "Spa-Francorchamps",
       country: "Belgium",
@@ -93,7 +93,7 @@ class TrackData {
       consistencyEmphasis: 1.0, // Standard consistency
       tireManagementEmphasis: 1.0, // Standard tire management
       carPerformanceEmphasis: 1.2, // Car performance very important
-      tireDegradationMultiplier: 0.9, // Easier on tires
+      tireDegradationMultiplier: 0.9, // Easier on tires (unchanged)
       errorProbabilityMultiplier: 1.2, // Higher error probability
       mechanicalStressMultiplier: 1.2, // Higher mechanical stress
       weatherImpactMultiplier: 1.4, // Famous for weather changes
@@ -102,7 +102,7 @@ class TrackData {
       favorsTwoStop: false, // Usually one-stop
     ),
 
-    // Suzuka - Technical high-speed
+    // Suzuka - Technical high-speed, hard on tires
     Track(
       name: "Suzuka",
       country: "Japan",
@@ -113,7 +113,7 @@ class TrackData {
       consistencyEmphasis: 1.3, // Consistency very important
       tireManagementEmphasis: 1.1, // Tire management important
       carPerformanceEmphasis: 1.0, // Standard car performance
-      tireDegradationMultiplier: 1.1, // Moderate tire wear
+      tireDegradationMultiplier: 1.3, // Hard on tires (was 1.1)
       errorProbabilityMultiplier: 1.3, // High error probability (technical)
       mechanicalStressMultiplier: 1.0, // Standard mechanical stress
       weatherImpactMultiplier: 1.3, // Rain makes it very challenging
@@ -122,7 +122,7 @@ class TrackData {
       favorsTwoStop: true, // Often two-stop
     ),
 
-    // Generic/Default track (your original)
+    // Generic/Default track (your original) - balanced
     Track(
       name: "Generic Circuit",
       country: "International",

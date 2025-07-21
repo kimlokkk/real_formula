@@ -109,10 +109,23 @@ class PerformanceCalculator {
     return penalty;
   }
 
+  // ENHANCED: Apply track-specific tire degradation multiplier
+  static double calculateTrackAdjustedTireDegradation(Driver driver, Track currentTrack) {
+    // Get base tire degradation from driver's enhanced calculation
+    double baseTyreDeg = driver.calculateTyreDegradation();
+
+    // Apply track-specific tire degradation multiplier
+    double trackAdjustedTyreDeg = baseTyreDeg * currentTrack.tireDegradationMultiplier;
+
+    return trackAdjustedTyreDeg;
+  }
+
   static double calculateCurrentLapTime(Driver driver, WeatherCondition weather, Track currentTrack) {
     double baseTime = calculateBaseLapTime(driver);
     double skillsImpact = calculateDriverSkillsImpact(driver);
-    double tyreDeg = driver.calculateTyreDegradation();
+
+    // ENHANCED: Use track-adjusted tire degradation instead of base degradation
+    double tyreDeg = calculateTrackAdjustedTireDegradation(driver, currentTrack);
 
     // Consistency affects random variation
     double consistencyFactor = driver.consistency / 100.0;
@@ -140,5 +153,34 @@ class PerformanceCalculator {
     }
 
     return baseTime + skillsImpact + tyreDeg + weatherPenalty + compoundDelta + mechanicalPenalty + random;
+  }
+
+  // NEW: Helper method to get tire degradation info for debugging/UI
+  static Map<String, double> getTireDegradationBreakdown(Driver driver, Track currentTrack) {
+    double baseDegradation = driver.calculateTyreDegradation();
+    double trackMultiplier = currentTrack.tireDegradationMultiplier;
+    double trackAdjusted = baseDegradation * trackMultiplier;
+
+    return {
+      'base': baseDegradation,
+      'trackMultiplier': trackMultiplier,
+      'trackAdjusted': trackAdjusted,
+      'cliffPenalty': driver.getCompoundCliffPenalty(),
+    };
+  }
+
+  // NEW: Predict lap time for strategy decisions
+  static double predictLapTimeInFuture(Driver driver, WeatherCondition weather, Track currentTrack, int lapsAhead) {
+    double baseTime = calculateBaseLapTime(driver);
+    double skillsImpact = calculateDriverSkillsImpact(driver);
+
+    // Predict future tire degradation
+    double futureTyreDeg = driver.predictDegradationInLaps(lapsAhead) * currentTrack.tireDegradationMultiplier;
+
+    double weatherPenalty = calculateWeatherLapTimePenalty(driver, weather);
+    double compoundDelta = driver.currentCompound.lapTimeDelta;
+
+    // Don't include random variation or mechanical issues in prediction
+    return baseTime + skillsImpact + futureTyreDeg + weatherPenalty + compoundDelta;
   }
 }

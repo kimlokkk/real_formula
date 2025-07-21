@@ -1,4 +1,4 @@
-// lib/models/driver.dart - Clean version without debug logging
+// lib/models/driver.dart - Enhanced version with realistic tire degradation
 
 import 'package:flutter/material.dart';
 import 'dart:math';
@@ -168,24 +168,110 @@ class Driver {
     return allDryCompounds;
   }
 
-  // Basic calculation methods
+  // ENHANCED TIRE DEGRADATION CALCULATION - Much more aggressive and realistic
   double calculateTyreDegradation() {
     double factor = 0.0;
 
-    if (lapsOnCurrentTires <= 5) {
-      factor = lapsOnCurrentTires * 0.01;
-    } else if (lapsOnCurrentTires <= 15) {
-      factor = 0.05 + ((lapsOnCurrentTires - 5) * 0.03);
-    } else if (lapsOnCurrentTires <= 25) {
-      factor = 0.35 + ((lapsOnCurrentTires - 15) * 0.06);
+    // NEW: Much more aggressive progression with exponential late-stint penalty
+    if (lapsOnCurrentTires <= 3) {
+      factor = lapsOnCurrentTires * 0.005; // Minimal early wear (0-0.015s)
+    } else if (lapsOnCurrentTires <= 10) {
+      factor = 0.015 + ((lapsOnCurrentTires - 3) * 0.015); // Gentle increase (0.015-0.12s)
+    } else if (lapsOnCurrentTires <= 20) {
+      factor = 0.12 + ((lapsOnCurrentTires - 10) * 0.04); // Moderate increase (0.12-0.52s)
+    } else if (lapsOnCurrentTires <= 30) {
+      factor = 0.52 + ((lapsOnCurrentTires - 20) * 0.08); // Steep increase (0.52-1.32s)
     } else {
-      factor = 0.95 + ((lapsOnCurrentTires - 25) * 0.08);
+      // EXPONENTIAL penalty for extreme stint lengths (1.32s+)
+      double extremeLaps = (lapsOnCurrentTires - 30).toDouble();
+      factor = 1.32 + (extremeLaps * 0.15) + (extremeLaps * extremeLaps * 0.02);
     }
 
+    // Apply compound cliff penalty
+    factor += getCompoundCliffPenalty();
+
+    // Tire management skill impact (50% to 100% of base degradation)
     double managementMultiplier = 1.0 - (tyreManagementSkill / 200.0);
+
+    // Compound multiplier (this is where soft tires get punished heavily)
     double compoundMultiplier = currentCompound.degradationMultiplier;
 
     return factor * managementMultiplier * compoundMultiplier;
+  }
+
+  // NEW: Compound-specific cliff effects
+  double getCompoundCliffPenalty() {
+    // Additional penalty when tires hit their performance cliff
+    int cliffPoint = 0;
+    double cliffMultiplier = 1.0;
+
+    switch (currentCompound) {
+      case TireCompound.soft:
+        cliffPoint = 15;
+        cliffMultiplier = 2.5; // Massive penalty after cliff for softs
+        break;
+      case TireCompound.medium:
+        cliffPoint = 25;
+        cliffMultiplier = 1.8; // Significant penalty for mediums
+        break;
+      case TireCompound.hard:
+        cliffPoint = 40;
+        cliffMultiplier = 1.3; // Moderate penalty for hards
+        break;
+      case TireCompound.intermediate:
+        cliffPoint = 20;
+        cliffMultiplier = 2.0;
+        break;
+      case TireCompound.wet:
+        cliffPoint = 15;
+        cliffMultiplier = 2.2;
+        break;
+    }
+
+    if (lapsOnCurrentTires > cliffPoint) {
+      int lapsOverCliff = lapsOnCurrentTires - cliffPoint;
+      return lapsOverCliff * 0.12 * cliffMultiplier; // Escalating cliff penalty
+    }
+
+    return 0.0;
+  }
+
+  // NEW: Check if approaching tire cliff (for strategy)
+  bool isApproachingTireCliff() {
+    int cliffPoint = 0;
+    switch (currentCompound) {
+      case TireCompound.soft:
+        cliffPoint = 15;
+        break;
+      case TireCompound.medium:
+        cliffPoint = 25;
+        break;
+      case TireCompound.hard:
+        cliffPoint = 40;
+        break;
+      case TireCompound.intermediate:
+        cliffPoint = 20;
+        break;
+      case TireCompound.wet:
+        cliffPoint = 15;
+        break;
+    }
+
+    // Return true if within 3 laps of cliff
+    return lapsOnCurrentTires >= (cliffPoint - 3);
+  }
+
+  // NEW: Predict degradation in future laps
+  double predictDegradationInLaps(int lapsAhead) {
+    int futureLaps = lapsOnCurrentTires + lapsAhead;
+
+    // Temporarily calculate what degradation would be
+    int originalLaps = lapsOnCurrentTires;
+    lapsOnCurrentTires = futureLaps;
+    double futureDegradation = calculateTyreDegradation();
+    lapsOnCurrentTires = originalLaps; // Restore original value
+
+    return futureDegradation;
   }
 
   TireCompound getWeatherAppropriateStartingCompound(WeatherCondition weather) {
