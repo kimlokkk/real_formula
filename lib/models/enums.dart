@@ -51,3 +51,24 @@ enum SimulationSpeed {
   final int intervalMs;
   final String label;
 }
+
+// Simplified: Single qualifying session
+enum QualifyingSession {
+  QUALIFYING("QUALIFYING", "Single Session", Colors.red, 0); // No timer needed
+
+  const QualifyingSession(this.name, this.duration, this.color, this.seconds);
+  final String name;
+  final String duration;
+  final Color color;
+  final int seconds;
+}
+
+enum QualifyingStatus {
+  waiting("READY", Colors.grey),
+  running("SIMULATING", Colors.orange),
+  finished("COMPLETED", Colors.green);
+
+  const QualifyingStatus(this.label, this.color);
+  final String label;
+  final Color color;
+}

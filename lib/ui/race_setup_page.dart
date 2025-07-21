@@ -774,10 +774,10 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
   }
 
   void _startRace() {
-    // Navigate to race with configuration
+    // Navigate to qualifying with configuration (changed from '/race' to '/qualifying')
     Navigator.pushNamed(
       context,
-      '/race',
+      '/qualifying',
       arguments: {
         'track': selectedTrack,
         'weather': selectedWeather,

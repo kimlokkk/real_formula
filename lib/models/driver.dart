@@ -1,8 +1,9 @@
-// lib/models/driver.dart - Enhanced version with realistic tire degradation
+// lib/models/driver.dart - Enhanced version with qualifying and realistic tire degradation
 
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'enums.dart';
+import 'qualifying.dart'; // NEW IMPORT
 
 class Driver {
   String name;
@@ -34,6 +35,10 @@ class Driver {
   TireCompound currentCompound;
   List<TireCompound> usedCompounds;
 
+  // NEW: Qualifying-specific data
+  List<QualifyingResult> qualifyingHistory;
+  bool hasFreeTireChoice; // Flag to track free tire choice (replaces Q2 rule)
+
   Driver({
     required this.name,
     required this.team,
@@ -56,9 +61,11 @@ class Driver {
     this.mechanicalIssueLapsRemaining = 0,
     this.currentIssueDescription = "",
     this.currentCompound = TireCompound.medium,
+    this.hasFreeTireChoice = true, // NEW: Free tire choice replaces Q2 rule
   })  : positionHistory = [],
         raceIncidents = [],
-        usedCompounds = [];
+        usedCompounds = [],
+        qualifyingHistory = []; // NEW
 
   // Basic info getters
   String get skillsInfo {
@@ -87,6 +94,33 @@ class Driver {
     return statusList.join(" | ");
   }
 
+  // NEW: Qualifying-specific getters
+  /// Gets qualifying pace potential (different from race pace)
+  double get qualifyingPace {
+    // Speed is much more important in qualifying
+    return (speed * 0.6 + carPerformance * 0.3 + consistency * 0.1) / 100.0;
+  }
+
+  /// Gets pressure resistance in qualifying situations
+  double get qualifyingPressureResistance {
+    return (consistency * 0.7 + speed * 0.3) / 100.0;
+  }
+
+  /// Gets qualifying performance tier
+  String get qualifyingTier {
+    double qualPace = qualifyingPace;
+    if (qualPace >= 0.95) return "Pole Contender";
+    if (qualPace >= 0.90) return "Q3 Regular";
+    if (qualPace >= 0.85) return "Q2 Capable";
+    if (qualPace >= 0.75) return "Q1 Safe";
+    return "Elimination Risk";
+  }
+
+  /// Gets free tire choice info for display
+  String get tireChoiceInfo {
+    return "Free tire choice: ${currentCompound.icon}${currentCompound.name} (P${startingPosition})";
+  }
+
   /// Enhanced compound tracking info for UI
   String get compoundRuleInfo {
     List<TireCompound> dryCompoundsUsed = usedCompounds
@@ -103,20 +137,32 @@ class Driver {
       dryCompoundsUsed.add(currentCompound);
     }
 
+    String baseInfo;
     if (dryCompoundsUsed.length >= 2) {
-      return "✅ Compound rule satisfied (${dryCompoundsUsed.length} compounds used)";
+      baseInfo = "✅ Compound rule satisfied (${dryCompoundsUsed.length} compounds used)";
     } else if (dryCompoundsUsed.length == 1) {
       String usedCompound = dryCompoundsUsed.first.name;
-      return "⚠️ Must use 2nd compound (only used $usedCompound)";
+      baseInfo = "⚠️ Must use 2nd compound (only used $usedCompound)";
     } else {
-      return "🔄 No dry compounds used yet";
+      baseInfo = "🔄 No dry compounds used yet";
     }
+
+    // Add free tire choice info if applicable
+    if (hasFreeTireChoice) {
+      baseInfo += " • Free tire choice start";
+    }
+
+    return baseInfo;
   }
 
   /// Gets compound history string for UI
   String get compoundHistoryInfo {
     if (usedCompounds.isEmpty) {
-      return "No compounds used yet";
+      String baseInfo = "No compounds used yet";
+      if (hasFreeTireChoice) {
+        baseInfo += " (Current: Free choice ${currentCompound.icon}${currentCompound.name})";
+      }
+      return baseInfo;
     }
 
     List<String> compoundStrings = [];
@@ -125,7 +171,12 @@ class Driver {
       compoundStrings.add("${compound.icon}${compound.name}");
     }
 
-    return "Used: ${compoundStrings.join(" → ")}";
+    String historyInfo = "Used: ${compoundStrings.join(" → ")}";
+    if (hasFreeTireChoice && !usedCompounds.contains(currentCompound)) {
+      historyInfo += " → ${currentCompound.icon}${currentCompound.name} (Start)";
+    }
+
+    return historyInfo;
   }
 
   /// Checks if driver has satisfied the mandatory compound rule
@@ -304,6 +355,46 @@ class Driver {
     }
   }
 
+  // NEW: Qualifying-specific methods
+
+  /// Records a qualifying result for this driver
+  void recordQualifyingResult(QualifyingResult result) {
+    qualifyingHistory.add(result);
+  }
+
+  /// Gets best qualifying position from history
+  int? get bestQualifyingPosition {
+    if (qualifyingHistory.isEmpty) return null;
+    return qualifyingHistory.map((r) => r.position).reduce(min);
+  }
+
+  /// Gets average qualifying position
+  double? get averageQualifyingPosition {
+    if (qualifyingHistory.isEmpty) return null;
+    int sum = qualifyingHistory.fold(0, (sum, r) => sum + r.position);
+    return sum / qualifyingHistory.length;
+  }
+
+  /// Applies free tire choice for race start
+  void applyFreeTireChoice(TireCompound chosenTire) {
+    currentCompound = chosenTire;
+    hasFreeTireChoice = true;
+    recordIncident("FREE TIRE CHOICE: Starting on ${chosenTire.name} (P$startingPosition)");
+  }
+
+  /// Gets qualifying performance summary
+  String getQualifyingPerformanceSummary() {
+    if (qualifyingHistory.isEmpty) {
+      return "No qualifying history";
+    }
+
+    int bestPos = bestQualifyingPosition ?? 20;
+    double avgPos = averageQualifyingPosition ?? 20.0;
+    String tier = qualifyingTier;
+
+    return "Best: P$bestPos | Avg: P${avgPos.toStringAsFixed(1)} | Tier: $tier";
+  }
+
   // Reset methods
   void resetForNewRace() {
     lapsCompleted = 0;
@@ -319,6 +410,14 @@ class Driver {
     currentIssueDescription = "";
     raceIncidents.clear();
     usedCompounds.clear();
+    hasFreeTireChoice = true; // NEW: Reset free tire choice flag
+  }
+
+  // NEW: Reset for qualifying (preserve race data)
+  void resetForQualifying() {
+    // Don't reset race-specific data, just qualifying preparation
+    qualifyingHistory.clear();
+    hasFreeTireChoice = true;
   }
 
   void updatePosition(int newPosition) {

@@ -6,6 +6,7 @@ import '../models/enums.dart';
 
 class DriverData {
   /// Creates the default set of F1 drivers with realistic stats
+  /// Creates the default set of F1 drivers with realistic stats (10 drivers for gameplay)
   static List<Driver> createDefaultDrivers() {
     return [
       // Mercedes Team (High reliability: 92)

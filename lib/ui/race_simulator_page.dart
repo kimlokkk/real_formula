@@ -43,6 +43,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     // Get configuration from setup page if available
     final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
+    bool hasQualifyingResults = false;
+
     if (args != null) {
       currentTrack = args['track'] ?? TrackData.getDefaultTrack();
       currentWeather = args['weather'] ?? WeatherCondition.clear;
@@ -51,13 +53,25 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       if (configDrivers != null) {
         drivers = List.from(configDrivers);
       }
+
+      // NEW: Check if qualifying results exist
+      List<dynamic>? qualifyingResults = args['qualifyingResults'];
+      if (qualifyingResults != null) {
+        hasQualifyingResults = true;
+        _processQualifyingResults(qualifyingResults);
+      }
     }
 
     // Initialize race if not already done
     if (drivers.isEmpty) {
       _initializeRace();
     } else {
-      _resetRaceWithCurrentConfig();
+      // Only reset if NO qualifying results (preserve qualifying grid)
+      if (!hasQualifyingResults) {
+        _resetRaceWithCurrentConfig();
+      } else {
+        _resetRaceWithQualifyingGrid();
+      }
     }
   }
 
@@ -91,6 +105,74 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       driver.resetForNewRace();
       driver.currentCompound = driver.getWeatherAppropriateStartingCompound(currentWeather);
     }
+  }
+
+  // NEW: Reset race but preserve qualifying grid positions
+  void _resetRaceWithQualifyingGrid() {
+    _debugPrintGrid("BEFORE reset with qualifying grid");
+
+    // DON'T call DriverData.initializeStartingGrid - preserve qualifying positions!
+    totalLaps = currentTrack.totalLaps;
+    currentLap = 0;
+    isRacing = false;
+    raceFinished = false;
+    raceTimer?.cancel();
+
+    for (Driver driver in drivers) {
+      // Preserve starting position and current tire choice from qualifying
+      int savedStartingPosition = driver.startingPosition;
+      int savedPosition = driver.position;
+      TireCompound savedCompound = driver.currentCompound;
+      bool savedFreeTireChoice = driver.hasFreeTireChoice;
+
+      // Reset race data
+      driver.resetForNewRace();
+
+      // Restore qualifying results
+      driver.startingPosition = savedStartingPosition;
+      driver.position = savedPosition;
+      driver.currentCompound = savedCompound;
+      driver.hasFreeTireChoice = savedFreeTireChoice;
+      driver.positionChangeFromStart = 0;
+    }
+
+    // Sort drivers by their qualifying positions to ensure correct order
+    drivers.sort((a, b) => a.position.compareTo(b.position));
+
+    _debugPrintGrid("AFTER reset with qualifying grid");
+  }
+
+  // NEW: Process qualifying results
+  void _processQualifyingResults(List<dynamic> qualifyingResults) {
+    // Add qualifying info to race incidents
+    if (qualifyingResults.isNotEmpty && drivers.isNotEmpty) {
+      _debugPrintGrid("BEFORE processing qualifying results");
+
+      // Find pole sitter (should be P1)
+      Driver polePosition = drivers.firstWhere((d) => d.position == 1, orElse: () => drivers.first);
+
+      print("=== QUALIFYING INTEGRATION ===");
+      print("Processed qualifying results for ${drivers.length} drivers");
+      print("Pole position: ${polePosition.name} (P${polePosition.position})");
+      print("Starting grid preserved from qualifying");
+
+      // Drivers already have their starting positions and tire choices set by qualifying engine
+      // Just ensure the list is sorted by position
+      drivers.sort((a, b) => a.position.compareTo(b.position));
+
+      _debugPrintGrid("AFTER processing qualifying results");
+    }
+  }
+
+  // NEW: Debug method to verify grid positions
+  void _debugPrintGrid(String context) {
+    print("=== GRID DEBUG: $context ===");
+    for (int i = 0; i < drivers.length; i++) {
+      Driver driver = drivers[i];
+      print(
+          "Index $i: ${driver.name} - Position: ${driver.position}, StartPos: ${driver.startingPosition}, Tire: ${driver.currentCompound.name}");
+    }
+    print("=== END GRID DEBUG ===");
   }
 
   List<String> _getAllIncidents() {
@@ -388,6 +470,18 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                       ),
                     ],
                   ),
+                  // NEW: Show pole position info
+                  if (drivers.isNotEmpty && drivers.any((d) => d.position == 1)) ...[
+                    SizedBox(height: 4),
+                    Text(
+                      'POLE: ${drivers.firstWhere((d) => d.position == 1).name.toUpperCase()}',
+                      style: TextStyle(
+                        color: Colors.yellow,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ],
               ),
               Container(
