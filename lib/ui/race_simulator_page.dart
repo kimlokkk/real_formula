@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:math';
 import '../models/driver.dart';
 import '../models/enums.dart';
 import '../models/track.dart';
@@ -21,6 +20,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   int currentLap = 0;
   int totalLaps = F1Constants.defaultTotalLaps;
   bool isRacing = false;
+  bool raceFinished = false; // Track if race has finished
   Timer? raceTimer;
   SimulationSpeed currentSpeed = SimulationSpeed.normal;
   WeatherCondition currentWeather = WeatherCondition.clear;
@@ -84,6 +84,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     totalLaps = currentTrack.totalLaps;
     currentLap = 0;
     isRacing = false;
+    raceFinished = false; // Reset race finished state
     raceTimer?.cancel();
 
     for (Driver driver in drivers) {
@@ -107,7 +108,10 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       print("=== RACE FINISHED ===");
       print("Final lap: $currentLap, Total laps: $totalLaps");
       _stopRace();
-      _navigateToResults();
+      // Set race finished instead of auto-navigating
+      setState(() {
+        raceFinished = true;
+      });
       return;
     }
 
@@ -166,7 +170,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   }
 
   void _startRace() {
-    if (currentLap >= totalLaps) {
+    if (raceFinished) {
       _resetRace();
     }
 
@@ -190,27 +194,25 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     setState(() {
       currentLap = 0;
       isRacing = false;
+      raceFinished = false; // Reset race finished state
       totalLaps = currentTrack.totalLaps;
       DriverData.resetAllDriversForNewRace(drivers, currentWeather);
     });
     raceTimer?.cancel();
   }
 
+  // Navigate to results immediately without delay
   void _navigateToResults() {
-    Future.delayed(Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/results',
-          arguments: {
-            'drivers': drivers,
-            'track': currentTrack,
-            'weather': currentWeather,
-            'totalLaps': totalLaps,
-          },
-        );
-      }
-    });
+    Navigator.pushReplacementNamed(
+      context,
+      '/results',
+      arguments: {
+        'drivers': drivers,
+        'track': currentTrack,
+        'weather': currentWeather,
+        'totalLaps': totalLaps,
+      },
+    );
   }
 
   @override
@@ -232,6 +234,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
           Expanded(
             child: _buildTabContent(),
           ),
+          // Big results button when race is finished
+          if (raceFinished) _buildResultsPrompt(),
         ],
       ),
     );
@@ -281,7 +285,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
           margin: EdgeInsets.only(right: 16),
           child: Center(
             child: Text(
-              isRacing ? 'LIVE' : 'PAUSED',
+              raceFinished ? 'FINISHED' : (isRacing ? 'LIVE' : 'PAUSED'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 12,
@@ -389,11 +393,11 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isRacing ? Colors.red[600] : Colors.grey[600],
+                  color: raceFinished ? Colors.green[600] : (isRacing ? Colors.red[600] : Colors.grey[600]),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  isRacing ? 'RACING' : (currentLap >= totalLaps ? 'FINISHED' : 'STOPPED'),
+                  raceFinished ? 'FINISHED' : (isRacing ? 'RACING' : 'STOPPED'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -410,23 +414,32 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                 flex: 3,
                 child: Row(
                   children: [
-                    _buildControlButton(
-                      label: currentLap >= totalLaps ? 'NEW RACE' : 'START',
-                      onPressed: isRacing ? null : _startRace,
-                      isPrimary: true,
-                    ),
-                    SizedBox(width: 8),
-                    _buildControlButton(
-                      label: 'STOP',
-                      onPressed: isRacing ? _stopRace : null,
-                      isPrimary: false,
-                    ),
-                    SizedBox(width: 8),
-                    _buildControlButton(
-                      label: 'RESET',
-                      onPressed: isRacing ? null : _resetRace,
-                      isPrimary: false,
-                    ),
+                    if (!raceFinished) ...[
+                      _buildControlButton(
+                        label: 'START',
+                        onPressed: isRacing ? null : _startRace,
+                        isPrimary: true,
+                      ),
+                      SizedBox(width: 8),
+                      _buildControlButton(
+                        label: 'STOP',
+                        onPressed: isRacing ? _stopRace : null,
+                        isPrimary: false,
+                      ),
+                      SizedBox(width: 8),
+                      _buildControlButton(
+                        label: 'RESET',
+                        onPressed: isRacing ? null : _resetRace,
+                        isPrimary: false,
+                      ),
+                    ] else ...[
+                      // Only show new race button when finished (results button moved to bottom)
+                      _buildControlButton(
+                        label: 'NEW RACE',
+                        onPressed: _resetRace,
+                        isPrimary: true,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -943,6 +956,91 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                   ),
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Big prominent results button that appears when race finishes
+  Widget _buildResultsPrompt() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        border: Border(
+          top: BorderSide(color: Colors.yellow, width: 3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.yellow.withOpacity(0.3),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.emoji_events, color: Colors.yellow, size: 24),
+              SizedBox(width: 12),
+              Text(
+                'RACE COMPLETED!',
+                style: TextStyle(
+                  color: Colors.yellow,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+              SizedBox(width: 12),
+              Icon(Icons.emoji_events, color: Colors.yellow, size: 24),
+            ],
+          ),
+          SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _navigateToResults,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.yellow[600],
+                foregroundColor: Colors.black,
+                elevation: 8,
+                shadowColor: Colors.yellow.withOpacity(0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.assessment,
+                    size: 28,
+                    color: Colors.black,
+                  ),
+                  SizedBox(width: 16),
+                  Text(
+                    'PROCEED VIEW RESULTS',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 28,
+                    color: Colors.black,
+                  ),
+                ],
+              ),
             ),
           ),
         ],

@@ -741,7 +741,11 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.flag, size: 20),
+                  Icon(
+                    Icons.flag,
+                    size: 20,
+                    color: Colors.white,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'START RACE',

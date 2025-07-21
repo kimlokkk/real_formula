@@ -116,25 +116,12 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
 
                           // Title
                           Text(
-                            'RACE SIMULATOR',
+                            'REAL FORMULA',
                             style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w300,
                               color: Colors.white,
-                              letterSpacing: 8,
-                            ),
-                          ),
-
-                          SizedBox(height: 10),
-
-                          // Subtitle
-                          Text(
-                            'EXPERIENCE THE THRILL',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w300,
-                              color: Colors.grey[400],
-                              letterSpacing: 3,
+                              letterSpacing: 5,
                             ),
                           ),
                         ],
@@ -257,7 +244,11 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 24),
+            Icon(
+              icon,
+              size: 24,
+              color: Colors.white,
+            ),
             SizedBox(width: 12),
             Text(
               label,
@@ -293,7 +284,11 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16),
+            Icon(
+              icon,
+              size: 16,
+              color: Colors.white,
+            ),
             SizedBox(height: 2),
             Text(
               label,

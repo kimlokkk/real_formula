@@ -1143,7 +1143,11 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.home, size: 18),
+                    Icon(
+                      Icons.home,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                     SizedBox(width: 8),
                     Text('MAIN MENU', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   ],
@@ -1151,7 +1155,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
               ),
             ),
           ),
-          SizedBox(width: 16),
+          SizedBox(width: 10),
           Expanded(
             child: Container(
               height: 50,
@@ -1169,7 +1173,11 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.refresh, size: 20),
+                    Icon(
+                      Icons.refresh,
+                      size: 20,
+                      color: Colors.white,
+                    ),
                     SizedBox(width: 8),
                     Text('NEW RACE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ],
