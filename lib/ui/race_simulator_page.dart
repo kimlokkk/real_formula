@@ -6,7 +6,7 @@ import '../models/track.dart';
 import '../services/performance_calculator.dart';
 import '../services/incident_simulator.dart';
 import '../services/strategy_engine.dart';
-import '../services/overtaking_engine.dart'; // NEW IMPORT
+import '../services/overtaking_engine.dart'; // Still needed for overtaking processing
 import '../data/driver_data.dart';
 import '../data/track_data.dart';
 import '../utils/constants.dart';
@@ -29,7 +29,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
   late AnimationController _pulseController;
 
-  int selectedTab = 0; // 0: Standings, 1: Incidents, 2: Overtaking (UPDATED)
+  int selectedTab = 0; // 0: Standings, 1: Incidents (removed overtaking)
 
   @override
   void initState() {
@@ -158,16 +158,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     print("=== END GRID DEBUG ===");
   }
 
-  List<String> _getAllIncidents() {
-    List<String> allIncidents = [];
-    for (Driver driver in drivers) {
-      for (String incident in driver.raceIncidents) {
-        allIncidents.add("${driver.name}: $incident");
-      }
-    }
-    return allIncidents.reversed.take(20).toList();
-  }
-
   // UPDATED _simulateLap() method with overtaking integration
   void _simulateLap() {
     if (currentLap >= totalLaps) {
@@ -210,11 +200,11 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         driver.lapsOnCurrentTires++;
       }
 
-      // STEP 3: NEW - Process overtaking opportunities BEFORE sorting by time
+      // STEP 3: Process overtaking opportunities BEFORE sorting by time
       List<String> overtakingIncidents =
           OvertakingEngine.processOvertakingOpportunities(drivers, currentLap, currentTrack, currentWeather);
 
-      // Add overtaking incidents to the race log
+      // Add overtaking incidents to the race log (but don't show in UI)
       for (String incident in overtakingIncidents) {
         print("OVERTAKING: $incident");
       }
@@ -470,7 +460,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                   if (drivers.isNotEmpty && drivers.any((d) => d.position == 1)) ...[
                     SizedBox(height: 4),
                     Text(
-                      'POLE: ${drivers.firstWhere((d) => d.position == 1).name.toUpperCase()}',
+                      'LEADER: ${drivers.firstWhere((d) => d.position == 1).name.toUpperCase()}',
                       style: TextStyle(
                         color: Colors.yellow,
                         fontSize: 10,
@@ -624,10 +614,10 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
-  // UPDATED _buildTabBar() method to include overtaking tab
+  // UPDATED _buildTabBar() method - removed overtaking tab
   Widget _buildTabBar() {
-    List<String> tabs = ['STANDINGS', 'INCIDENTS', 'OVERTAKING']; // Added third tab
-    List<IconData> icons = [Icons.format_list_numbered, Icons.warning, Icons.compare_arrows]; // Added overtaking icon
+    List<String> tabs = ['STANDINGS', 'INCIDENTS']; // Removed overtaking tab
+    List<IconData> icons = [Icons.format_list_numbered, Icons.warning]; // Removed overtaking icon
 
     return Container(
       color: Colors.grey[800],
@@ -677,15 +667,13 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
-  // UPDATED _buildTabContent() method to include overtaking panel
+  // UPDATED _buildTabContent() method - removed overtaking case
   Widget _buildTabContent() {
     switch (selectedTab) {
       case 0:
         return _buildStandingsTable();
       case 1:
         return _buildIncidentsPanel();
-      case 2:
-        return _buildOvertakingIncidentsPanel(); // New overtaking panel
       default:
         return _buildStandingsTable();
     }
@@ -720,62 +708,91 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
           bottom: BorderSide(color: Colors.grey[700]!, width: 1),
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 50,
-            child: Text(
-              'POS',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+          Row(
+            children: [
+              Container(
+                width: 50,
+                child: Text(
+                  'POS',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'DRIVER',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Container(
+                width: 80,
+                child: Text(
+                  'TIRE WEAR',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Container(
+                width: 100,
+                child: Text(
+                  'INTERVAL',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              'DRIVER',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+          // NEW: Battle legend
+          SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.info, color: Colors.grey[500], size: 12),
+              SizedBox(width: 4),
+              Text(
+                'Colored left border indicates battles (gap < 3s): ',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 9,
+                ),
               ),
-            ),
-          ),
-          Container(
-            width: 80,
-            child: Text(
-              'TIRE WEAR',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Container(
-            width: 100,
-            child: Text(
-              'INTERVAL',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.right,
-            ),
+              _buildBattleLegendItem(Colors.red[400]!, 'Intense'),
+              SizedBox(width: 4),
+              _buildBattleLegendItem(Colors.orange[400]!, 'Close'),
+              SizedBox(width: 4),
+              _buildBattleLegendItem(Colors.yellow[600]!, 'Nearby'),
+              SizedBox(width: 4),
+              _buildBattleLegendItem(Colors.green[400]!, 'Battle'),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // ENHANCED _buildDriverRow() method with overtaking indicators
+  // UPDATED _buildDriverRow() method - removed overtaking indicators
   Widget _buildDriverRow(Driver driver, int index) {
     String intervalDisplay;
+    double gapToCarAhead = 0.0;
+    bool inBattle = false;
+
     if (driver.isDNF()) {
       intervalDisplay = 'DNF';
     } else if (index == 0) {
@@ -785,16 +802,15 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       if (carAhead.isDNF()) {
         intervalDisplay = 'LEADER';
       } else {
-        double intervalGap = driver.totalTime - carAhead.totalTime;
-        intervalDisplay = '+${intervalGap.toStringAsFixed(1)}s';
+        gapToCarAhead = driver.totalTime - carAhead.totalTime;
+        intervalDisplay = '+${gapToCarAhead.toStringAsFixed(1)}s';
+
+        // Check if in battle (less than 3 seconds gap)
+        inBattle = gapToCarAhead < 3.0;
       }
     }
 
     bool isLeader = index == 0 && !driver.isDNF();
-
-    // NEW: Check if this driver is in an overtaking battle
-    bool inOvertakingBattle = _isInOvertakingBattle(driver, index);
-    bool recentOvertaker = _hasRecentOvertaking(driver);
 
     return AnimatedContainer(
       key: ValueKey(driver.name),
@@ -805,8 +821,13 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         color: _getRowColor(driver, index),
         border: Border(
           bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
-          // NEW: Add orange border for overtaking battles
-          left: inOvertakingBattle ? BorderSide(color: Colors.orange, width: 3) : BorderSide.none,
+          // NEW: Battle indicator - colored left border for close gaps
+          left: inBattle
+              ? BorderSide(
+                  color: _getBattleColor(gapToCarAhead),
+                  width: 4,
+                )
+              : BorderSide.none,
         ),
       ),
       child: Row(
@@ -815,34 +836,53 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
             width: 50,
             child: Row(
               children: [
-                AnimatedContainer(
-                  duration: Duration(milliseconds: 300),
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team),
-                    borderRadius: BorderRadius.circular(2),
-                    // NEW: Add glow effect for recent overtaking
-                    boxShadow: recentOvertaker
-                        ? [
-                            BoxShadow(
-                              color: Colors.orange.withOpacity(0.6),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: Text(
-                      driver.isDNF() ? 'DNF' : '${driver.position}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: driver.isDNF() ? 8 : 12,
-                        fontWeight: FontWeight.bold,
+                Stack(
+                  children: [
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 300),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team),
+                        borderRadius: BorderRadius.circular(2),
+                        // NEW: Glow effect for drivers in battle
+                        boxShadow: inBattle
+                            ? [
+                                BoxShadow(
+                                  color: _getBattleColor(gapToCarAhead).withOpacity(0.4),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Center(
+                        child: Text(
+                          driver.isDNF() ? 'DNF' : '${driver.position}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: driver.isDNF() ? 8 : 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    // NEW: Battle indicator dot
+                    if (inBattle)
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _getBattleColor(gapToCarAhead),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 SizedBox(width: 4),
                 Column(
@@ -853,22 +893,14 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                         color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
                         size: 12,
                       ),
-                    // NEW: Show DRS indicator if applicable
-                    if (_isDRSEligible(driver, index))
+                    // NEW: Battle indicator for close racing
+                    if (inBattle && gapToCarAhead < 1.5)
                       Container(
                         margin: EdgeInsets.only(top: 2),
-                        padding: EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: Text(
-                          'DRS',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 6,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Icon(
+                          Icons.speed,
+                          color: Colors.orange,
+                          size: 10,
                         ),
                       ),
                   ],
@@ -886,20 +918,15 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                     Text(
                       driver.name.toUpperCase(),
                       style: TextStyle(
-                        color: driver.isDNF() ? Colors.grey[500] : Colors.white,
+                        color: driver.isDNF() ? Colors.grey[500] : (inBattle ? Colors.orange[200] : Colors.white),
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    // NEW: Overtaking potential indicator (attack mode)
-                    if (_hasOvertakingPotential(driver, index)) ...[
+                    // NEW: Battle indicator next to name for very close battles
+                    if (inBattle && gapToCarAhead < 1.0) ...[
                       SizedBox(width: 4),
-                      Icon(Icons.keyboard_double_arrow_right, color: Colors.orange, size: 14),
-                    ],
-                    // NEW: Recent overtaking indicator
-                    if (recentOvertaker) ...[
-                      SizedBox(width: 4),
-                      Icon(Icons.trending_up, color: Colors.orange, size: 14),
+                      Icon(Icons.flash_on, color: Colors.orange, size: 12),
                     ],
                     if (driver.hasActiveMechanicalIssue) ...[
                       SizedBox(width: 4),
@@ -992,21 +1019,23 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                 Text(
                   intervalDisplay,
                   style: TextStyle(
-                    color: driver.isDNF() ? Colors.grey[500] : (isLeader ? Colors.yellow : Colors.white),
+                    color: driver.isDNF()
+                        ? Colors.grey[500]
+                        : (isLeader ? Colors.yellow : (inBattle ? Colors.orange[200] : Colors.white)),
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.right,
                 ),
-                // NEW: Show DRS gap indicator
-                if (!driver.isDNF() && index > 0) ...[
+                // NEW: Battle intensity indicator
+                if (inBattle) ...[
                   SizedBox(height: 2),
                   Text(
-                    _getDRSGapInfo(driver, index),
+                    _getBattleDescription(gapToCarAhead),
                     style: TextStyle(
-                      color: _isDRSEligible(driver, index) ? Colors.green : Colors.grey[600],
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
+                      color: _getBattleColor(gapToCarAhead),
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -1019,116 +1048,9 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
-  // NEW: Helper methods for overtaking UI
-  bool _isInOvertakingBattle(Driver driver, int index) {
-    if (driver.isDNF()) return false;
-
-    if (index > 0 && !drivers[index - 1].isDNF()) {
-      double gapAhead = driver.totalTime - drivers[index - 1].totalTime;
-      if (gapAhead < 2.0) return true;
-    }
-
-    if (index < drivers.length - 1 && !drivers[index + 1].isDNF()) {
-      double gapBehind = drivers[index + 1].totalTime - driver.totalTime;
-      if (gapBehind < 2.0) return true;
-    }
-
-    return false;
-  }
-
-  bool _hasRecentOvertaking(Driver driver) {
-    if (driver.raceIncidents.isEmpty) return false;
-
-    String lastIncident = driver.raceIncidents.last;
-    return lastIncident.contains('overtakes') || lastIncident.contains('Overtook');
-  }
-
-  bool _isDRSEligible(Driver driver, int index) {
-    if (driver.isDNF() || index == 0) return false;
-
-    Driver carAhead = drivers[index - 1];
-    if (carAhead.isDNF()) return false;
-
-    double gap = driver.totalTime - carAhead.totalTime;
-    bool withinDRSZone = gap <= 1.0;
-    bool supportsDRS = currentTrack.type == TrackType.power || currentTrack.type == TrackType.mixed;
-
-    return withinDRSZone && supportsDRS;
-  }
-
-  String _getDRSGapInfo(Driver driver, int index) {
-    if (index == 0) return '';
-
-    Driver carAhead = drivers[index - 1];
-    if (carAhead.isDNF()) return '';
-
-    double gap = driver.totalTime - carAhead.totalTime;
-    if (gap <= 1.0) {
-      return 'DRS ${gap.toStringAsFixed(1)}s';
-    } else if (gap <= 3.0) {
-      return '${gap.toStringAsFixed(1)}s';
-    }
-
-    return '';
-  }
-
-  bool _hasOvertakingPotential(Driver driver, int index) {
-    if (driver.isDNF() || index == 0) return false;
-
-    Driver carAhead = drivers[index - 1];
-    if (carAhead.isDNF()) return false;
-
-    double carPaceAdvantage = (driver.carPerformance - carAhead.carPerformance) / 100.0;
-    double tireAdvantage = carAhead.calculateTyreDegradation() - driver.calculateTyreDegradation();
-
-    return carPaceAdvantage > 0.05 || tireAdvantage > 0.3;
-  }
-
-  double _getTireWearPercentage(Driver driver) {
-    double degradation = driver.calculateTyreDegradation();
-    double percentage = (degradation / 3.0) * 100.0;
-    return percentage.clamp(0.0, 100.0);
-  }
-
-  Color _getTireWearColor(double degradation) {
-    double percentage = (degradation / 3.0) * 100.0;
-    if (percentage <= 25) return Colors.green;
-    if (percentage <= 50) return Colors.yellow[700]!;
-    if (percentage <= 75) return Colors.orange;
-    if (percentage <= 90) return Colors.red[600]!;
-    return Colors.red[800]!;
-  }
-
-  Color _getTeamColor(String team) {
-    switch (team) {
-      case "Mercedes":
-        return Colors.teal;
-      case "Red Bull":
-        return Colors.blue[700]!;
-      case "Ferrari":
-        return Colors.red[600]!;
-      case "McLaren":
-        return Colors.orange[600]!;
-      case "Aston Martin":
-        return Colors.green[600]!;
-      case "Williams":
-        return Colors.grey[600]!;
-      default:
-        return Colors.grey[600]!;
-    }
-  }
-
-  Color _getRowColor(Driver driver, int index) {
-    if (driver.isDNF()) return Colors.grey[850]!;
-    if (index == 0) return Colors.yellow.withOpacity(0.1);
-    if (index == 1) return Colors.grey[300]!.withOpacity(0.1);
-    if (index == 2) return Colors.orange.withOpacity(0.1);
-    if (index < 10) return Colors.green.withOpacity(0.05);
-    return Colors.grey[900]!;
-  }
-
+  // COMPLETELY REWRITTEN _buildIncidentsPanel() - lap by lap format
   Widget _buildIncidentsPanel() {
-    List<String> incidents = _getAllIncidents();
+    Map<int, List<String>> incidentsByLap = _getIncidentsByLap();
 
     return Container(
       color: Colors.grey[900],
@@ -1144,83 +1066,10 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
             ),
             child: Row(
               children: [
-                Icon(Icons.warning, color: Colors.orange, size: 16),
+                Icon(Icons.info, color: Colors.blue, size: 16),
                 SizedBox(width: 8),
                 Text(
-                  'RACE INCIDENTS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: incidents.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
-                    ),
-                  ),
-                  child: Text(
-                    incidents[index],
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 12,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // NEW: Overtaking incidents panel
-  Widget _buildOvertakingIncidentsPanel() {
-    List<String> overtakingIncidents = [];
-
-    for (Driver driver in drivers) {
-      for (String incident in driver.raceIncidents) {
-        if (incident.contains('overtakes') ||
-            incident.contains('Overtook') ||
-            incident.contains('overtaken') ||
-            incident.contains('slipstream') ||
-            incident.contains('late braking') ||
-            incident.contains('contact')) {
-          overtakingIncidents.add("${driver.name}: $incident");
-        }
-      }
-    }
-
-    overtakingIncidents = overtakingIncidents.reversed.take(15).toList();
-
-    return Container(
-      color: Colors.grey[900],
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[700]!, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.compare_arrows, color: Colors.orange, size: 16),
-                SizedBox(width: 8),
-                Text(
-                  'OVERTAKING ACTIVITY',
+                  'PIT STOPS & INCIDENTS',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -1229,9 +1078,9 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                 ),
                 Spacer(),
                 Text(
-                  '${OvertakingEngine.getOvertakingStatistics(drivers)['totalOvertakes']} TOTAL',
+                  'LAP $currentLap / $totalLaps',
                   style: TextStyle(
-                    color: Colors.orange,
+                    color: Colors.grey[400],
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1239,7 +1088,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
               ],
             ),
           ),
-          // Track info
+          // Legend
           Container(
             padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1249,44 +1098,25 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Text(
-                  'Track Difficulty: ${_getOvertakingDifficultyDescription()}',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 11,
-                  ),
-                ),
-                if (_isDRSAvailable())
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'DRS AVAILABLE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                _buildLegendItem('PIT STOP', Icons.local_gas_station, Colors.blue),
+                _buildLegendItem('MECHANICAL', Icons.build, Colors.orange),
+                _buildLegendItem('ERROR', Icons.error, Colors.red),
+                _buildLegendItem('QUALIFYING', Icons.flag, Colors.green),
               ],
             ),
           ),
           Expanded(
-            child: overtakingIncidents.isEmpty
+            child: incidentsByLap.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.compare_arrows, color: Colors.grey[600], size: 48),
+                        Icon(Icons.info_outline, color: Colors.grey[600], size: 48),
                         SizedBox(height: 16),
                         Text(
-                          'No overtaking activity yet',
+                          'No incidents yet',
                           style: TextStyle(
                             color: Colors.grey[400],
                             fontSize: 16,
@@ -1294,7 +1124,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Difficulty: ${_getOvertakingDifficultyDescription()}',
+                          'Pit stops and incidents will appear here',
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 12,
@@ -1304,39 +1134,14 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                     ),
                   )
                 : ListView.builder(
-                    itemCount: overtakingIncidents.length,
+                    reverse: true, // Show latest laps first
+                    itemCount: incidentsByLap.keys.length,
                     itemBuilder: (context, index) {
-                      String incident = overtakingIncidents[index];
-                      bool isSuccessfulOvertake = incident.contains('overtakes') || incident.contains('Overtook');
+                      List<int> sortedLaps = incidentsByLap.keys.toList()..sort();
+                      int lap = sortedLaps.reversed.toList()[index];
+                      List<String> lapIncidents = incidentsByLap[lap]!;
 
-                      return Container(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSuccessfulOvertake ? Colors.orange.withOpacity(0.1) : Colors.transparent,
-                          border: Border(
-                            bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
-                            left: isSuccessfulOvertake ? BorderSide(color: Colors.orange, width: 3) : BorderSide.none,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            if (isSuccessfulOvertake)
-                              Icon(Icons.trending_up, color: Colors.orange, size: 16)
-                            else
-                              Icon(Icons.warning, color: Colors.red, size: 16),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                incident,
-                                style: TextStyle(
-                                  color: isSuccessfulOvertake ? Colors.orange[200] : Colors.grey[300],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                      return _buildLapSection(lap, lapIncidents);
                     },
                   ),
           ),
@@ -1345,20 +1150,253 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
-  String _getOvertakingDifficultyDescription() {
-    if (currentTrack.overtakingDifficulty < 0.4) {
-      return "Very Hard (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
-    } else if (currentTrack.overtakingDifficulty < 0.6) {
-      return "Hard (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
-    } else if (currentTrack.overtakingDifficulty < 0.8) {
-      return "Moderate (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
-    } else {
-      return "Easy (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
-    }
+  Widget _buildLegendItem(String label, IconData icon, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
   }
 
-  bool _isDRSAvailable() {
-    return currentTrack.type == TrackType.power || currentTrack.type == TrackType.mixed;
+  Widget _buildLapSection(int lap, List<String> incidents) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[700]!, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Lap header
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: lap == currentLap ? Colors.red[600]!.withOpacity(0.3) : Colors.grey[800],
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
+              border: lap == currentLap ? Border.all(color: Colors.red[600]!, width: 2) : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  lap == 0 ? Icons.flag : Icons.timer,
+                  color: lap == currentLap ? Colors.red[300] : Colors.grey[400],
+                  size: 16,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  lap == 0 ? 'QUALIFYING' : 'LAP $lap',
+                  style: TextStyle(
+                    color: lap == currentLap ? Colors.red[300] : Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (lap == currentLap) ...[
+                  SizedBox(width: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red[600],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'CURRENT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+                Spacer(),
+                Text(
+                  '${incidents.length} incident${incidents.length != 1 ? 's' : ''}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Incidents for this lap
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: incidents.map((incident) => _buildIncidentRow(incident)).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncidentRow(String incident) {
+    IconData icon;
+    Color iconColor;
+    Color textColor = Colors.grey[300]!;
+
+    // Extract driver name and incident text
+    List<String> parts = incident.split(': ');
+    String driverName = parts.isNotEmpty ? parts[0] : 'Unknown';
+    String incidentText = parts.length > 1 ? parts.sublist(1).join(': ') : incident;
+
+    // Determine incident type and styling
+    if (incidentText.contains('Pit stop') || incidentText.contains('PIT STOP')) {
+      icon = Icons.local_gas_station;
+      iconColor = Colors.blue;
+    } else if (incidentText.contains('Engine') ||
+        incidentText.contains('Gearbox') ||
+        incidentText.contains('Brake') ||
+        incidentText.contains('Suspension') ||
+        incidentText.contains('Hydraulic') ||
+        incidentText.contains('mechanical') ||
+        incidentText.contains('failure')) {
+      icon = Icons.build;
+      iconColor = Colors.orange;
+    } else if (incidentText.contains('error') ||
+        incidentText.contains('mistake') ||
+        incidentText.contains('SPIN') ||
+        incidentText.contains('lockup') ||
+        incidentText.contains('CRASH')) {
+      icon = Icons.error;
+      iconColor = Colors.red;
+      textColor = Colors.red[200]!;
+    } else if (incidentText.contains('QUALIFYING') || incidentText.contains('Qualified')) {
+      icon = Icons.flag;
+      iconColor = Colors.green;
+      textColor = Colors.green[200]!;
+    } else {
+      icon = Icons.info;
+      iconColor = Colors.grey[400]!;
+    }
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[800]!.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: iconColor, size: 14),
+          SizedBox(width: 8),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  // Driver name - PROMINENT and colored
+                  TextSpan(
+                    text: driverName.toUpperCase(),
+                    style: TextStyle(
+                      color: _getDriverNameColor(driverName),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ': ',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 11,
+                    ),
+                  ),
+                  // Incident text
+                  TextSpan(
+                    text: incidentText,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 11,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: Get incidents organized by lap, filtered for relevant types only
+  Map<int, List<String>> _getIncidentsByLap() {
+    Map<int, List<String>> incidentsByLap = {};
+
+    for (Driver driver in drivers) {
+      for (String incident in driver.raceIncidents) {
+        // Filter for relevant incident types only
+        if (_isRelevantIncident(incident)) {
+          int lap = _extractLapFromIncident(incident);
+          if (lap >= 0) {
+            // Include qualifying (lap 0)
+            if (!incidentsByLap.containsKey(lap)) {
+              incidentsByLap[lap] = [];
+            }
+            incidentsByLap[lap]!.add('${driver.name}: $incident');
+          }
+        }
+      }
+    }
+
+    return incidentsByLap;
+  }
+
+  // NEW: Check if incident is relevant for display
+  bool _isRelevantIncident(String incident) {
+    // Include pit stops, mechanical issues, errors, and qualifying
+    return incident.contains('Pit stop') ||
+        incident.contains('PIT STOP') ||
+        incident.contains('Engine') ||
+        incident.contains('Gearbox') ||
+        incident.contains('Brake') ||
+        incident.contains('Suspension') ||
+        incident.contains('Hydraulic') ||
+        incident.contains('mechanical') ||
+        incident.contains('failure') ||
+        incident.contains('error') ||
+        incident.contains('mistake') ||
+        incident.contains('SPIN') ||
+        incident.contains('lockup') ||
+        incident.contains('CRASH') ||
+        incident.contains('QUALIFYING') ||
+        incident.contains('Qualified');
+  }
+
+  // NEW: Extract lap number from incident string
+  int _extractLapFromIncident(String incident) {
+    // Look for "Lap X:" pattern
+    RegExp lapRegex = RegExp(r'Lap (\d+):');
+    Match? match = lapRegex.firstMatch(incident);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '0') ?? 0;
+    }
+
+    // Look for "QUALIFYING:" (treat as lap 0)
+    if (incident.contains('QUALIFYING:')) {
+      return 0; // Special case for qualifying
+    }
+
+    return -1; // Default if no lap found (will be filtered out)
   }
 
   Widget _buildResultsPrompt() {
@@ -1442,6 +1480,115 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
           ),
         ],
       ),
+    );
+  }
+
+  // HELPER METHODS STILL NEEDED FOR STANDINGS TABLE
+  double _getTireWearPercentage(Driver driver) {
+    double degradation = driver.calculateTyreDegradation();
+    double percentage = (degradation / 3.0) * 100.0;
+    return percentage.clamp(0.0, 100.0);
+  }
+
+  Color _getTireWearColor(double degradation) {
+    double percentage = (degradation / 3.0) * 100.0;
+    if (percentage <= 25) return Colors.green;
+    if (percentage <= 50) return Colors.yellow[700]!;
+    if (percentage <= 75) return Colors.orange;
+    if (percentage <= 90) return Colors.red[600]!;
+    return Colors.red[800]!;
+  }
+
+  Color _getTeamColor(String team) {
+    switch (team) {
+      case "Mercedes":
+        return Colors.teal;
+      case "Red Bull":
+        return Colors.blue[700]!;
+      case "Ferrari":
+        return Colors.red[600]!;
+      case "McLaren":
+        return Colors.orange[600]!;
+      case "Aston Martin":
+        return Colors.green[600]!;
+      case "Williams":
+        return Colors.grey[600]!;
+      default:
+        return Colors.grey[600]!;
+    }
+  }
+
+  Color _getRowColor(Driver driver, int index) {
+    if (driver.isDNF()) return Colors.grey[850]!;
+    if (index == 0) return Colors.yellow.withOpacity(0.1);
+    if (index == 1) return Colors.grey[300]!.withOpacity(0.1);
+    if (index == 2) return Colors.orange.withOpacity(0.1);
+    if (index < 10) return Colors.green.withOpacity(0.05);
+    return Colors.grey[900]!;
+  }
+
+  Color _getDriverNameColor(String driverName) {
+    // Match driver names to team colors for consistency
+    switch (driverName.toLowerCase()) {
+      case 'hamilton':
+      case 'russell':
+        return Colors.teal;
+      case 'verstappen':
+      case 'perez':
+        return Colors.blue[400]!;
+      case 'leclerc':
+      case 'sainz':
+        return Colors.red[400]!;
+      case 'norris':
+      case 'piastri':
+        return Colors.orange[400]!;
+      case 'alonso':
+        return Colors.green[400]!;
+      case 'rookie':
+        return Colors.grey[400]!;
+      default:
+        return Colors.white;
+    }
+  }
+
+// NEW: Get battle color based on gap intensity
+  Color _getBattleColor(double gap) {
+    if (gap < 0.5) return Colors.red[400]!; // Intense battle (red)
+    if (gap < 1.0) return Colors.orange[400]!; // Close battle (orange)
+    if (gap < 2.0) return Colors.yellow[600]!; // Moderate battle (yellow)
+    return Colors.green[400]!; // Light battle (green)
+  }
+
+// NEW: Get battle description
+  String _getBattleDescription(double gap) {
+    if (gap < 0.5) return 'INTENSE';
+    if (gap < 1.0) return 'CLOSE';
+    if (gap < 2.0) return 'NEARBY';
+    return 'BATTLE';
+  }
+
+// NEW: Battle legend item
+  Widget _buildBattleLegendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        SizedBox(width: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[500],
+            fontSize: 8,
+          ),
+        ),
+      ],
     );
   }
 }

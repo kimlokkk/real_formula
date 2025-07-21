@@ -261,7 +261,11 @@ class _QualifyingPageState extends State<QualifyingPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.play_arrow, size: 28),
+                    Icon(
+                      Icons.play_arrow,
+                      size: 28,
+                      color: Colors.white,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'START QUALIFYING',
@@ -564,7 +568,11 @@ class _QualifyingPageState extends State<QualifyingPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.sports_motorsports, size: 24),
+                  Icon(
+                    Icons.sports_motorsports,
+                    size: 24,
+                    color: Colors.white,
+                  ),
                   SizedBox(width: 12),
                   Text(
                     'PROCEED TO RACE',
@@ -575,7 +583,11 @@ class _QualifyingPageState extends State<QualifyingPage> {
                     ),
                   ),
                   SizedBox(width: 12),
-                  Icon(Icons.arrow_forward, size: 24),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 24,
+                    color: Colors.white,
+                  ),
                 ],
               ),
             ),
