@@ -1,3 +1,5 @@
+// Updated enums.dart with REALISTIC tire compound differences
+
 import 'package:flutter/material.dart';
 
 enum DriverErrorType {
@@ -26,18 +28,22 @@ enum WeatherCondition {
   final Color color;
 }
 
+// FIXED: Much more realistic tire compound differences
 enum TireCompound {
-  soft("Soft", "🔴", -0.8, 4.0, Colors.red), // Increased from 2.5 to 4.0 - much faster degradation
+  // REALISTIC F1 compound differences (0.1-0.3s per step, not 0.8s!)
+  soft("Soft", "🔴", -0.25, 4.0, Colors.red), // Was -0.8s, now -0.25s (still fastest)
   medium("Medium", "🟡", 0.0, 1.0, Colors.yellow), // Baseline unchanged
-  hard("Hard", "⚪", 0.6, 0.3, Colors.grey), // Decreased from 0.4 to 0.3 - even more durable
-  intermediate("Inter", "🟢", 2.0, 1.5, Colors.green),
-  wet("Wet", "🔵", 4.0, 1.0, Colors.blue);
+  hard("Hard", "⚪", 0.15, 0.3, Colors.grey), // Was +0.6s, now +0.15s (more realistic)
+  intermediate("Inter", "🟢", 2.0, 1.5, Colors.green), // Wet conditions only
+  wet("Wet", "🔵", 4.0, 1.0, Colors.blue); // Heavy wet only
+
+  // Now total gap between soft and hard is 0.4s instead of 1.4s - much more realistic!
 
   const TireCompound(this.name, this.icon, this.lapTimeDelta, this.degradationMultiplier, this.color);
   final String name;
   final String icon;
-  final double lapTimeDelta; // Seconds faster/slower than medium
-  final double degradationMultiplier; // Degradation rate vs medium - now much more extreme
+  final double lapTimeDelta; // FIXED: Realistic differences (0.25s max advantage)
+  final double degradationMultiplier; // Degradation rate vs medium - still extreme for strategy
   final Color color;
 }
 
@@ -52,9 +58,8 @@ enum SimulationSpeed {
   final String label;
 }
 
-// Simplified: Single qualifying session
 enum QualifyingSession {
-  QUALIFYING("QUALIFYING", "Single Session", Colors.red, 0); // No timer needed
+  QUALIFYING("QUALIFYING", "Single Session", Colors.red, 0);
 
   const QualifyingSession(this.name, this.duration, this.color, this.seconds);
   final String name;

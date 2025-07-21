@@ -6,6 +6,7 @@ import '../models/track.dart';
 import '../services/performance_calculator.dart';
 import '../services/incident_simulator.dart';
 import '../services/strategy_engine.dart';
+import '../services/overtaking_engine.dart'; // NEW IMPORT
 import '../data/driver_data.dart';
 import '../data/track_data.dart';
 import '../utils/constants.dart';
@@ -20,7 +21,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   int currentLap = 0;
   int totalLaps = F1Constants.defaultTotalLaps;
   bool isRacing = false;
-  bool raceFinished = false; // Track if race has finished
+  bool raceFinished = false;
   Timer? raceTimer;
   SimulationSpeed currentSpeed = SimulationSpeed.normal;
   WeatherCondition currentWeather = WeatherCondition.clear;
@@ -28,7 +29,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
   late AnimationController _pulseController;
 
-  int selectedTab = 0; // 0: Standings, 1: Incidents
+  int selectedTab = 0; // 0: Standings, 1: Incidents, 2: Overtaking (UPDATED)
 
   @override
   void initState() {
@@ -40,7 +41,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Get configuration from setup page if available
     final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
     bool hasQualifyingResults = false;
@@ -54,7 +54,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         drivers = List.from(configDrivers);
       }
 
-      // NEW: Check if qualifying results exist
       List<dynamic>? qualifyingResults = args['qualifyingResults'];
       if (qualifyingResults != null) {
         hasQualifyingResults = true;
@@ -62,11 +61,9 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       }
     }
 
-    // Initialize race if not already done
     if (drivers.isEmpty) {
       _initializeRace();
     } else {
-      // Only reset if NO qualifying results (preserve qualifying grid)
       if (!hasQualifyingResults) {
         _resetRaceWithCurrentConfig();
       } else {
@@ -98,7 +95,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     totalLaps = currentTrack.totalLaps;
     currentLap = 0;
     isRacing = false;
-    raceFinished = false; // Reset race finished state
+    raceFinished = false;
     raceTimer?.cancel();
 
     for (Driver driver in drivers) {
@@ -107,11 +104,9 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     }
   }
 
-  // NEW: Reset race but preserve qualifying grid positions
   void _resetRaceWithQualifyingGrid() {
     _debugPrintGrid("BEFORE reset with qualifying grid");
 
-    // DON'T call DriverData.initializeStartingGrid - preserve qualifying positions!
     totalLaps = currentTrack.totalLaps;
     currentLap = 0;
     isRacing = false;
@@ -119,16 +114,13 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     raceTimer?.cancel();
 
     for (Driver driver in drivers) {
-      // Preserve starting position and current tire choice from qualifying
       int savedStartingPosition = driver.startingPosition;
       int savedPosition = driver.position;
       TireCompound savedCompound = driver.currentCompound;
       bool savedFreeTireChoice = driver.hasFreeTireChoice;
 
-      // Reset race data
       driver.resetForNewRace();
 
-      // Restore qualifying results
       driver.startingPosition = savedStartingPosition;
       driver.position = savedPosition;
       driver.currentCompound = savedCompound;
@@ -136,19 +128,14 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       driver.positionChangeFromStart = 0;
     }
 
-    // Sort drivers by their qualifying positions to ensure correct order
     drivers.sort((a, b) => a.position.compareTo(b.position));
-
     _debugPrintGrid("AFTER reset with qualifying grid");
   }
 
-  // NEW: Process qualifying results
   void _processQualifyingResults(List<dynamic> qualifyingResults) {
-    // Add qualifying info to race incidents
     if (qualifyingResults.isNotEmpty && drivers.isNotEmpty) {
       _debugPrintGrid("BEFORE processing qualifying results");
 
-      // Find pole sitter (should be P1)
       Driver polePosition = drivers.firstWhere((d) => d.position == 1, orElse: () => drivers.first);
 
       print("=== QUALIFYING INTEGRATION ===");
@@ -156,15 +143,11 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       print("Pole position: ${polePosition.name} (P${polePosition.position})");
       print("Starting grid preserved from qualifying");
 
-      // Drivers already have their starting positions and tire choices set by qualifying engine
-      // Just ensure the list is sorted by position
       drivers.sort((a, b) => a.position.compareTo(b.position));
-
       _debugPrintGrid("AFTER processing qualifying results");
     }
   }
 
-  // NEW: Debug method to verify grid positions
   void _debugPrintGrid(String context) {
     print("=== GRID DEBUG: $context ===");
     for (int i = 0; i < drivers.length; i++) {
@@ -185,12 +168,12 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     return allIncidents.reversed.take(20).toList();
   }
 
+  // UPDATED _simulateLap() method with overtaking integration
   void _simulateLap() {
     if (currentLap >= totalLaps) {
       print("=== RACE FINISHED ===");
       print("Final lap: $currentLap, Total laps: $totalLaps");
       _stopRace();
-      // Set race finished instead of auto-navigating
       setState(() {
         raceFinished = true;
       });
@@ -200,6 +183,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     setState(() {
       currentLap++;
 
+      // STEP 1: Process pit stops first
       for (int i = 0; i < drivers.length; i++) {
         Driver driver = drivers[i];
         if (driver.isDNF()) continue;
@@ -213,6 +197,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         }
       }
 
+      // STEP 2: Calculate lap times and process incidents
       for (Driver driver in drivers) {
         if (driver.isDNF()) continue;
 
@@ -225,6 +210,16 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         driver.lapsOnCurrentTires++;
       }
 
+      // STEP 3: NEW - Process overtaking opportunities BEFORE sorting by time
+      List<String> overtakingIncidents =
+          OvertakingEngine.processOvertakingOpportunities(drivers, currentLap, currentTrack, currentWeather);
+
+      // Add overtaking incidents to the race log
+      for (String incident in overtakingIncidents) {
+        print("OVERTAKING: $incident");
+      }
+
+      // STEP 4: Sort drivers by total time (but positions may have been updated by overtaking)
       drivers.sort((a, b) {
         if (a.isDNF() && b.isDNF()) return 0;
         if (a.isDNF()) return 1;
@@ -232,8 +227,12 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         return a.totalTime.compareTo(b.totalTime);
       });
 
+      // STEP 5: Update positions based on final order (some may have changed due to overtaking)
       for (int i = 0; i < drivers.length; i++) {
-        drivers[i].updatePosition(i + 1);
+        // Only update position if it's different (overtaking may have already updated it)
+        if (drivers[i].position != i + 1) {
+          drivers[i].updatePosition(i + 1);
+        }
       }
     });
   }
@@ -276,14 +275,13 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     setState(() {
       currentLap = 0;
       isRacing = false;
-      raceFinished = false; // Reset race finished state
+      raceFinished = false;
       totalLaps = currentTrack.totalLaps;
       DriverData.resetAllDriversForNewRace(drivers, currentWeather);
     });
     raceTimer?.cancel();
   }
 
-  // Navigate to results immediately without delay
   void _navigateToResults() {
     Navigator.pushReplacementNamed(
       context,
@@ -316,7 +314,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
           Expanded(
             child: _buildTabContent(),
           ),
-          // Big results button when race is finished
           if (raceFinished) _buildResultsPrompt(),
         ],
       ),
@@ -470,7 +467,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                       ),
                     ],
                   ),
-                  // NEW: Show pole position info
                   if (drivers.isNotEmpty && drivers.any((d) => d.position == 1)) ...[
                     SizedBox(height: 4),
                     Text(
@@ -527,7 +523,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                         isPrimary: false,
                       ),
                     ] else ...[
-                      // Only show new race button when finished (results button moved to bottom)
                       _buildControlButton(
                         label: 'NEW RACE',
                         onPressed: _resetRace,
@@ -629,9 +624,10 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
+  // UPDATED _buildTabBar() method to include overtaking tab
   Widget _buildTabBar() {
-    List<String> tabs = ['STANDINGS', 'INCIDENTS'];
-    List<IconData> icons = [Icons.format_list_numbered, Icons.warning];
+    List<String> tabs = ['STANDINGS', 'INCIDENTS', 'OVERTAKING']; // Added third tab
+    List<IconData> icons = [Icons.format_list_numbered, Icons.warning, Icons.compare_arrows]; // Added overtaking icon
 
     return Container(
       color: Colors.grey[800],
@@ -681,12 +677,15 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
+  // UPDATED _buildTabContent() method to include overtaking panel
   Widget _buildTabContent() {
     switch (selectedTab) {
       case 0:
         return _buildStandingsTable();
       case 1:
         return _buildIncidentsPanel();
+      case 2:
+        return _buildOvertakingIncidentsPanel(); // New overtaking panel
       default:
         return _buildStandingsTable();
     }
@@ -774,15 +773,14 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
+  // ENHANCED _buildDriverRow() method with overtaking indicators
   Widget _buildDriverRow(Driver driver, int index) {
-    // Calculate interval gap (to car directly ahead)
     String intervalDisplay;
     if (driver.isDNF()) {
       intervalDisplay = 'DNF';
     } else if (index == 0) {
       intervalDisplay = 'LEADER';
     } else {
-      // Gap to car directly ahead
       Driver carAhead = drivers[index - 1];
       if (carAhead.isDNF()) {
         intervalDisplay = 'LEADER';
@@ -794,6 +792,10 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
     bool isLeader = index == 0 && !driver.isDNF();
 
+    // NEW: Check if this driver is in an overtaking battle
+    bool inOvertakingBattle = _isInOvertakingBattle(driver, index);
+    bool recentOvertaker = _hasRecentOvertaking(driver);
+
     return AnimatedContainer(
       key: ValueKey(driver.name),
       duration: Duration(milliseconds: 500),
@@ -803,6 +805,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         color: _getRowColor(driver, index),
         border: Border(
           bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
+          // NEW: Add orange border for overtaking battles
+          left: inOvertakingBattle ? BorderSide(color: Colors.orange, width: 3) : BorderSide.none,
         ),
       ),
       child: Row(
@@ -818,6 +822,16 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                   decoration: BoxDecoration(
                     color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team),
                     borderRadius: BorderRadius.circular(2),
+                    // NEW: Add glow effect for recent overtaking
+                    boxShadow: recentOvertaker
+                        ? [
+                            BoxShadow(
+                              color: Colors.orange.withOpacity(0.6),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Center(
                     child: Text(
@@ -831,12 +845,34 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                   ),
                 ),
                 SizedBox(width: 4),
-                if (driver.positionChangeFromStart != 0)
-                  Icon(
-                    driver.positionChangeFromStart > 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                    color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
-                    size: 12,
-                  ),
+                Column(
+                  children: [
+                    if (driver.positionChangeFromStart != 0)
+                      Icon(
+                        driver.positionChangeFromStart > 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                        color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
+                        size: 12,
+                      ),
+                    // NEW: Show DRS indicator if applicable
+                    if (_isDRSEligible(driver, index))
+                      Container(
+                        margin: EdgeInsets.only(top: 2),
+                        padding: EdgeInsets.all(1),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Text(
+                          'DRS',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 6,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -855,13 +891,23 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    // NEW: Overtaking potential indicator (attack mode)
+                    if (_hasOvertakingPotential(driver, index)) ...[
+                      SizedBox(width: 4),
+                      Icon(Icons.keyboard_double_arrow_right, color: Colors.orange, size: 14),
+                    ],
+                    // NEW: Recent overtaking indicator
+                    if (recentOvertaker) ...[
+                      SizedBox(width: 4),
+                      Icon(Icons.trending_up, color: Colors.orange, size: 14),
+                    ],
                     if (driver.hasActiveMechanicalIssue) ...[
-                      SizedBox(width: 6),
-                      Icon(Icons.warning, color: Colors.orange, size: 16),
+                      SizedBox(width: 4),
+                      Icon(Icons.warning, color: Colors.orange, size: 14),
                     ],
                     if (driver.errorCount > 0) ...[
-                      SizedBox(width: 6),
-                      Icon(Icons.error, color: Colors.red, size: 16),
+                      SizedBox(width: 4),
+                      Icon(Icons.error, color: Colors.red, size: 14),
                     ],
                   ],
                 ),
@@ -918,8 +964,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                 ),
                 SizedBox(height: 4),
                 Container(
-                  height: 6, // Bigger tire wear bar
-                  width: 60, // Wider tire wear bar
+                  height: 6,
+                  width: 60,
                   decoration: BoxDecoration(
                     color: Colors.grey[700],
                     borderRadius: BorderRadius.circular(3),
@@ -940,14 +986,32 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
           ),
           Container(
             width: 100,
-            child: Text(
-              intervalDisplay,
-              style: TextStyle(
-                color: driver.isDNF() ? Colors.grey[500] : (isLeader ? Colors.yellow : Colors.white),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.right,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  intervalDisplay,
+                  style: TextStyle(
+                    color: driver.isDNF() ? Colors.grey[500] : (isLeader ? Colors.yellow : Colors.white),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+                // NEW: Show DRS gap indicator
+                if (!driver.isDNF() && index > 0) ...[
+                  SizedBox(height: 2),
+                  Text(
+                    _getDRSGapInfo(driver, index),
+                    style: TextStyle(
+                      color: _isDRSEligible(driver, index) ? Colors.green : Colors.grey[600],
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -955,10 +1019,73 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
+  // NEW: Helper methods for overtaking UI
+  bool _isInOvertakingBattle(Driver driver, int index) {
+    if (driver.isDNF()) return false;
+
+    if (index > 0 && !drivers[index - 1].isDNF()) {
+      double gapAhead = driver.totalTime - drivers[index - 1].totalTime;
+      if (gapAhead < 2.0) return true;
+    }
+
+    if (index < drivers.length - 1 && !drivers[index + 1].isDNF()) {
+      double gapBehind = drivers[index + 1].totalTime - driver.totalTime;
+      if (gapBehind < 2.0) return true;
+    }
+
+    return false;
+  }
+
+  bool _hasRecentOvertaking(Driver driver) {
+    if (driver.raceIncidents.isEmpty) return false;
+
+    String lastIncident = driver.raceIncidents.last;
+    return lastIncident.contains('overtakes') || lastIncident.contains('Overtook');
+  }
+
+  bool _isDRSEligible(Driver driver, int index) {
+    if (driver.isDNF() || index == 0) return false;
+
+    Driver carAhead = drivers[index - 1];
+    if (carAhead.isDNF()) return false;
+
+    double gap = driver.totalTime - carAhead.totalTime;
+    bool withinDRSZone = gap <= 1.0;
+    bool supportsDRS = currentTrack.type == TrackType.power || currentTrack.type == TrackType.mixed;
+
+    return withinDRSZone && supportsDRS;
+  }
+
+  String _getDRSGapInfo(Driver driver, int index) {
+    if (index == 0) return '';
+
+    Driver carAhead = drivers[index - 1];
+    if (carAhead.isDNF()) return '';
+
+    double gap = driver.totalTime - carAhead.totalTime;
+    if (gap <= 1.0) {
+      return 'DRS ${gap.toStringAsFixed(1)}s';
+    } else if (gap <= 3.0) {
+      return '${gap.toStringAsFixed(1)}s';
+    }
+
+    return '';
+  }
+
+  bool _hasOvertakingPotential(Driver driver, int index) {
+    if (driver.isDNF() || index == 0) return false;
+
+    Driver carAhead = drivers[index - 1];
+    if (carAhead.isDNF()) return false;
+
+    double carPaceAdvantage = (driver.carPerformance - carAhead.carPerformance) / 100.0;
+    double tireAdvantage = carAhead.calculateTyreDegradation() - driver.calculateTyreDegradation();
+
+    return carPaceAdvantage > 0.05 || tireAdvantage > 0.3;
+  }
+
   double _getTireWearPercentage(Driver driver) {
-    // Convert tire degradation to percentage (0-100%)
     double degradation = driver.calculateTyreDegradation();
-    // Scale degradation to percentage - assuming max degradation around 3.0 = 100%
     double percentage = (degradation / 3.0) * 100.0;
     return percentage.clamp(0.0, 100.0);
   }
@@ -1057,7 +1184,183 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     );
   }
 
-  // Big prominent results button that appears when race finishes
+  // NEW: Overtaking incidents panel
+  Widget _buildOvertakingIncidentsPanel() {
+    List<String> overtakingIncidents = [];
+
+    for (Driver driver in drivers) {
+      for (String incident in driver.raceIncidents) {
+        if (incident.contains('overtakes') ||
+            incident.contains('Overtook') ||
+            incident.contains('overtaken') ||
+            incident.contains('slipstream') ||
+            incident.contains('late braking') ||
+            incident.contains('contact')) {
+          overtakingIncidents.add("${driver.name}: $incident");
+        }
+      }
+    }
+
+    overtakingIncidents = overtakingIncidents.reversed.take(15).toList();
+
+    return Container(
+      color: Colors.grey[900],
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[700]!, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.compare_arrows, color: Colors.orange, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  'OVERTAKING ACTIVITY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Spacer(),
+                Text(
+                  '${OvertakingEngine.getOvertakingStatistics(drivers)['totalOvertakes']} TOTAL',
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Track info
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[850],
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[700]!, width: 1),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Track Difficulty: ${_getOvertakingDifficultyDescription()}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 11,
+                  ),
+                ),
+                if (_isDRSAvailable())
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'DRS AVAILABLE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: overtakingIncidents.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.compare_arrows, color: Colors.grey[600], size: 48),
+                        SizedBox(height: 16),
+                        Text(
+                          'No overtaking activity yet',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 16,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Difficulty: ${_getOvertakingDifficultyDescription()}',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: overtakingIncidents.length,
+                    itemBuilder: (context, index) {
+                      String incident = overtakingIncidents[index];
+                      bool isSuccessfulOvertake = incident.contains('overtakes') || incident.contains('Overtook');
+
+                      return Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSuccessfulOvertake ? Colors.orange.withOpacity(0.1) : Colors.transparent,
+                          border: Border(
+                            bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
+                            left: isSuccessfulOvertake ? BorderSide(color: Colors.orange, width: 3) : BorderSide.none,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            if (isSuccessfulOvertake)
+                              Icon(Icons.trending_up, color: Colors.orange, size: 16)
+                            else
+                              Icon(Icons.warning, color: Colors.red, size: 16),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                incident,
+                                style: TextStyle(
+                                  color: isSuccessfulOvertake ? Colors.orange[200] : Colors.grey[300],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getOvertakingDifficultyDescription() {
+    if (currentTrack.overtakingDifficulty < 0.4) {
+      return "Very Hard (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
+    } else if (currentTrack.overtakingDifficulty < 0.6) {
+      return "Hard (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
+    } else if (currentTrack.overtakingDifficulty < 0.8) {
+      return "Moderate (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
+    } else {
+      return "Easy (${(currentTrack.overtakingDifficulty * 100).toInt()}%)";
+    }
+  }
+
+  bool _isDRSAvailable() {
+    return currentTrack.type == TrackType.power || currentTrack.type == TrackType.mixed;
+  }
+
   Widget _buildResultsPrompt() {
     return Container(
       width: double.infinity,
@@ -1120,7 +1423,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                   ),
                   SizedBox(width: 16),
                   Text(
-                    'PROCEED VIEW RESULTS',
+                    'VIEW RESULTS',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

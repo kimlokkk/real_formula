@@ -1,3 +1,5 @@
+// lib/services/performance_calculator.dart - REALISTIC F1 performance calculation with racing context
+
 import 'dart:math';
 import 'package:real_formula/models/track.dart';
 
@@ -5,7 +7,10 @@ import '../models/driver.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
 
+/// Enhanced performance calculator that accounts for realistic F1 racing dynamics
+/// including dirty air, track position effects, tire warming, and strategic conservatism
 class PerformanceCalculator {
+  /// Calculate base lap time from car performance
   static double calculateBaseLapTime(Driver driver) {
     // Base lap time: 90 seconds + car performance penalty
     double baseTime = F1Constants.baseLapTime;
@@ -17,6 +22,7 @@ class PerformanceCalculator {
     return baseTime + carTimePenalty;
   }
 
+  /// Calculate driver skills impact on lap time
   static double calculateDriverSkillsImpact(Driver driver) {
     // DRIVER SKILLS (40% of total performance difference)
     // Properly distributed based on lap time relevance
@@ -33,6 +39,7 @@ class PerformanceCalculator {
     return speedFactor + consistencyFactor + tireManagementFactor;
   }
 
+  /// Calculate weather-related lap time penalty
   static double calculateWeatherLapTimePenalty(Driver driver, WeatherCondition weather) {
     if (weather == WeatherCondition.clear) return 0.0;
 
@@ -66,19 +73,7 @@ class PerformanceCalculator {
     return totalPenalty;
   }
 
-  static double calculateWeatherErrorMultiplier(Driver driver, WeatherCondition weather) {
-    if (weather == WeatherCondition.clear) return 1.0;
-
-    // Rain increases error probability significantly
-    double baseMultiplier = F1Constants.weatherErrorMultiplier;
-
-    // Less consistent drivers struggle even more in rain
-    double consistencyFactor = (100 - driver.consistency) / 100.0;
-    double additionalMultiplier = 1.0 + (consistencyFactor * 1.5);
-
-    return baseMultiplier * additionalMultiplier;
-  }
-
+  /// Calculate mechanical issue penalty per lap
   static double calculateMechanicalIssuePenalty(Driver driver) {
     if (!driver.hasActiveMechanicalIssue) return 0.0;
 
@@ -109,7 +104,7 @@ class PerformanceCalculator {
     return penalty;
   }
 
-  // ENHANCED: Apply track-specific tire degradation multiplier
+  /// Apply track-specific tire degradation multiplier
   static double calculateTrackAdjustedTireDegradation(Driver driver, Track currentTrack) {
     // Get base tire degradation from driver's enhanced calculation
     double baseTyreDeg = driver.calculateTyreDegradation();
@@ -120,26 +115,145 @@ class PerformanceCalculator {
     return trackAdjustedTyreDeg;
   }
 
-  static double calculateCurrentLapTime(Driver driver, WeatherCondition weather, Track currentTrack) {
+  /// NEW: Calculate realistic racing context effects
+  /// This is what was missing - F1 cars don't race in isolation!
+  static double calculateRacingContextEffects(
+      Driver driver, int currentLap, int totalLaps, int driverPosition, List<Driver> allDrivers, Track track) {
+    double contextPenalty = 0.0;
+
+    // 1. DIRTY AIR EFFECTS - following cars lose significant performance
+    if (driverPosition > 1) {
+      Driver carAhead = allDrivers.firstWhere((d) => d.position == driverPosition - 1, orElse: () => driver);
+
+      if (carAhead != driver && !carAhead.isDNF()) {
+        double gapToCarAhead = driver.totalTime - carAhead.totalTime;
+
+        // Dirty air penalty based on gap (closer = worse performance)
+        // These values match real F1 dirty air effects (0.3-0.5s in reality)
+        if (gapToCarAhead < 1.0) {
+          contextPenalty += 0.4; // Severe dirty air penalty when very close
+        } else if (gapToCarAhead < 2.0) {
+          contextPenalty += 0.25; // Moderate dirty air penalty
+        } else if (gapToCarAhead < 3.0) {
+          contextPenalty += 0.15; // Light dirty air penalty
+        }
+        // Beyond 3 seconds gap = clean air
+
+        // Track-specific dirty air effects
+        if (track.type == TrackType.street || track.overtakingDifficulty < 0.4) {
+          contextPenalty *= 1.3; // Worse dirty air on narrow street circuits (Monaco)
+        } else if (track.type == TrackType.power) {
+          contextPenalty *= 0.7; // Less dirty air impact on power tracks (Monza)
+        }
+      }
+    }
+
+    // 2. EARLY RACE CAUTION PHASE (laps 1-10)
+    // Everyone drives more conservatively at race start to avoid incidents
+    if (currentLap <= 10) {
+      double cautionFactor = 1.0 - (currentLap / 10.0); // 100% caution on lap 1, 0% on lap 10
+      contextPenalty += cautionFactor * 0.2; // Up to 0.2s penalty for early race caution
+
+      // Extra caution for drivers in intense midfield battles
+      if (driverPosition > 1 && driverPosition <= 6) {
+        contextPenalty += cautionFactor * 0.1; // Extra 0.1s for midfield position fights
+      }
+    }
+
+    // 3. TIRE WARMING EFFECTS - cold tires are slower
+    // First few laps after pit stops have reduced performance
+    if (driver.lapsOnCurrentTires <= 2) {
+      if (driver.lapsOnCurrentTires == 0) {
+        contextPenalty += 0.2; // Out-lap penalty (very cold tires)
+      } else if (driver.lapsOnCurrentTires == 1) {
+        contextPenalty += 0.1; // Still warming up on lap 2
+      }
+      // Lap 3+ = fully warmed tires
+    }
+
+    // 4. STRATEGIC POSITION PROTECTION
+    // Leaders and podium contenders drive more conservatively early in race
+    if (currentLap <= 15 && driverPosition <= 3) {
+      // Front runners protect their position rather than taking risks
+      contextPenalty += 0.1; // Conservative driving to protect track position
+    }
+
+    // 5. TRAFFIC MANAGEMENT
+    // Cars in the midfield (fighting for points) drive more cautiously
+    if (driverPosition >= 8 && driverPosition <= 12 && currentLap <= 20) {
+      contextPenalty += 0.05; // Slight caution in points battles
+    }
+
+    return contextPenalty;
+  }
+
+  /// NEW: Calculate contextual tire compound advantages
+  /// Tire compound advantages are reduced in certain racing conditions
+  static double calculateContextualCompoundDelta(
+      Driver driver, int currentLap, int driverPosition, List<Driver> allDrivers) {
+    double baseDelta = driver.currentCompound.lapTimeDelta;
+
+    // DIRTY AIR REDUCTION
+    // Compound advantages are significantly reduced when following other cars
+    if (driverPosition > 1) {
+      Driver carAhead = allDrivers.firstWhere((d) => d.position == driverPosition - 1, orElse: () => driver);
+
+      if (carAhead != driver && !carAhead.isDNF()) {
+        double gapToCarAhead = driver.totalTime - carAhead.totalTime;
+
+        // The closer you follow, the less tire compound advantage you get
+        if (gapToCarAhead < 2.0) {
+          baseDelta *= 0.6; // 40% reduction in compound advantage in heavy dirty air
+        } else if (gapToCarAhead < 4.0) {
+          baseDelta *= 0.8; // 20% reduction in moderate dirty air
+        }
+        // Clean air = full compound advantage
+      }
+    }
+
+    // EARLY RACE TIRE WARMING
+    // Compound differences are smaller when tires aren't fully warmed up
+    if (currentLap <= 5) {
+      baseDelta *= 0.7; // 30% reduction in early race (tires still warming)
+    } else if (currentLap <= 10) {
+      baseDelta *= 0.85; // 15% reduction in mid-early race
+    }
+    // After lap 10 = full compound advantage
+
+    return baseDelta;
+  }
+
+  /// MAIN METHOD: Calculate current lap time with full racing context
+  /// This now accounts for all realistic F1 racing factors
+  static double calculateCurrentLapTime(Driver driver, WeatherCondition weather, Track currentTrack,
+      {int currentLap = 1, List<Driver>? allDrivers}) {
+    // Get racing context
+    int driverPosition = driver.position;
+    List<Driver> driversForContext = allDrivers ?? [driver];
+    int totalLaps = currentTrack.totalLaps;
+
+    // CORE PERFORMANCE COMPONENTS
     double baseTime = calculateBaseLapTime(driver);
     double skillsImpact = calculateDriverSkillsImpact(driver);
-
-    // ENHANCED: Use track-adjusted tire degradation instead of base degradation
     double tyreDeg = calculateTrackAdjustedTireDegradation(driver, currentTrack);
 
-    // Consistency affects random variation
+    // CONSISTENCY-BASED RANDOM VARIATION
     double consistencyFactor = driver.consistency / 100.0;
     double maxRandomVariation = 0.5 * (1.0 - consistencyFactor * 0.6);
     double random = (Random().nextDouble() * 2.0 * maxRandomVariation) - maxRandomVariation;
 
-    // Weather penalty
+    // WEATHER EFFECTS
     double weatherPenalty = calculateWeatherLapTimePenalty(driver, weather);
 
-    // Compound performance impact
-    double compoundDelta = driver.currentCompound.lapTimeDelta;
+    // CONTEXTUAL TIRE COMPOUND ADVANTAGE (reduced in traffic/early race)
+    double compoundDelta = calculateContextualCompoundDelta(driver, currentLap, driverPosition, driversForContext);
 
-    // Mechanical issue penalty
+    // MECHANICAL ISSUES
     double mechanicalPenalty = calculateMechanicalIssuePenalty(driver);
+
+    // NEW: RACING CONTEXT EFFECTS (dirty air, early race caution, etc.)
+    double contextEffects =
+        calculateRacingContextEffects(driver, currentLap, totalLaps, driverPosition, driversForContext, currentTrack);
 
     // Update mechanical issue countdown
     if (driver.hasActiveMechanicalIssue) {
@@ -152,10 +266,37 @@ class PerformanceCalculator {
       }
     }
 
-    return baseTime + skillsImpact + tyreDeg + weatherPenalty + compoundDelta + mechanicalPenalty + random;
+    // FINAL LAP TIME CALCULATION
+    return baseTime +
+        skillsImpact +
+        tyreDeg +
+        weatherPenalty +
+        compoundDelta +
+        mechanicalPenalty +
+        contextEffects +
+        random;
   }
 
-  // NEW: Helper method to get tire degradation info for debugging/UI
+  /// DEBUGGING: Get detailed breakdown of lap time components
+  static Map<String, double> getLapTimeBreakdown(Driver driver, WeatherCondition weather, Track currentTrack,
+      {int currentLap = 1, List<Driver>? allDrivers}) {
+    int driverPosition = driver.position;
+    List<Driver> driversForContext = allDrivers ?? [driver];
+    int totalLaps = currentTrack.totalLaps;
+
+    return {
+      'baseTime': calculateBaseLapTime(driver),
+      'skillsImpact': calculateDriverSkillsImpact(driver),
+      'tireDegradation': calculateTrackAdjustedTireDegradation(driver, currentTrack),
+      'weatherPenalty': calculateWeatherLapTimePenalty(driver, weather),
+      'compoundDelta': calculateContextualCompoundDelta(driver, currentLap, driverPosition, driversForContext),
+      'mechanicalPenalty': calculateMechanicalIssuePenalty(driver),
+      'contextEffects':
+          calculateRacingContextEffects(driver, currentLap, totalLaps, driverPosition, driversForContext, currentTrack),
+    };
+  }
+
+  /// Helper method to get tire degradation info for debugging/UI
   static Map<String, double> getTireDegradationBreakdown(Driver driver, Track currentTrack) {
     double baseDegradation = driver.calculateTyreDegradation();
     double trackMultiplier = currentTrack.tireDegradationMultiplier;
@@ -169,7 +310,7 @@ class PerformanceCalculator {
     };
   }
 
-  // NEW: Predict lap time for strategy decisions
+  /// Predict lap time for strategy decisions (without random elements)
   static double predictLapTimeInFuture(Driver driver, WeatherCondition weather, Track currentTrack, int lapsAhead) {
     double baseTime = calculateBaseLapTime(driver);
     double skillsImpact = calculateDriverSkillsImpact(driver);
@@ -180,7 +321,7 @@ class PerformanceCalculator {
     double weatherPenalty = calculateWeatherLapTimePenalty(driver, weather);
     double compoundDelta = driver.currentCompound.lapTimeDelta;
 
-    // Don't include random variation or mechanical issues in prediction
+    // Don't include random variation, mechanical issues, or context effects in prediction
     return baseTime + skillsImpact + futureTyreDeg + weatherPenalty + compoundDelta;
   }
 }
