@@ -118,7 +118,7 @@ class OvertakingEngine {
     // Current lap pace differential based on multiple factors
 
     // Base car performance difference
-    double carGap = (behind.carPerformance - ahead.carPerformance) / 100.0;
+    double carGap = (behind.team.carPerformance - ahead.team.carPerformance) / 100.0;
 
     // Driver skill difference (speed more important for overtaking)
     double speedGap = (behind.speed - ahead.speed) / 200.0;

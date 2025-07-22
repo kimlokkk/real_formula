@@ -567,7 +567,7 @@ class StrategyEngine {
     }
 
     // LOW RELIABILITY TEAMS: More conservative
-    if (driver.reliability < 80) {
+    if (driver.team.reliability < 80) {
       if (compound == TireCompound.hard) multiplier *= 1.15;
       if (compound == TireCompound.soft) multiplier *= 0.9;
     }
@@ -712,21 +712,24 @@ class StrategyEngine {
 
   static double calculatePitStopTime(Driver driver, Track track) {
     // Base pit stop time calculation based on team performance
-    double performanceRange = 98.0 - 75.0;
+    double performanceRange = 98.0 - 72.0; // Updated range for 2025
 
     // Calculate base time: better performance = faster pit stops
-    double teamEfficiencyFactor = (driver.carPerformance - 75.0) / performanceRange;
+    double teamEfficiencyFactor = (driver.team.carPerformance - 72.0) / performanceRange;
     double baseTime =
         F1Constants.maxPitTime - (teamEfficiencyFactor * (F1Constants.maxPitTime - F1Constants.minPitTime));
+
+    // Apply team-specific pit stop speed multiplier
+    baseTime *= driver.team.pitStopSpeed;
 
     // 25% chance of "exceptional" pit stop (good or bad)
     bool isExceptionalStop = Random().nextDouble() < F1Constants.exceptionalPitChance;
 
     if (isExceptionalStop) {
       // Exceptional stops have much more variance
-      double performanceFactor = driver.carPerformance / 100.0;
+      double performanceFactor = driver.team.carPerformance / 100.0;
       double exceptionRange = F1Constants.exceptionalPitVariation;
-      double bias = (performanceFactor - 0.75) / 0.23;
+      double bias = (performanceFactor - 0.72) / 0.26; // Updated for 2025 range
 
       // Biased random: good teams lean toward negative (faster), bad teams toward positive (slower)
       double biasedRandom = (Random().nextDouble() - 0.5 + (bias - 0.5) * 0.6) * 2;
@@ -734,7 +737,7 @@ class StrategyEngine {
 
       double finalTime = baseTime + exceptionalVariation;
       finalTime += track.pitStopTimePenalty; // Add track pit lane penalty
-      return finalTime.clamp(20.0, 30.0 + track.pitStopTimePenalty);
+      return finalTime.clamp(18.0, 32.0 + track.pitStopTimePenalty); // Updated range
     } else {
       // Normal stops with small variance
       double normalVariation =

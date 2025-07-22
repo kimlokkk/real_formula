@@ -855,7 +855,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team),
+                        color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team.name),
                         borderRadius: BorderRadius.circular(2),
                         // NEW: Glow effect for drivers in battle
                         boxShadow: inBattle
@@ -928,7 +928,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                 Row(
                   children: [
                     Text(
-                      driver.team.toUpperCase(),
+                      driver.team.name.toUpperCase(),
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 10,
@@ -1498,8 +1498,16 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         return Colors.orange[600]!;
       case "Aston Martin":
         return Colors.green[600]!;
-      case "Williams":
+      case "Alpine":
+        return Colors.pink[400]!;
+      case "Haas":
         return Colors.grey[600]!;
+      case "Racing Bulls":
+        return Colors.blue[400]!;
+      case "Williams":
+        return Colors.blue[300]!;
+      case "Sauber":
+        return Colors.green[300]!;
       default:
         return Colors.grey[600]!;
     }
@@ -1517,22 +1525,36 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   Color _getDriverNameColor(String driverName) {
     // Match driver names to team colors for consistency
     switch (driverName.toLowerCase()) {
-      case 'hamilton':
-      case 'russell':
-        return Colors.teal;
-      case 'verstappen':
-      case 'perez':
+      case 'max verstappen':
+      case 'yuki tsunoda':
         return Colors.blue[400]!;
-      case 'leclerc':
-      case 'sainz':
+      case 'lewis hamilton':
+      case 'charles leclerc':
         return Colors.red[400]!;
-      case 'norris':
-      case 'piastri':
+      case 'lando norris':
+      case 'oscar piastri':
         return Colors.orange[400]!;
-      case 'alonso':
+      case 'george russell':
+      case 'andrea kimi antonelli':
+        return Colors.teal;
+      case 'fernando alonso':
+      case 'lance stroll':
         return Colors.green[400]!;
-      case 'rookie':
+      case 'pierre gasly':
+      case 'franco colapinto':
+        return Colors.pink[300]!;
+      case 'esteban ocon':
+      case 'oliver bearman':
         return Colors.grey[400]!;
+      case 'liam lawson':
+      case 'isack hadjar':
+        return Colors.blue[300]!;
+      case 'alex albon':
+      case 'carlos sainz':
+        return Colors.blue[200]!;
+      case 'nico hulkenberg':
+      case 'gabriel bortoleto':
+        return Colors.green[300]!;
       default:
         return Colors.white;
     }

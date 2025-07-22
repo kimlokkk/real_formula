@@ -16,8 +16,8 @@ class PerformanceCalculator {
     double baseTime = F1Constants.baseLapTime;
 
     // CAR PERFORMANCE (60% of total performance difference)
-    // Range: 0 to +0.375s penalty (Red Bull 98 -> Williams 75)
-    double carTimePenalty = (100 - driver.carPerformance) * F1Constants.carPerformanceWeight;
+    // Range: 0 to +0.375s penalty (McLaren 98 -> Sauber 72)
+    double carTimePenalty = (100 - driver.team.carPerformance) * F1Constants.carPerformanceWeight;
 
     return baseTime + carTimePenalty;
   }
@@ -49,7 +49,7 @@ class PerformanceCalculator {
 
     // PART 1: CAR PERFORMANCE FACTOR (60% of total wet weather difference)
     // Worse cars struggle more in wet conditions
-    double carWetPenalty = (100 - driver.carPerformance) * F1Constants.carWetPenalty;
+    double carWetPenalty = (100 - driver.team.carPerformance) * F1Constants.carWetPenalty;
 
     // PART 2: DRIVER SKILLS FACTOR (40% of total wet weather difference)
     // Consistency: 30% of total performance (main wet weather skill)

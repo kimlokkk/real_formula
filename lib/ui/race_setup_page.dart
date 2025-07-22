@@ -479,7 +479,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
                         width: 30,
                         height: 30,
                         decoration: BoxDecoration(
-                          color: driver.teamColor,
+                          color: driver.team.primaryColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Center(
@@ -510,7 +510,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
                               ),
                             ),
                             Text(
-                              driver.team.toUpperCase(),
+                              driver.team.name.toUpperCase(),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 10,
@@ -525,7 +525,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            'SPD ${driver.speed} • CON ${driver.consistency}',
+                            'SPD ${driver.speed} • CON ${driver.consistency} • RAC ${driver.racecraft}',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -533,10 +533,10 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
                             ),
                           ),
                           Text(
-                            'CAR ${driver.carPerformance} • REL ${driver.reliability}',
+                            'CAR ${driver.team.carPerformance} • REL ${driver.team.reliability} • ${driver.driverTier}',
                             style: TextStyle(
                               color: Colors.grey[400],
-                              fontSize: 10,
+                              fontSize: 9,
                             ),
                           ),
                         ],

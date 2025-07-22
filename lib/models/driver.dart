@@ -3,16 +3,17 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'enums.dart';
-import 'qualifying.dart'; // NEW IMPORT
+import 'qualifying.dart';
+import 'team.dart'; // NEW IMPORT
 
 class Driver {
   String name;
-  String team;
-  int speed;
-  int consistency;
-  int tyreManagementSkill;
-  int carPerformance;
-  int reliability;
+  Team team; // CHANGED: Reference to Team object instead of just string
+  int speed; // 50-100 (pure pace ability)
+  int consistency; // 50-100 (mistake avoidance)
+  int tyreManagementSkill; // 50-100 (tire conservation)
+  int racecraft; // 50-100 (wheel-to-wheel racing, overtaking) - NEW
+  int experience; // 50-100 (F1 experience level) - NEW
   int lapsCompleted;
   int lapsOnCurrentTires;
   int pitStops;
@@ -21,7 +22,6 @@ class Driver {
   int startingPosition;
   int positionChangeFromStart;
   List<int> positionHistory;
-  Color teamColor;
 
   // Error and failure tracking
   int errorCount;
@@ -35,19 +35,18 @@ class Driver {
   TireCompound currentCompound;
   List<TireCompound> usedCompounds;
 
-  // NEW: Qualifying-specific data
+  // Qualifying-specific data
   List<QualifyingResult> qualifyingHistory;
-  bool hasFreeTireChoice; // Flag to track free tire choice (replaces Q2 rule)
+  bool hasFreeTireChoice;
 
   Driver({
     required this.name,
-    required this.team,
+    required this.team, // CHANGED: Now takes Team object
     required this.speed,
     required this.consistency,
     required this.tyreManagementSkill,
-    required this.carPerformance,
-    required this.reliability,
-    required this.teamColor,
+    required this.racecraft, // NEW
+    required this.experience, // NEW
     this.lapsCompleted = 0,
     this.lapsOnCurrentTires = 0,
     this.pitStops = 0,
@@ -61,15 +60,47 @@ class Driver {
     this.mechanicalIssueLapsRemaining = 0,
     this.currentIssueDescription = "",
     this.currentCompound = TireCompound.medium,
-    this.hasFreeTireChoice = true, // NEW: Free tire choice replaces Q2 rule
+    this.hasFreeTireChoice = true,
   })  : positionHistory = [],
         raceIncidents = [],
         usedCompounds = [],
-        qualifyingHistory = []; // NEW
+        qualifyingHistory = [];
+
+  // UPDATED: Getters that now use team data
+  int get carPerformance => team.carPerformance;
+  int get reliability => team.reliability;
+  Color get teamColor => team.primaryColor;
 
   // Basic info getters
   String get skillsInfo {
-    return "SPD:$speed CON:$consistency TYR:$tyreManagementSkill";
+    return "SPD:$speed CON:$consistency TYR:$tyreManagementSkill RAC:$racecraft EXP:$experience";
+  }
+
+  String get detailedSkillsInfo {
+    return "Speed: $speed/100 • Consistency: $consistency/100 • Tire Mgmt: $tyreManagementSkill/100 • Racecraft: $racecraft/100 • Experience: $experience/100";
+  }
+
+  // Driver performance tier based on overall skills
+  String get driverTier {
+    double overallRating = (speed + consistency + tyreManagementSkill + racecraft + experience) / 5.0;
+
+    if (overallRating >= 95) return "GOAT";
+    if (overallRating >= 90) return "Elite";
+    if (overallRating >= 85) return "Top Tier";
+    if (overallRating >= 80) return "Solid";
+    if (overallRating >= 75) return "Promising";
+    if (overallRating >= 70) return "Developing";
+    if (overallRating >= 65) return "Rookie";
+    return "Struggling";
+  }
+
+  // Overall performance combining driver skills and car
+  double get overallPerformance {
+    double driverSkills = (speed + consistency + tyreManagementSkill + racecraft + experience) / 5.0;
+    double teamPerformance = (carPerformance + reliability) / 2.0;
+
+    // 70% car, 30% driver (reflects F1 reality)
+    return (teamPerformance * 0.7) + (driverSkills * 0.3);
   }
 
   String get degradationInfo {
@@ -337,22 +368,7 @@ class Driver {
   }
 
   String getTeamStrategyTendency() {
-    switch (team) {
-      case "Red Bull":
-        return "aggressive";
-      case "Mercedes":
-        return "balanced";
-      case "Ferrari":
-        return "aggressive";
-      case "McLaren":
-        return "balanced";
-      case "Aston Martin":
-        return "conservative";
-      case "Williams":
-        return "aggressive";
-      default:
-        return "balanced";
-    }
+    return team.strategy; // CHANGED: Now uses team.strategy
   }
 
   // NEW: Qualifying-specific methods

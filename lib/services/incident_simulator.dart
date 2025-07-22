@@ -143,7 +143,7 @@ class IncidentSimulator {
 
       double random = Random().nextDouble();
 
-      if (random < F1Constants.terminalFailureChance && driver.reliability < F1Constants.reliabilityThreshold) {
+      if (random < F1Constants.terminalFailureChance && driver.team.reliability < F1Constants.reliabilityThreshold) {
         return MechanicalFailureType.terminalFailure;
       } else if (random < F1Constants.engineIssueChance) {
         return MechanicalFailureType.engineIssue;

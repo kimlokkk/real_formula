@@ -17,7 +17,7 @@ class QualifyingEngine {
     // Driver skills (speed more important in qualifying)
     double speedFactor = (100 - driver.speed) * 0.015;
     double consistencyFactor = (100 - driver.consistency) * 0.008;
-    double carFactor = (100 - driver.carPerformance) * 0.018;
+    double carFactor = (100 - driver.team.carPerformance) * 0.018;
 
     // Weather penalty
     double weatherPenalty = 0.0;

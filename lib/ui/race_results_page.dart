@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:real_formula/data/team_data.dart';
 import 'dart:math';
 import '../models/driver.dart';
 import '../models/track.dart';
@@ -137,16 +138,16 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     });
   }
 
-  Driver _createMockDriver(String name, String team, int position, int pitStops, int errors, int mechanical) {
+  Driver _createMockDriver(String name, String teamName, int position, int pitStops, int errors, int mechanical) {
     Driver driver = Driver(
       name: name,
-      team: team,
+      team: TeamData.getTeamByName(teamName), // CHANGED: Get Team object
       speed: 80 + (position * 2),
       consistency: 75 + (position * 3),
       tyreManagementSkill: 70 + (position * 2),
-      carPerformance: 85 + (position * 2),
-      reliability: 80 + (position * 1),
-      teamColor: _getTeamColor(team),
+      racecraft: 75 + (position * 2), // NEW: Added racecraft
+      experience: 70 + (position * 3), // NEW: Added experience
+      // REMOVED: carPerformance, reliability, teamColor (now come from Team)
     );
 
     // Set additional properties after creation
@@ -239,7 +240,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     if (dataLoaded && drivers.isNotEmpty) {
       Driver winner = drivers.firstWhere((d) => !d.isDNF(), orElse: () => drivers.first);
       raceWinner = winner.name;
-      winnerTeam = winner.team;
+      winnerTeam = winner.team.name;
     }
 
     return Container(
@@ -470,7 +471,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
         Container(
           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _getTeamColor(driver.team),
+            color: _getTeamColor(driver.team.name),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Column(
@@ -484,7 +485,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                 ),
               ),
               Text(
-                driver.team.toUpperCase(),
+                driver.team.name.toUpperCase(),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 8,
@@ -604,7 +605,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                   ),
                 ),
                 Text(
-                  driver.team.toUpperCase(),
+                  driver.team.name.toUpperCase(),
                   style: TextStyle(
                     color: Colors.grey[400],
                     fontSize: 12,
@@ -761,7 +762,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team),
+                    color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team.name),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Center(
@@ -800,7 +801,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                   ),
                 ),
                 Text(
-                  driver.team.toUpperCase(),
+                  driver.team.name.toUpperCase(),
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 10,
@@ -1049,11 +1050,11 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
       if (!driver.isDNF()) {
         String current = teamResults[driver.team] ?? '';
         if (current.isEmpty || driver.position < _extractPosition(current)) {
-          teamResults[driver.team] = 'P${driver.position} (${driver.name})';
+          teamResults[driver.team.name] = 'P${driver.position} (${driver.name})';
         }
       } else {
         if (!teamResults.containsKey(driver.team)) {
-          teamResults[driver.team] = 'All DNF';
+          teamResults[driver.team.name] = 'All DNF';
         }
       }
     }
@@ -1101,8 +1102,16 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
         return Colors.orange[600]!;
       case "Aston Martin":
         return Colors.green[600]!;
-      case "Williams":
+      case "Alpine":
+        return Colors.pink[400]!;
+      case "Haas":
         return Colors.grey[600]!;
+      case "Racing Bulls":
+        return Colors.blue[400]!;
+      case "Williams":
+        return Colors.blue[300]!;
+      case "Sauber":
+        return Colors.green[300]!;
       default:
         return Colors.grey[600]!;
     }

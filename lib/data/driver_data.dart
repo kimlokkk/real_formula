@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../models/driver.dart';
 import '../models/enums.dart';
+import 'team_data.dart';
 
 class DriverData {
   /// Creates the default set of F1 drivers with realistic stats
@@ -11,138 +12,225 @@ class DriverData {
     return [
       // Mercedes Team (High reliability: 92)
       Driver(
-        name: "Hamilton",
-        team: "Mercedes",
-        speed: 95,
-        consistency: 90,
-        tyreManagementSkill: 95,
-        carPerformance: 95,
-        reliability: 92,
-        teamColor: Colors.teal,
+        name: "Max Verstappen",
+        team: TeamData.getTeamByName("Red Bull"),
+        speed: 99, // Absolute elite pace
+        consistency: 96, // Extremely consistent
+        tyreManagementSkill: 94, // Excellent tire management
+        racecraft: 97, // Outstanding wheel-to-wheel
+        experience: 92, // Veteran with championships
       ),
       Driver(
-        name: "Russell",
-        team: "Mercedes",
-        speed: 80,
-        consistency: 85,
-        tyreManagementSkill: 80,
-        carPerformance: 95,
-        reliability: 92,
-        teamColor: Colors.cyan,
+        name: "Yuki Tsunoda",
+        team: TeamData.getTeamByName("Red Bull"),
+        speed: 82, // Good pace but not elite
+        consistency: 78, // Sometimes inconsistent
+        tyreManagementSkill: 80, // Decent tire management
+        racecraft: 84, // Improving racecraft
+        experience: 76, // Growing experience
       ),
 
-      // Red Bull Team (Excellent reliability: 95)
+      // FERRARI - Lewis Hamilton & Charles Leclerc
       Driver(
-        name: "Verstappen",
-        team: "Red Bull",
-        speed: 98,
-        consistency: 95,
-        tyreManagementSkill: 90,
-        carPerformance: 98,
-        reliability: 95,
-        teamColor: Colors.blue,
+        name: "Lewis Hamilton",
+        team: TeamData.getTeamByName("Ferrari"),
+        speed: 95, // Still very fast at 40
+        consistency: 94, // Legendary consistency
+        tyreManagementSkill: 96, // Master of tire management
+        racecraft: 98, // Greatest racer of all time
+        experience: 100, // Maximum F1 experience
       ),
       Driver(
-        name: "Perez",
-        team: "Red Bull",
-        speed: 78,
-        consistency: 82,
-        tyreManagementSkill: 85,
-        carPerformance: 98,
-        reliability: 95,
-        teamColor: Colors.indigo,
+        name: "Charles Leclerc",
+        team: TeamData.getTeamByName("Ferrari"),
+        speed: 94, // Elite speed
+        consistency: 84, // Sometimes makes mistakes under pressure
+        tyreManagementSkill: 88, // Good tire management
+        racecraft: 92, // Strong wheel-to-wheel
+        experience: 84, // Good experience, still growing
       ),
 
-      // Ferrari Team (Moderate reliability: 85)
+      // MCLAREN - Lando Norris & Oscar Piastri
       Driver(
-        name: "Leclerc",
-        team: "Ferrari",
-        speed: 88,
-        consistency: 75,
-        tyreManagementSkill: 75,
-        carPerformance: 92,
-        reliability: 85,
-        teamColor: Colors.red,
+        name: "Lando Norris",
+        team: TeamData.getTeamByName("McLaren"),
+        speed: 92, // Very fast, elite level
+        consistency: 88, // Generally consistent
+        tyreManagementSkill: 90, // Excellent tire management
+        racecraft: 89, // Strong in battles
+        experience: 84, // Solid experience
       ),
       Driver(
-        name: "Sainz",
-        team: "Ferrari",
-        speed: 82,
-        consistency: 88,
-        tyreManagementSkill: 85,
-        carPerformance: 92,
-        reliability: 85,
-        teamColor: Colors.redAccent,
+        name: "Oscar Piastri",
+        team: TeamData.getTeamByName("McLaren"),
+        speed: 88, // Very promising pace
+        consistency: 86, // Impressively consistent for rookie years
+        tyreManagementSkill: 85, // Good natural tire feel
+        racecraft: 87, // Learning but very promising
+        experience: 72, // Still early in career
       ),
 
-      // McLaren Team (Good reliability: 88)
+      // MERCEDES - George Russell & Andrea Kimi Antonelli
       Driver(
-        name: "Norris",
-        team: "McLaren",
-        speed: 85,
-        consistency: 82,
-        tyreManagementSkill: 80,
-        carPerformance: 88,
-        reliability: 88,
-        teamColor: Colors.orange,
+        name: "George Russell",
+        team: TeamData.getTeamByName("Mercedes"),
+        speed: 89, // Strong pace, not quite elite
+        consistency: 91, // Very consistent
+        tyreManagementSkill: 87, // Good tire management
+        racecraft: 85, // Decent wheel-to-wheel
+        experience: 80, // Building experience
       ),
       Driver(
-        name: "Piastri",
-        team: "McLaren",
-        speed: 78,
-        consistency: 75,
-        tyreManagementSkill: 75,
-        carPerformance: 88,
-        reliability: 88,
-        teamColor: Colors.deepOrange,
+        name: "Andrea Kimi Antonelli",
+        team: TeamData.getTeamByName("Mercedes"),
+        speed: 86, // Promising rookie pace
+        consistency: 75, // Learning, some rookie mistakes expected
+        tyreManagementSkill: 78, // Still learning F1 tires
+        racecraft: 82, // Natural talent but inexperienced
+        experience: 60, // F1 rookie
       ),
 
-      // Aston Martin Team (Decent reliability: 82)
+      // ASTON MARTIN - Fernando Alonso & Lance Stroll
       Driver(
-        name: "Alonso",
-        team: "Aston Martin",
-        speed: 92,
-        consistency: 95,
-        tyreManagementSkill: 90,
-        carPerformance: 85,
-        reliability: 82,
-        teamColor: Colors.green,
+        name: "Fernando Alonso",
+        team: TeamData.getTeamByName("Aston Martin"),
+        speed: 91, // Still incredibly fast at 43
+        consistency: 95, // Master of consistency
+        tyreManagementSkill: 95, // Tire whisperer
+        racecraft: 96, // Legendary racecraft
+        experience: 98, // One of the most experienced ever
+      ),
+      Driver(
+        name: "Lance Stroll",
+        team: TeamData.getTeamByName("Aston Martin"),
+        speed: 75, // Decent pace but not elite
+        consistency: 82, // Generally reliable
+        tyreManagementSkill: 78, // Average tire management
+        racecraft: 74, // Struggles in close battles
+        experience: 82, // Good F1 experience
       ),
 
-      // Williams Team (Lower reliability: 78)
+      // ALPINE - Pierre Gasly & Franco Colapinto
       Driver(
-        name: "Rookie",
-        team: "Williams",
-        speed: 60,
-        consistency: 50,
-        tyreManagementSkill: 55,
-        carPerformance: 75,
-        reliability: 78,
-        teamColor: Colors.grey,
+        name: "Pierre Gasly",
+        team: TeamData.getTeamByName("Alpine"),
+        speed: 84, // Good pace
+        consistency: 85, // Generally consistent
+        tyreManagementSkill: 82, // Decent tire management
+        racecraft: 86, // Solid wheel-to-wheel
+        experience: 86, // Good F1 experience
+      ),
+      Driver(
+        name: "Franco Colapinto",
+        team: TeamData.getTeamByName("Alpine"),
+        speed: 83, // Impressive rookie pace
+        consistency: 79, // Still learning but promising
+        tyreManagementSkill: 76, // Learning F1 tire management
+        racecraft: 81, // Good natural racing instincts
+        experience: 62, // Very new to F1
+      ),
+
+      // HAAS - Esteban Ocon & Oliver Bearman
+      Driver(
+        name: "Esteban Ocon",
+        team: TeamData.getTeamByName("Haas"),
+        speed: 80, // Solid midfield pace
+        consistency: 87, // Very consistent driver
+        tyreManagementSkill: 84, // Good tire conservation
+        racecraft: 82, // Decent in battles
+        experience: 86, // Good F1 experience
+      ),
+      Driver(
+        name: "Oliver Bearman",
+        team: TeamData.getTeamByName("Haas"),
+        speed: 81, // Promising pace for rookie
+        consistency: 76, // Learning but showed promise
+        tyreManagementSkill: 74, // Still developing
+        racecraft: 79, // Good instincts, needs experience
+        experience: 58, // F1 rookie
+      ),
+
+      // RACING BULLS - Liam Lawson & Isack Hadjar
+      Driver(
+        name: "Liam Lawson",
+        team: TeamData.getTeamByName("Racing Bulls"),
+        speed: 85, // Strong pace, Red Bull academy graduate
+        consistency: 81, // Generally consistent
+        tyreManagementSkill: 79, // Learning tire management
+        racecraft: 83, // Good racing instincts
+        experience: 70, // Limited F1 experience
+      ),
+      Driver(
+        name: "Isack Hadjar",
+        team: TeamData.getTeamByName("Racing Bulls"),
+        speed: 78, // Promising rookie pace
+        consistency: 74, // Rookie learning curve
+        tyreManagementSkill: 72, // Still learning
+        racecraft: 77, // Natural talent but inexperienced
+        experience: 55, // F1 rookie
+      ),
+
+      // WILLIAMS - Alex Albon & Carlos Sainz
+      Driver(
+        name: "Alex Albon",
+        team: TeamData.getTeamByName("Williams"),
+        speed: 84, // Good pace, strong in difficult cars
+        consistency: 88, // Very consistent and reliable
+        tyreManagementSkill: 83, // Good tire management
+        racecraft: 80, // Decent wheel-to-wheel
+        experience: 82, // Good F1 experience
+      ),
+      Driver(
+        name: "Carlos Sainz",
+        team: TeamData.getTeamByName("Williams"),
+        speed: 87, // Strong pace, proven race winner
+        consistency: 89, // Very consistent driver
+        tyreManagementSkill: 86, // Excellent tire management
+        racecraft: 85, // Good in battles
+        experience: 88, // Extensive F1 experience
+      ),
+
+      // SAUBER - Nico Hulkenberg & Gabriel Bortoleto
+      Driver(
+        name: "Nico Hulkenberg",
+        team: TeamData.getTeamByName("Sauber"),
+        speed: 82, // Solid pace, veteran quality
+        consistency: 92, // Extremely consistent
+        tyreManagementSkill: 88, // Excellent tire management
+        racecraft: 84, // Good wheel-to-wheel
+        experience: 94, // Veteran with extensive experience
+      ),
+      Driver(
+        name: "Gabriel Bortoleto",
+        team: TeamData.getTeamByName("Sauber"),
+        speed: 80, // Promising F2 champion pace
+        consistency: 77, // F2 champion shows good consistency
+        tyreManagementSkill: 75, // Learning F1 tire management
+        racecraft: 78, // F2 champion has good racing instincts
+        experience: 56, // F1 rookie but F2 champion
       ),
     ];
   }
 
   /// Creates a custom driver with specified attributes
+  /// Creates a custom driver with specified attributes
   static Driver createCustomDriver({
     required String name,
-    required String team,
+    required String teamName, // CHANGED: Now takes team name string
     required int speed,
     required int consistency,
     required int tyreManagementSkill,
-    required int carPerformance,
-    required int reliability,
-    required Color teamColor,
+    required int racecraft, // NEW
+    required int experience, // NEW
   }) {
     return Driver(
       name: name,
-      team: team,
+      team: TeamData.getTeamByName(teamName), // CHANGED: Gets Team object
       speed: speed,
       consistency: consistency,
       tyreManagementSkill: tyreManagementSkill,
-      carPerformance: carPerformance,
-      reliability: reliability,
-      teamColor: teamColor,
+      racecraft: racecraft, // NEW
+      experience: experience, // NEW
     );
   }
 
@@ -203,47 +291,53 @@ class DriverData {
   /// Gets driver skill presets for easy driver creation
   static Map<String, DriverSkillPreset> getDriverSkillPresets() {
     return {
-      "World Champion": DriverSkillPreset(
-        speed: 95,
-        consistency: 90,
-        tyreManagementSkill: 90,
-        description: "Elite driver with exceptional all-around skills",
-      ),
-      "Veteran": DriverSkillPreset(
-        speed: 88,
+      "GOAT (Hamilton/Verstappen level)": DriverSkillPreset(
+        speed: 97,
         consistency: 95,
-        tyreManagementSkill: 92,
+        tyreManagementSkill: 95,
+        racecraft: 97,
+        experience: 96,
+        description: "Greatest of all time - elite in every category",
+      ),
+      "Elite Champion": DriverSkillPreset(
+        speed: 92,
+        consistency: 90,
+        tyreManagementSkill: 88,
+        racecraft: 90,
+        experience: 85,
+        description: "Championship-caliber driver, elite skills",
+      ),
+      "Veteran Expert": DriverSkillPreset(
+        speed: 85,
+        consistency: 92,
+        tyreManagementSkill: 90,
+        racecraft: 88,
+        experience: 94,
         description: "Experienced driver with supreme consistency",
       ),
-      "Young Talent": DriverSkillPreset(
-        speed: 85,
+      "Rising Star": DriverSkillPreset(
+        speed: 88,
+        consistency: 82,
+        tyreManagementSkill: 80,
+        racecraft: 85,
+        experience: 72,
+        description: "Fast young talent, still developing",
+      ),
+      "Promising Rookie": DriverSkillPreset(
+        speed: 80,
         consistency: 75,
-        tyreManagementSkill: 70,
-        description: "Fast but inconsistent, learning tire management",
+        tyreManagementSkill: 72,
+        racecraft: 78,
+        experience: 58,
+        description: "F1 rookie with potential, learning the ropes",
       ),
-      "Rookie": DriverSkillPreset(
-        speed: 65,
-        consistency: 55,
-        tyreManagementSkill: 60,
-        description: "New to F1, still developing skills",
-      ),
-      "Midfield Regular": DriverSkillPreset(
-        speed: 78,
-        consistency: 80,
-        tyreManagementSkill: 78,
-        description: "Solid performer, reliable points scorer",
-      ),
-      "Tire Whisperer": DriverSkillPreset(
+      "Solid Midfield": DriverSkillPreset(
         speed: 82,
         consistency: 85,
-        tyreManagementSkill: 95,
-        description: "Exceptional tire management, makes rubber last",
-      ),
-      "Speed Demon": DriverSkillPreset(
-        speed: 95,
-        consistency: 70,
-        tyreManagementSkill: 75,
-        description: "Extremely fast but prone to mistakes",
+        tyreManagementSkill: 83,
+        racecraft: 81,
+        experience: 84,
+        description: "Reliable points scorer, consistent performer",
       ),
     };
   }
@@ -274,28 +368,37 @@ class DriverData {
         driver.consistency <= 100 &&
         driver.tyreManagementSkill >= 50 &&
         driver.tyreManagementSkill <= 100 &&
-        driver.carPerformance >= 70 &&
-        driver.carPerformance <= 100 &&
-        driver.reliability >= 70 &&
-        driver.reliability <= 100;
+        driver.racecraft >= 50 && // NEW
+        driver.racecraft <= 100 && // NEW
+        driver.experience >= 50 && // NEW
+        driver.experience <= 100 && // NEW
+        driver.team.carPerformance >= 70 && // CHANGED: Now uses team.carPerformance
+        driver.team.carPerformance <= 100 && // CHANGED
+        driver.team.reliability >= 70 && // CHANGED: Now uses team.reliability
+        driver.team.reliability <= 100; // CHANGED
   }
 
   /// Gets performance tier for a driver based on overall stats
+  /// Gets performance tier for a driver based on overall stats
   static String getDriverPerformanceTier(Driver driver) {
-    double overallRating = (driver.speed + driver.consistency + driver.tyreManagementSkill) / 3.0;
+    double overallRating =
+        (driver.speed + driver.consistency + driver.tyreManagementSkill + driver.racecraft + driver.experience) / 5.0;
 
+    if (overallRating >= 95) return "GOAT";
     if (overallRating >= 90) return "Elite";
-    if (overallRating >= 80) return "Top Tier";
-    if (overallRating >= 70) return "Midfield";
-    if (overallRating >= 60) return "Backmarker";
-    return "Rookie";
+    if (overallRating >= 85) return "Top Tier";
+    if (overallRating >= 80) return "Solid";
+    if (overallRating >= 75) return "Promising";
+    if (overallRating >= 70) return "Developing";
+    if (overallRating >= 65) return "Rookie";
+    return "Struggling";
   }
 
   /// Gets car performance tier for a driver
   static String getCarPerformanceTier(Driver driver) {
-    if (driver.carPerformance >= 95) return "Championship Contender";
-    if (driver.carPerformance >= 88) return "Regular Points Scorer";
-    if (driver.carPerformance >= 80) return "Midfield Runner";
+    if (driver.team.carPerformance >= 95) return "Championship Contender";
+    if (driver.team.carPerformance >= 88) return "Regular Points Scorer";
+    if (driver.team.carPerformance >= 80) return "Midfield Runner";
     return "Backmarker";
   }
 }
@@ -320,16 +423,21 @@ class TeamInfo {
 }
 
 /// Driver skill preset for easy driver creation
+/// Driver skill preset for easy driver creation
 class DriverSkillPreset {
   final int speed;
   final int consistency;
   final int tyreManagementSkill;
+  final int racecraft; // NEW
+  final int experience; // NEW
   final String description;
 
   DriverSkillPreset({
     required this.speed,
     required this.consistency,
     required this.tyreManagementSkill,
+    required this.racecraft, // NEW
+    required this.experience, // NEW
     required this.description,
   });
 }

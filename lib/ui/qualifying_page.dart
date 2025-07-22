@@ -214,7 +214,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
     // Apply driver skills
     double speedFactor = (100 - userDriver.speed) * 0.015;
     double consistencyFactor = (100 - userDriver.consistency) * 0.008;
-    double carFactor = (100 - userDriver.carPerformance) * 0.018;
+    double carFactor = (100 - userDriver.team.carPerformance) * 0.018;
 
     double driverAdjustedTime = baseTime + speedFactor + consistencyFactor + carFactor;
 
@@ -597,7 +597,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: _getTeamColor(result.driver.team),
+                    color: _getTeamColor(result.driver.team as String),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Center(
@@ -630,7 +630,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
                   ),
                 ),
                 Text(
-                  result.driver.team.toUpperCase(),
+                  result.driver.team.name.toUpperCase(), // CHANGED: Added .name
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 11,
@@ -775,8 +775,16 @@ class _QualifyingPageState extends State<QualifyingPage> {
         return Colors.orange[600]!;
       case "Aston Martin":
         return Colors.green[600]!;
-      case "Williams":
+      case "Alpine":
+        return Colors.pink[400]!;
+      case "Haas":
         return Colors.grey[600]!;
+      case "Racing Bulls":
+        return Colors.blue[400]!;
+      case "Williams":
+        return Colors.blue[300]!;
+      case "Sauber":
+        return Colors.green[300]!;
       default:
         return Colors.grey[600]!;
     }
