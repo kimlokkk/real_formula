@@ -767,7 +767,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
               Icon(Icons.info, color: Colors.grey[500], size: 12),
               SizedBox(width: 4),
               Text(
-                'Colored left border indicates battles (gap < 3s): ',
+                'Colored left border indicates battles (gap < 2s): ',
                 style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 9,
@@ -805,8 +805,20 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         gapToCarAhead = driver.totalTime - carAhead.totalTime;
         intervalDisplay = '+${gapToCarAhead.toStringAsFixed(1)}s';
 
-        // Check if in battle (less than 3 seconds gap)
-        inBattle = gapToCarAhead < 3.0;
+        // Check if in battle (less than 2 seconds gap to car ahead)
+        // Only show battles after race has started and drivers have actual lap times
+        inBattle = currentLap > 0 && gapToCarAhead < 2.0 && gapToCarAhead > 0.0;
+      }
+    }
+
+// ALWAYS check if being chased (car behind within 2 seconds) - including for P1
+    if (index < drivers.length - 1 && currentLap > 0) {
+      Driver carBehind = drivers[index + 1];
+      if (!carBehind.isDNF()) {
+        double gapToCarBehind = carBehind.totalTime - driver.totalTime;
+        if (gapToCarBehind < 2.0 && gapToCarBehind > 0.0) {
+          inBattle = true; // Set battle for both chaser and being chased
+        }
       }
     }
 
@@ -867,21 +879,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                         ),
                       ),
                     ),
-                    // NEW: Battle indicator dot
-                    if (inBattle)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _getBattleColor(gapToCarAhead),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 SizedBox(width: 4),
@@ -892,16 +889,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                         driver.positionChangeFromStart > 0 ? Icons.arrow_upward : Icons.arrow_downward,
                         color: driver.positionChangeFromStart > 0 ? Colors.green : Colors.red,
                         size: 12,
-                      ),
-                    // NEW: Battle indicator for close racing
-                    if (inBattle && gapToCarAhead < 1.5)
-                      Container(
-                        margin: EdgeInsets.only(top: 2),
-                        child: Icon(
-                          Icons.speed,
-                          color: Colors.orange,
-                          size: 10,
-                        ),
                       ),
                   ],
                 ),
@@ -1556,7 +1543,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     if (gap < 0.5) return Colors.red[400]!; // Intense battle (red)
     if (gap < 1.0) return Colors.orange[400]!; // Close battle (orange)
     if (gap < 2.0) return Colors.yellow[600]!; // Moderate battle (yellow)
-    return Colors.green[400]!; // Light battle (green)
+    return Colors.red[300]!; // Light battle (green)
   }
 
 // NEW: Get battle description
@@ -1564,7 +1551,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     if (gap < 0.5) return 'INTENSE';
     if (gap < 1.0) return 'CLOSE';
     if (gap < 2.0) return 'NEARBY';
-    return 'BATTLE';
+    return 'PURSUED';
   }
 
 // NEW: Battle legend item
