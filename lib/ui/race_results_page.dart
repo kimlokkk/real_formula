@@ -106,61 +106,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
       });
     } else {
       print("No arguments received - creating mock data");
-      _createMockData();
     }
-  }
-
-  void _createMockData() {
-    setState(() {
-      // Create mock drivers with realistic race data
-      drivers = [
-        _createMockDriver("Hamilton", "Mercedes", 1, 2, 1, 0),
-        _createMockDriver("Verstappen", "Red Bull", 2, 1, 0, 1),
-        _createMockDriver("Leclerc", "Ferrari", 3, 3, 2, 0),
-        _createMockDriver("Russell", "Mercedes", 4, 1, 0, 2),
-        _createMockDriver("Sainz", "Ferrari", 5, 2, 1, 1),
-        _createMockDriver("Norris", "McLaren", 6, 1, 3, 0),
-        _createMockDriver("Piastri", "McLaren", 7, 2, 0, 1),
-        _createMockDriver("Alonso", "Aston Martin", 8, 1, 1, 2),
-      ];
-
-      track = TrackData.getDefaultTrack();
-      weather = WeatherCondition.clear;
-      totalLaps = 50;
-      dataLoaded = true;
-
-      print("Mock data created with ${drivers.length} drivers");
-      print("=== MOCK DATA DEBUG ===");
-      for (Driver d in drivers) {
-        print(
-            "Mock Driver ${d.name}: Pits=${d.pitStops}, Errors=${d.errorCount}, Mechanical=${d.mechanicalIssuesCount}");
-      }
-    });
-  }
-
-  Driver _createMockDriver(String name, String teamName, int position, int pitStops, int errors, int mechanical) {
-    Driver driver = Driver(
-      name: name,
-      team: TeamData.getTeamByName(teamName), // CHANGED: Get Team object
-      speed: 80 + (position * 2),
-      consistency: 75 + (position * 3),
-      tyreManagementSkill: 70 + (position * 2),
-      racecraft: 75 + (position * 2), // NEW: Added racecraft
-      experience: 70 + (position * 3), // NEW: Added experience
-      // REMOVED: carPerformance, reliability, teamColor (now come from Team)
-    );
-
-    // Set additional properties after creation
-    driver.position = position;
-    driver.startingPosition = position + Random().nextInt(3) - 1; // Some position changes
-    driver.pitStops = pitStops;
-    driver.totalTime = 4500.0 + (position * 15.0); // Realistic lap times
-    driver.errorCount = errors;
-    driver.mechanicalIssuesCount = mechanical;
-    driver.lapsCompleted = totalLaps;
-    driver.positionChangeFromStart = driver.startingPosition - driver.position;
-
-    return driver;
   }
 
   @override

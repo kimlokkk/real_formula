@@ -903,7 +903,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
                 Row(
                   children: [
                     Text(
-                      driver.name.toUpperCase(),
+                      driver.abbreviation.toUpperCase(),
                       style: TextStyle(
                         color: driver.isDNF() ? Colors.grey[500] : (inBattle ? Colors.orange[200] : Colors.white),
                         fontSize: 14,

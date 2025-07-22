@@ -16,6 +16,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
   WeatherCondition selectedWeather = WeatherCondition.clear;
   SimulationSpeed selectedSpeed = SimulationSpeed.normal;
   List<Driver> drivers = [];
+  bool includeRookieDriver = false;
 
   // UI state
   int selectedTab = 0; // 0: Track, 1: Weather, 2: Drivers, 3: Settings

@@ -8,6 +8,7 @@ import 'team.dart'; // NEW IMPORT
 
 class Driver {
   String name;
+  String abbreviation;
   Team team; // CHANGED: Reference to Team object instead of just string
   int speed; // 50-100 (pure pace ability)
   int consistency; // 50-100 (mistake avoidance)
@@ -41,6 +42,7 @@ class Driver {
 
   Driver({
     required this.name,
+    required this.abbreviation,
     required this.team, // CHANGED: Now takes Team object
     required this.speed,
     required this.consistency,

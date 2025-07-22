@@ -1,3 +1,4 @@
+// lib/ui/qualifying_page.dart - Fixed version
 import 'package:flutter/material.dart';
 import 'package:real_formula/ui/minigames/qualifying_timing_challenge.dart';
 import 'dart:async';
@@ -46,7 +47,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
     }
   }
 
-  // REPLACE the _startQualifying method with this updated version:
+  // FIXED: Handle the case where no "Rookie" driver exists
   Future<void> _startQualifying() async {
     setState(() {
       status = QualifyingStatus.running;
@@ -55,8 +56,13 @@ class _QualifyingPageState extends State<QualifyingPage> {
     // Show qualifying in progress for 1 second
     await Future.delayed(Duration(seconds: 1));
 
-    // Check if we have a user driver (Rookie)
-    Driver? userDriver = drivers.firstWhere((d) => d.name == "Rookie", orElse: () => null as Driver);
+    // FIXED: Properly handle null case when no "Rookie" driver exists
+    Driver? userDriver;
+    try {
+      userDriver = drivers.firstWhere((d) => d.name == "Rookie");
+    } catch (e) {
+      userDriver = null; // No "Rookie" driver found
+    }
 
     List<QualifyingResult> qualifyingResults = [];
 
@@ -64,7 +70,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
       // User driver exists - show minigame for them, simulate others
       qualifyingResults = await _simulateQualifyingWithUserDriver(userDriver);
     } else {
-      // No user driver - normal AI simulation
+      // No user driver - normal AI simulation for all drivers
       qualifyingResults = QualifyingEngine.simulateQualifying(
         drivers,
         currentWeather,
@@ -81,7 +87,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
     });
   }
 
-  // NEW METHOD: Handle qualifying with user driver minigame
+  // Handle qualifying with user driver minigame
   Future<List<QualifyingResult>> _simulateQualifyingWithUserDriver(Driver userDriver) async {
     List<QualifyingResult> allResults = [];
 
@@ -154,7 +160,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
     return allResults;
   }
 
-  // NEW METHOD: Show user turn message
+  // Show user turn message
   Future<void> _showUserTurnMessage() async {
     await showDialog(
       context: context,
@@ -206,7 +212,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
     );
   }
 
-  // NEW METHOD: Calculate user's qualifying time based on minigame result
+  // Calculate user's qualifying time based on minigame result
   double _calculateUserQualifyingTime(Driver userDriver, QualifyingTimingResult? result) {
     // Base qualifying time for user driver
     double baseTime = currentTrack.baseLapTime * 0.97; // Qualifying pace
@@ -597,7 +603,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: _getTeamColor(result.driver.team as String),
+                    color: _getTeamColor(result.driver.team.name),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Center(
@@ -630,7 +636,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
                   ),
                 ),
                 Text(
-                  result.driver.team.name.toUpperCase(), // CHANGED: Added .name
+                  result.driver.team.name.toUpperCase(),
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 11,
