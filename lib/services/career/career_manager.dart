@@ -1,5 +1,8 @@
 // lib/services/career/career_manager.dart
 import 'dart:math';
+import 'package:real_formula/models/career/race_weekend.dart';
+import 'package:real_formula/services/career/career_calendar.dart';
+
 import '../../models/career/career_driver.dart';
 import '../../models/career/contract.dart';
 import '../../models/team.dart';
@@ -134,6 +137,35 @@ class CareerManager {
 
     // Apply reputation change
     _currentCareerDriver!.updateTeamReputation(currentTeam, reputationChange);
+  }
+
+  static void completeRaceWeekend(
+    RaceWeekend raceWeekend, {
+    required int position,
+    required int points,
+    bool polePosition = false,
+    bool fastestLap = false,
+  }) {
+    if (_currentCareerDriver == null) return;
+
+    // Process race results
+    processRaceResult(
+      position: position,
+      championshipPoints: points,
+      polePosition: polePosition,
+      fastestLap: fastestLap,
+      beatTeammate: _calculateTeammateBeaten(position),
+    );
+
+    // Mark race weekend as completed
+    raceWeekend.completeRace();
+    CareerCalendar.instance.completeCurrentRaceWeekend();
+  }
+
+  static bool _calculateTeammateBeaten(int position) {
+    // Simple logic - in real implementation, compare with teammate position
+    // For now, assume if in points (top 10), you beat teammate
+    return position <= 10;
   }
 
   // Complete current season and prepare for next

@@ -1,31 +1,43 @@
+// lib/ui/race_results_page.dart - Complete file with Calendar Integration (Fixed)
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:real_formula/data/team_data.dart';
 import 'dart:math';
 import '../models/driver.dart';
+import '../models/career/career_driver.dart';
+import '../models/career/race_weekend.dart'; // 🆕 NEW IMPORT
 import '../models/track.dart';
 import '../models/enums.dart';
 import '../data/track_data.dart';
+import '../data/team_data.dart';
+import '../services/career/career_manager.dart'; // 🆕 NEW IMPORT
 
 class RaceResultsPage extends StatefulWidget {
+  const RaceResultsPage({Key? key}) : super(key: key); // ✅ FIXED constructor
+
   @override
   _RaceResultsPageState createState() => _RaceResultsPageState();
 }
 
 class _RaceResultsPageState extends State<RaceResultsPage> {
+  // Existing variables
   List<Driver> drivers = [];
   Track track = TrackData.getDefaultTrack();
   WeatherCondition weather = WeatherCondition.clear;
   int totalLaps = 50;
-
   int selectedTab = 0; // 0: Podium, 1: Full Results, 2: Statistics
   bool dataLoaded = false;
+
+  // 🆕 NEW: Career mode variables
+  bool isCareerMode = false;
+  CareerDriver? careerDriver;
+
+  // 🆕 NEW: Calendar integration variables
+  RaceWeekend? raceWeekend;
+  bool isCalendarRace = false;
 
   @override
   void initState() {
     super.initState();
-    // Remove the addPostFrameCallback and use didChangeDependencies instead
   }
 
   @override
@@ -40,11 +52,12 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
   void _loadRaceData() {
     final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
-    print("=== RACE RESULTS DEBUG ===");
-    print("Arguments received: $args");
+    debugPrint("=== RACE RESULTS DEBUG ===");
+    debugPrint("Arguments received: $args");
 
     if (args != null) {
       setState(() {
+        // Load existing data
         List<dynamic>? driversData = args['drivers'];
         if (driversData != null) {
           drivers = driversData.cast<Driver>();
@@ -62,9 +75,9 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
             };
           }
 
-          print("=== DATA SNAPSHOT ===");
+          debugPrint("=== DATA SNAPSHOT ===");
           driverDataSnapshot.forEach((name, data) {
-            print("$name: ${data}");
+            debugPrint("$name: $data");
           });
 
           // If data gets corrupted, restore from snapshot
@@ -77,7 +90,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                     driver.errorCount != snapshot['errorCount'] ||
                     driver.mechanicalIssuesCount != snapshot['mechanicalIssuesCount']) {
                   dataCorrupted = true;
-                  print("=== DATA CORRUPTED for ${driver.name}, RESTORING ===");
+                  debugPrint("=== DATA CORRUPTED for ${driver.name}, RESTORING ===");
                   driver.pitStops = snapshot['pitStops'];
                   driver.errorCount = snapshot['errorCount'];
                   driver.mechanicalIssuesCount = snapshot['mechanicalIssuesCount'];
@@ -97,6 +110,14 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
         weather = args['weather'] ?? WeatherCondition.clear;
         totalLaps = args['totalLaps'] ?? 50;
 
+        // 🆕 NEW: Load career mode data
+        isCareerMode = args['careerMode'] ?? false;
+        careerDriver = args['careerDriver'];
+
+        // 🆕 NEW: Load calendar race data
+        raceWeekend = args['raceWeekend'];
+        isCalendarRace = args['isCalendarRace'] ?? false;
+
         // Sort by position without modifying other data
         if (drivers.isNotEmpty) {
           drivers.sort((a, b) => a.position.compareTo(b.position));
@@ -105,7 +126,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
         dataLoaded = true;
       });
     } else {
-      print("No arguments received - creating mock data");
+      debugPrint("No arguments received - creating mock data");
     }
   }
 
@@ -194,6 +215,27 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
       padding: EdgeInsets.all(16),
       child: Column(
         children: [
+          // 🆕 NEW: Calendar race indicator
+          if (isCalendarRace && raceWeekend != null) ...[
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange[600],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${raceWeekend!.name.toUpperCase()} • ROUND ${raceWeekend!.round}',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            SizedBox(height: 12),
+          ],
+
           Text(
             'RACE WINNER',
             style: TextStyle(
@@ -228,8 +270,7 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
             children: [
               _buildRaceInfoItem('TRACK', track.name),
               _buildRaceInfoItem('LAPS', '$totalLaps'),
-              _buildRaceInfoItem('WEATHER', weather.name),
-              _buildRaceInfoItem('FINISHERS', '${_getFinisherCount()}/${drivers.length}'),
+              _buildRaceInfoItem('WEATHER', weather.name.toUpperCase()),
             ],
           ),
         ],
@@ -243,14 +284,15 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
         Text(
           label,
           style: TextStyle(
-            color: Colors.grey[400],
+            color: Colors.grey[500],
             fontSize: 10,
             fontWeight: FontWeight.w500,
+            letterSpacing: 1,
           ),
         ),
         SizedBox(height: 4),
         Text(
-          value.toUpperCase(),
+          value,
           style: TextStyle(
             color: Colors.white,
             fontSize: 12,
@@ -261,22 +303,21 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     );
   }
 
-  int _getFinisherCount() {
-    return drivers.where((driver) => !driver.isDNF()).length;
-  }
-
   Widget _buildTabBar() {
     List<String> tabs = ['PODIUM', 'FULL RESULTS', 'STATISTICS'];
-    List<IconData> icons = [Icons.emoji_events, Icons.format_list_numbered, Icons.analytics];
+    List<IconData> icons = [Icons.emoji_events, Icons.list, Icons.bar_chart];
 
     return Container(
-      color: Colors.grey[800],
+      height: 50,
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[800]!, width: 1),
+        ),
+      ),
       child: Row(
-        children: tabs.asMap().entries.map((entry) {
-          int index = entry.key;
-          String tab = entry.value;
+        children: List.generate(tabs.length, (index) {
           bool isSelected = selectedTab == index;
-
           return Expanded(
             child: GestureDetector(
               onTap: () {
@@ -285,29 +326,29 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
                 });
               },
               child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.red[600] : Colors.transparent,
                   border: Border(
                     bottom: BorderSide(
-                      color: isSelected ? Colors.red[600]! : Colors.transparent,
-                      width: 2,
+                      color: isSelected ? Colors.red[400]! : Colors.transparent,
+                      width: 3,
                     ),
                   ),
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       icons[index],
                       color: isSelected ? Colors.white : Colors.grey[400],
                       size: 16,
                     ),
-                    SizedBox(height: 4),
+                    SizedBox(width: 6),
                     Text(
-                      tab,
+                      tabs[index],
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.grey[400],
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -322,285 +363,171 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
   }
 
   Widget _buildTabContent() {
-    if (!dataLoaded) {
+    if (!dataLoaded || drivers.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Colors.red[600]),
-            SizedBox(height: 16),
-            Text(
-              'Loading race results...',
-              style: TextStyle(color: Colors.grey[400]),
-            ),
-          ],
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.red[600]!),
         ),
       );
     }
 
     switch (selectedTab) {
       case 0:
-        return _buildPodiumCeremony();
+        return _buildPodiumView();
       case 1:
-        return _buildFullResults();
+        return _buildFullResultsView();
       case 2:
-        return _buildStatistics();
+        return _buildStatisticsView();
       default:
-        return _buildPodiumCeremony();
+        return Container();
     }
   }
 
-  Widget _buildPodiumCeremony() {
-    if (drivers.isEmpty) {
-      return _buildNoDataMessage('No race data available');
-    }
-
-    List<Driver> finishedDrivers = drivers.where((d) => !d.isDNF()).toList();
-
-    if (finishedDrivers.isEmpty) {
-      return _buildNoDataMessage('No drivers finished the race');
-    }
-
-    List<Driver> podiumDrivers = finishedDrivers.take(3).toList();
+  Widget _buildPodiumView() {
+    List<Driver> podiumDrivers = drivers.where((d) => !d.isDNF()).take(3).toList();
 
     return Container(
-      color: Colors.grey[900],
+      padding: EdgeInsets.all(16),
       child: Column(
         children: [
-          _buildSectionHeader('PODIUM CEREMONY', Icons.emoji_events, Colors.yellow),
-          Expanded(
-            child: Center(
-              child: _buildPodium(podiumDrivers),
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.all(16),
-            child: Column(
+          if (podiumDrivers.length >= 3) ...[
+            // Podium visual
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                for (int i = 0; i < min(3, podiumDrivers.length); i++) _buildPodiumDetail(podiumDrivers[i], i + 1),
+                // 2nd place
+                Expanded(child: _buildPodiumPosition(podiumDrivers[1], 2, 120)),
+                // 1st place (tallest)
+                Expanded(child: _buildPodiumPosition(podiumDrivers[0], 1, 140)),
+                // 3rd place
+                Expanded(child: _buildPodiumPosition(podiumDrivers[2], 3, 100)),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            SizedBox(height: 24),
+          ],
 
-  Widget _buildPodium(List<Driver> podiumDrivers) {
-    return Container(
-      height: 200,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // P2 (left)
-          if (podiumDrivers.length > 1) _buildPodiumStep(podiumDrivers[1], 2, 100, Colors.grey[300]!),
-
-          SizedBox(width: 12),
-
-          // P1 (center, tallest)
-          if (podiumDrivers.isNotEmpty) _buildPodiumStep(podiumDrivers[0], 1, 140, Colors.yellow),
-
-          SizedBox(width: 12),
-
-          // P3 (right)
-          if (podiumDrivers.length > 2) _buildPodiumStep(podiumDrivers[2], 3, 80, Colors.orange),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPodiumStep(Driver driver, int position, double height, Color color) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: _getTeamColor(driver.team.name),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            children: [
-              Text(
-                driver.name.toUpperCase(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                driver.team.name.toUpperCase(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 8),
-        Container(
-          width: 80,
-          height: height,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                color,
-                color.withOpacity(0.7),
-              ],
-            ),
-            border: Border.all(color: Colors.white, width: 2),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '$position',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (position == 1) ...[
-                SizedBox(height: 8),
-                Icon(
-                  Icons.emoji_events,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPodiumDetail(Driver driver, int position) {
-    String positionSuffix = position == 1
-        ? 'ST'
-        : position == 2
-            ? 'ND'
-            : 'RD';
-
-    String gapDisplay = "WINNER";
-    if (position > 1 && drivers.isNotEmpty && drivers[0].totalTime > 0 && driver.totalTime > 0) {
-      double gap = driver.totalTime - drivers[0].totalTime;
-      gapDisplay = "+${gap.toStringAsFixed(1)}s";
-    }
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        border: Border.all(
-          color: position == 1
-              ? Colors.yellow
-              : position == 2
-                  ? Colors.grey[300]!
-                  : Colors.orange,
-          width: 2,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: position == 1
-                  ? Colors.yellow
-                  : position == 2
-                      ? Colors.grey[300]!
-                      : Colors.orange,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Center(
-              child: Text(
-                '$position$positionSuffix',
-                style: TextStyle(
-                  color: position == 2 ? Colors.black : Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  driver.name.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  driver.team.name.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                gapDisplay,
-                style: TextStyle(
-                  color: position == 1 ? Colors.yellow : Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                '${driver.pitStops} PIT${driver.pitStops != 1 ? 'S' : ''}',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFullResults() {
-    if (drivers.isEmpty) {
-      return _buildNoDataMessage('No race data available');
-    }
-
-    return Container(
-      color: Colors.grey[900],
-      child: Column(
-        children: [
-          _buildSectionHeader('FINAL CLASSIFICATION', Icons.format_list_numbered, Colors.blue),
-          _buildTableHeader(),
+          // Expanded results list
           Expanded(
             child: ListView.builder(
-              itemCount: drivers.length,
+              itemCount: min(10, drivers.length),
               itemBuilder: (context, index) {
-                return _buildResultRow(drivers[index], index);
+                Driver driver = drivers[index];
+                bool isCareerDriverResult = isCareerMode && careerDriver != null && driver.name == careerDriver!.name;
+
+                return Container(
+                  margin: EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isCareerDriverResult
+                          ? [Colors.green[800]!, Colors.green[700]!]
+                          : [Colors.grey[800]!, Colors.grey[900]!],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isCareerDriverResult ? Colors.green[400]! : Colors.grey[700]!,
+                      width: isCareerDriverResult ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Position
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: _getPositionColor(driver.position),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Center(
+                          child: Text(
+                            driver.isDNF() ? 'DNF' : '${driver.position}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+
+                      // Driver info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  driver.name,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (isCareerDriverResult) ...[
+                                  SizedBox(width: 8),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green[400],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'YOU',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              driver.team.name,
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Points and time
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            driver.isDNF() ? 'DNF' : '${_getPointsForPosition(driver.position)} pts',
+                            style: TextStyle(
+                              color: driver.isDNF() ? Colors.red[400] : Colors.yellow[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (!driver.isDNF()) ...[
+                            Text(
+                              driver.position == 1
+                                  ? _formatRaceTime(driver.totalTime)
+                                  : '+${_formatGapTime(driver.totalTime - drivers.first.totalTime)}',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
           ),
@@ -609,19 +536,270 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+  Widget _buildPodiumPosition(Driver driver, int position, double height) {
+    Color positionColor = position == 1
+        ? Colors.yellow[600]!
+        : position == 2
+            ? Colors.grey[400]!
+            : Colors.orange[600]!;
+
+    return Column(
+      children: [
+        // Driver name
+        Text(
+          driver.name,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: 4),
+        Text(
+          driver.team.name,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 10,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: 8),
+
+        // Podium block
+        Container(
+          height: height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [positionColor, positionColor.withOpacity(0.7)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$position',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (position == 1) ...[
+                  Icon(
+                    Icons.emoji_events,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFullResultsView() {
+    return ListView.builder(
+      padding: EdgeInsets.all(16),
+      itemCount: drivers.length,
+      itemBuilder: (context, index) {
+        Driver driver = drivers[index];
+        bool isCareerDriverResult = isCareerMode && careerDriver != null && driver.name == careerDriver!.name;
+
+        return Container(
+          margin: EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: isCareerDriverResult ? Colors.green[800]!.withValues(alpha: 0.3) : Colors.grey[850],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isCareerDriverResult ? Colors.green[400]! : Colors.grey[700]!,
+              width: isCareerDriverResult ? 2 : 1,
+            ),
+          ),
+          child: ExpansionTile(
+            leading: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: _getPositionColor(driver.position),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Center(
+                child: Text(
+                  driver.isDNF() ? 'DNF' : '${driver.position}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            title: Row(
+              children: [
+                Text(
+                  driver.name,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (isCareerDriverResult) ...[
+                  SizedBox(width: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green[400],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'YOU',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            subtitle: Text(
+              driver.team.name,
+              style: TextStyle(color: Colors.grey[400]),
+            ),
+            trailing: Text(
+              driver.isDNF() ? 'DNF' : '${_getPointsForPosition(driver.position)} pts',
+              style: TextStyle(
+                color: driver.isDNF() ? Colors.red[400] : Colors.yellow[600],
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            children: [
+              Container(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Starting Position:', style: TextStyle(color: Colors.grey[400])),
+                        Text('P${driver.startingPosition}', style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total Time:', style: TextStyle(color: Colors.grey[400])),
+                        Text(
+                          driver.isDNF() ? 'DNF' : _formatRaceTime(driver.totalTime),
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Pit Stops:', style: TextStyle(color: Colors.grey[400])),
+                        Text('${driver.pitStops}', style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Errors:', style: TextStyle(color: Colors.grey[400])),
+                        Text('${driver.errorCount}', style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatisticsView() {
+    if (drivers.isEmpty) return Container();
+
+    // Calculate statistics
+    int totalFinishers = drivers.where((d) => !d.isDNF()).length;
+    int totalDNFs = drivers.length - totalFinishers;
+    double averagePitStops = drivers.map((d) => d.pitStops).reduce((a, b) => a + b) / drivers.length;
+    int totalErrors = drivers.map((d) => d.errorCount).reduce((a, b) => a + b);
+
+    // Find career driver performance if in career mode
+    Driver? careerDriverResult;
+    if (isCareerMode && careerDriver != null) {
+      try {
+        careerDriverResult = drivers.firstWhere((d) => d.name == careerDriver!.name);
+      } catch (e) {
+        careerDriverResult = null;
+      }
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatSection('RACE SUMMARY', [
+            _buildStatRow('Total Finishers', '$totalFinishers/${drivers.length}'),
+            _buildStatRow('DNFs', '$totalDNFs'),
+            _buildStatRow('Average Pit Stops', averagePitStops.toStringAsFixed(1)),
+            _buildStatRow('Total Errors', '$totalErrors'),
+          ]),
+          if (isCareerMode && careerDriverResult != null) ...[
+            SizedBox(height: 24),
+            _buildStatSection('YOUR PERFORMANCE', [
+              _buildStatRow('Final Position', careerDriverResult!.isDNF() ? 'DNF' : 'P${careerDriverResult!.position}'),
+              _buildStatRow('Starting Position', 'P${careerDriverResult!.startingPosition}'),
+              _buildStatRow('Positions Gained/Lost',
+                  '${careerDriverResult!.startingPosition - careerDriverResult!.position > 0 ? '+' : ''}${careerDriverResult!.startingPosition - careerDriverResult!.position}'),
+              _buildStatRow('Points Earned',
+                  careerDriverResult!.isDNF() ? '0' : '${_getPointsForPosition(careerDriverResult!.position)}'),
+              _buildStatRow('Pit Stops', '${careerDriverResult!.pitStops}'),
+              _buildStatRow('Errors', '${careerDriverResult!.errorCount}'),
+            ]),
+          ],
+          SizedBox(height: 24),
+          _buildStatSection('FASTEST SECTORS', [
+            _buildStatRow('Fastest Lap', drivers.isNotEmpty ? drivers.first.name : 'Unknown'),
+            _buildStatRow('Most Pit Stops', _getDriverWithMostPitStops()?.name ?? 'Unknown'),
+            _buildStatRow('Cleanest Driver', _getCleanestDriver()?.name ?? 'Unknown'),
+          ]),
+          SizedBox(height: 24),
+          _buildStatSection(
+            'CHAMPIONSHIP POINTS',
+            _getPointsDistribution().map((entry) => _buildStatRow(entry['team'], '${entry['points']} pts')).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatSection(String title, List<Widget> children) {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[800],
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[700]!, width: 1),
-        ),
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[700]!),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
-          SizedBox(width: 8),
           Text(
             title,
             style: TextStyle(
@@ -631,231 +809,8 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
               letterSpacing: 1,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTableHeader() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[700]!, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-              width: 40,
-              child: Text('POS', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.w500))),
-          Expanded(
-              flex: 3,
-              child:
-                  Text('DRIVER', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.w500))),
-          Container(
-              width: 60,
-              child: Text('PITS',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.center)),
-          Container(
-              width: 60,
-              child: Text('ISSUES',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.center)),
-          Container(
-              width: 100,
-              child: Text('TIME/GAP',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.right)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultRow(Driver driver, int index) {
-    bool isWinner = index == 0 && !driver.isDNF();
-    bool isPodium = index < 3 && !driver.isDNF();
-
-    String gapDisplay = "DNF";
-    if (!driver.isDNF()) {
-      if (index == 0) {
-        gapDisplay = "WINNER";
-      } else if (drivers.isNotEmpty && drivers[0].totalTime > 0 && driver.totalTime > 0) {
-        double gap = driver.totalTime - drivers[0].totalTime;
-        gapDisplay = "+${gap.toStringAsFixed(1)}s";
-      } else {
-        gapDisplay = "+${(index * 2.5).toStringAsFixed(1)}s";
-      }
-    }
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: _getRowColor(driver, index),
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            child: Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: driver.isDNF() ? Colors.grey[600] : _getTeamColor(driver.team.name),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Center(
-                    child: Text(
-                      driver.isDNF() ? 'DNF' : '${index + 1}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: driver.isDNF() ? 8 : 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                if (isPodium) ...[
-                  SizedBox(width: 4),
-                  Icon(
-                    Icons.emoji_events,
-                    color: isWinner ? Colors.yellow : Colors.orange,
-                    size: 12,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  driver.name.toUpperCase(),
-                  style: TextStyle(
-                    color: driver.isDNF() ? Colors.grey[500] : Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  driver.team.name.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 60,
-            child: Text(
-              '${driver.pitStops}',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Container(
-            width: 60,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (driver.errorCount > 0) ...[
-                  Icon(Icons.error, color: Colors.red, size: 12),
-                  Text('${driver.errorCount}', style: TextStyle(color: Colors.red, fontSize: 10)),
-                ],
-                if (driver.mechanicalIssuesCount > 0) ...[
-                  if (driver.errorCount > 0) SizedBox(width: 4),
-                  Icon(Icons.build, color: Colors.orange, size: 12),
-                  Text('${driver.mechanicalIssuesCount}', style: TextStyle(color: Colors.orange, fontSize: 10)),
-                ],
-                if (driver.errorCount == 0 && driver.mechanicalIssuesCount == 0)
-                  Text('-', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-              ],
-            ),
-          ),
-          Container(
-            width: 100,
-            child: Text(
-              gapDisplay,
-              style: TextStyle(
-                color: driver.isDNF() ? Colors.grey[500] : (isWinner ? Colors.yellow : Colors.white),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatistics() {
-    if (drivers.isEmpty) {
-      return _buildNoDataMessage('No race data available');
-    }
-
-    return Container(
-      color: Colors.grey[900],
-      child: Column(
-        children: [
-          _buildSectionHeader('RACE STATISTICS', Icons.analytics, Colors.green),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildStatCard('RACE OVERVIEW', _buildRaceOverviewStats()),
-                  SizedBox(height: 16),
-                  _buildStatCard('DRIVER PERFORMANCE', _buildDriverPerformanceStats()),
-                  SizedBox(height: 16),
-                  _buildStatCard('TEAM PERFORMANCE', _buildTeamPerformanceStats()),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, List<Widget> stats) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[700]!, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
           SizedBox(height: 12),
-          ...stats,
+          ...children,
         ],
       ),
     );
@@ -869,279 +824,193 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            style: TextStyle(color: Colors.grey[400], fontSize: 14),
           ),
           Text(
             value,
-            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildRaceOverviewStats() {
-    int totalPitStops = 0;
-    int totalErrors = 0;
-    int totalMechanical = 0;
-    int finishers = 0;
-
-    // Ensure we're calculating from actual driver data
-    for (Driver driver in drivers) {
-      totalPitStops += driver.pitStops;
-      totalErrors += driver.errorCount;
-      totalMechanical += driver.mechanicalIssuesCount;
-      if (!driver.isDNF()) finishers++;
-    }
-
-    print("=== RACE OVERVIEW STATS DEBUG ===");
-    print("Drivers count: ${drivers.length}");
-    print("Total pit stops: $totalPitStops");
-    print("Total errors: $totalErrors");
-    print("Total mechanical: $totalMechanical");
-    print("Finishers: $finishers");
-
-    return [
-      _buildStatRow('Total Laps', '$totalLaps'),
-      _buildStatRow('Drivers', '${drivers.length}'),
-      _buildStatRow('Finishers', '$finishers'),
-      _buildStatRow('DNFs', '${drivers.length - finishers}'),
-      _buildStatRow('Total Pit Stops', '$totalPitStops'),
-      _buildStatRow('Total Errors', '$totalErrors'),
-      _buildStatRow('Mechanical Issues', '$totalMechanical'),
-      _buildStatRow('Weather', weather.name.toUpperCase()),
-      _buildStatRow('Track', track.name.toUpperCase()),
-    ];
-  }
-
-  List<Widget> _buildDriverPerformanceStats() {
-    if (drivers.isEmpty) {
-      return [_buildStatRow('No Data', 'No drivers found')];
-    }
-
-    String mostPitStops = 'None';
-    String fewestErrors = 'None';
-    String mostReliable = 'None';
-    String biggestClimber = 'None';
-
-    int maxPits = 0;
-    int minErrors = 999;
-    int minMechanical = 999;
-    int maxClimb = -999;
-
-    List<Driver> finishers = drivers.where((d) => !d.isDNF()).toList();
-
-    print("=== DRIVER PERFORMANCE STATS DEBUG ===");
-    print("Total drivers: ${drivers.length}");
-    print("Finishers: ${finishers.length}");
-
-    // Most pit stops (all drivers)
-    for (Driver driver in drivers) {
-      print(
-          "Driver ${driver.name}: Pits=${driver.pitStops}, Errors=${driver.errorCount}, Mechanical=${driver.mechanicalIssuesCount}");
-      if (driver.pitStops > maxPits) {
-        maxPits = driver.pitStops;
-        mostPitStops = '${driver.name} ($maxPits)';
-      }
-    }
-
-    // Fewest errors (finishers only)
-    if (finishers.isNotEmpty) {
-      for (Driver driver in finishers) {
-        if (driver.errorCount < minErrors) {
-          minErrors = driver.errorCount;
-          fewestErrors = '${driver.name} ($minErrors)';
-        }
-      }
-
-      // Most reliable (finishers only)
-      for (Driver driver in finishers) {
-        if (driver.mechanicalIssuesCount < minMechanical) {
-          minMechanical = driver.mechanicalIssuesCount;
-          mostReliable = '${driver.name} ($minMechanical issues)';
-        }
-      }
-
-      // Biggest climber (finishers only)
-      for (Driver driver in finishers) {
-        int positionChange = driver.startingPosition - driver.position; // Positive = gained positions
-        print(
-            "Driver ${driver.name}: Started P${driver.startingPosition}, Finished P${driver.position}, Change: $positionChange");
-        if (positionChange > maxClimb) {
-          maxClimb = positionChange;
-          biggestClimber = '${driver.name} (+$maxClimb)';
-        }
-      }
-    }
-
-    print(
-        "Final stats: MostPits=$mostPitStops, FewestErrors=$fewestErrors, MostReliable=$mostReliable, BiggestClimber=$biggestClimber");
-
-    return [
-      _buildStatRow('Most Pit Stops', maxPits > 0 ? mostPitStops : 'None'),
-      _buildStatRow('Fewest Errors', finishers.isNotEmpty ? fewestErrors : 'All DNF'),
-      _buildStatRow('Most Reliable', finishers.isNotEmpty ? mostReliable : 'All DNF'),
-      _buildStatRow('Biggest Climber', maxClimb > -999 ? biggestClimber : 'None'),
-    ];
-  }
-
-  List<Widget> _buildTeamPerformanceStats() {
-    if (drivers.isEmpty) {
-      return [_buildStatRow('No Data', 'No drivers found')];
-    }
-
-    Map<String, String> teamResults = {};
-
-    for (Driver driver in drivers) {
-      if (!driver.isDNF()) {
-        String current = teamResults[driver.team] ?? '';
-        if (current.isEmpty || driver.position < _extractPosition(current)) {
-          teamResults[driver.team.name] = 'P${driver.position} (${driver.name})';
-        }
-      } else {
-        if (!teamResults.containsKey(driver.team)) {
-          teamResults[driver.team.name] = 'All DNF';
-        }
-      }
-    }
-
-    return teamResults.entries.map((entry) => _buildStatRow(entry.key, entry.value)).toList();
-  }
-
-  int _extractPosition(String result) {
-    if (result.startsWith('P')) {
-      String posStr = result.substring(1, result.indexOf(' '));
-      return int.tryParse(posStr) ?? 999;
-    }
-    return 999;
-  }
-
-  Widget _buildNoDataMessage(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, color: Colors.grey[400], size: 48),
-          SizedBox(height: 16),
-          Text(
-            message,
             style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
       ),
     );
-  }
-
-  Color _getTeamColor(String team) {
-    switch (team) {
-      case "Mercedes":
-        return Colors.teal;
-      case "Red Bull":
-        return Colors.blue[700]!;
-      case "Ferrari":
-        return Colors.red[600]!;
-      case "McLaren":
-        return Colors.orange[600]!;
-      case "Aston Martin":
-        return Colors.green[600]!;
-      case "Alpine":
-        return Colors.pink[400]!;
-      case "Haas":
-        return Colors.grey[600]!;
-      case "Racing Bulls":
-        return Colors.blue[400]!;
-      case "Williams":
-        return Colors.blue[300]!;
-      case "Sauber":
-        return Colors.green[300]!;
-      default:
-        return Colors.grey[600]!;
-    }
-  }
-
-  Color _getRowColor(Driver driver, int index) {
-    if (driver.isDNF()) return Colors.grey[850]!;
-    if (index == 0) return Colors.yellow.withOpacity(0.1);
-    if (index == 1) return Colors.grey[300]!.withOpacity(0.1);
-    if (index == 2) return Colors.orange.withOpacity(0.1);
-    if (index < 10) return Colors.green.withOpacity(0.05);
-    return Colors.grey[900]!;
   }
 
   Widget _buildBottomControls() {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[800],
-        border: Border(
-          top: BorderSide(color: Colors.grey[700]!, width: 1),
-        ),
+        color: Colors.grey[900],
+        border: Border(top: BorderSide(color: Colors.grey[800]!, width: 1)),
       ),
       child: Row(
         children: [
+          // Share/Save results button
           Expanded(
-            child: Container(
-              height: 50,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.grey[600]!, width: 1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.home,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 8),
-                    Text('MAIN MENU', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  ],
-                ),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                // TODO: Implement share/save functionality
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Results saved!'),
+                    backgroundColor: Colors.green[600],
+                  ),
+                );
+              },
+              icon: Icon(Icons.save, size: 18),
+              label: Text(
+                'SAVE RESULTS',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ),
-          SizedBox(width: 10),
+
+          SizedBox(width: 12),
+
+          // Return to career/main menu
           Expanded(
-            child: Container(
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(context, '/setup', (route) => false);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red[600],
-                  foregroundColor: Colors.white,
-                  elevation: 5,
-                  shadowColor: Colors.red.withOpacity(0.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.refresh,
-                      size: 20,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 8),
-                    Text('NEW RACE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  ],
-                ),
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: _handleReturnNavigation,
+              icon: Icon(Icons.home, size: 18),
+              label: Text(
+                isCareerMode ? 'RETURN TO CAREER' : 'MAIN MENU',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  // 🆕 NEW: Handle navigation based on career mode and calendar integration
+  void _handleReturnNavigation() {
+    // Handle calendar race completion
+    if (isCareerMode && raceWeekend != null && isCalendarRace) {
+      _completeCalendarRaceWeekend();
+    }
+
+    // Navigate to appropriate destination
+    if (isCareerMode) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/career_home',
+        (route) => false,
+      );
+    } else {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/',
+        (route) => false,
+      );
+    }
+  }
+
+  // 🆕 NEW: Complete calendar race weekend
+  void _completeCalendarRaceWeekend() {
+    if (careerDriver == null || raceWeekend == null) return;
+
+    try {
+      // Find career driver's result
+      final careerDriverResult = drivers.firstWhere(
+        (r) => r.name == careerDriver!.name,
+        orElse: () => drivers.first,
+      );
+
+      // Complete the race weekend in career manager
+      CareerManager.completeRaceWeekend(
+        raceWeekend!,
+        position: careerDriverResult.position,
+        points: _getPointsForPosition(careerDriverResult.position),
+        polePosition: careerDriverResult.startingPosition == 1,
+        fastestLap: false, // TODO: Implement fastest lap detection if needed
+      );
+
+      debugPrint('Calendar race weekend completed successfully');
+    } catch (e) {
+      debugPrint('Error completing calendar race weekend: $e');
+    }
+  }
+
+  // Helper methods
+  Color _getPositionColor(int position) {
+    if (position <= 3) return Colors.yellow[600]!;
+    if (position <= 10) return Colors.green[600]!;
+    return Colors.grey[600]!;
+  }
+
+  int _getPointsForPosition(int position) {
+    const pointsSystem = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+    if (position <= 0 || position > pointsSystem.length) return 0;
+    return pointsSystem[position - 1];
+  }
+
+  String _formatRaceTime(double totalSeconds) {
+    int hours = totalSeconds ~/ 3600;
+    int minutes = (totalSeconds % 3600) ~/ 60;
+    int seconds = (totalSeconds % 60).round();
+
+    if (hours > 0) {
+      return '${hours}h ${minutes.toString().padLeft(2, '0')}m ${seconds.toString().padLeft(2, '0')}s';
+    } else {
+      return '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
+    }
+  }
+
+  String _formatGapTime(double gapSeconds) {
+    if (gapSeconds < 60) {
+      return '${gapSeconds.toStringAsFixed(3)}s';
+    } else {
+      int minutes = gapSeconds ~/ 60;
+      double seconds = gapSeconds % 60;
+      return '${minutes}m ${seconds.toStringAsFixed(3)}s';
+    }
+  }
+
+  Driver? _getDriverWithMostPitStops() {
+    if (drivers.isEmpty) return null;
+    return drivers.reduce((a, b) => a.pitStops > b.pitStops ? a : b);
+  }
+
+  Driver? _getCleanestDriver() {
+    if (drivers.isEmpty) return null;
+    return drivers.reduce((a, b) => a.errorCount < b.errorCount ? a : b);
+  }
+
+  List<Map<String, dynamic>> _getPointsDistribution() {
+    Map<String, int> teamPoints = {};
+
+    for (Driver driver in drivers) {
+      if (!driver.isDNF()) {
+        int points = _getPointsForPosition(driver.position);
+        teamPoints[driver.team.name] = (teamPoints[driver.team.name] ?? 0) + points;
+      }
+    }
+
+    var sorted = teamPoints.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    return sorted
+        .take(5)
+        .map((entry) => {
+              'team': entry.key,
+              'points': entry.value,
+            })
+        .toList();
   }
 }

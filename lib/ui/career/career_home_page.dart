@@ -1,6 +1,8 @@
 // lib/ui/career/career_home_page.dart
 import 'package:flutter/material.dart';
+import 'package:real_formula/services/career/career_calendar.dart';
 import 'package:real_formula/services/career/career_manager.dart';
+import 'package:real_formula/ui/career/career_calendar_widget.dart';
 import '../../models/career/career_driver.dart';
 import '../../models/career/contract.dart';
 
@@ -13,6 +15,7 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
   CareerDriver? careerDriver;
   int selectedTab = 0; // 0: Overview, 1: Skills, 2: Contract, 3: Statistics
   bool dataLoaded = false; // Add this flag to prevent multiple loads
+  bool showRaceWeekendAlert = false;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -20,6 +23,7 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
   @override
   void initState() {
     super.initState();
+    careerDriver = CareerManager.currentCareerDriver;
     //_loadCareerData();
 
     // Pulse animation for XP indicator
@@ -35,6 +39,10 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
       curve: Curves.easeInOut,
     ));
     _pulseController.repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      CareerCalendar.instance.initialize();
+    });
   }
 
   @override
@@ -66,6 +74,12 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     }
   }
 
+  void _onRaceWeekendReached() {
+    setState(() {
+      showRaceWeekendAlert = true;
+    });
+  }
+
   @override
   void dispose() {
     _pulseController.dispose();
@@ -89,6 +103,12 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
       body: Column(
         children: [
           _buildCareerHeader(),
+          CareerCalendarWidget(
+            onRaceWeekendReached: _onRaceWeekendReached,
+          ),
+
+          // 🆕 ADD this new alert widget:
+          if (showRaceWeekendAlert) _buildRaceWeekendAlert(),
           _buildTabBar(),
           Expanded(
             child: _buildTabContent(),
@@ -142,6 +162,106 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
           onPressed: _saveCareer,
         ),
       ],
+    );
+  }
+
+  Widget _buildRaceWeekendAlert() {
+    final raceWeekend = CareerCalendar.instance.currentRaceWeekend;
+    if (raceWeekend == null) return SizedBox.shrink();
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange[800]!, Colors.orange[600]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.sports_motorsports, color: Colors.white, size: 24),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'RACE WEEKEND',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    Text(
+                      raceWeekend.name,
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    showRaceWeekendAlert = false;
+                  });
+                },
+                icon: Icon(Icons.close, color: Colors.white70),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _startRaceWeekend,
+                  icon: Icon(Icons.play_arrow, size: 20),
+                  label: Text(
+                    'START ${raceWeekend.nextSession.toUpperCase()}',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[600],
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: () {
+                  CareerCalendar.instance.resumeCalendar();
+                  setState(() {
+                    showRaceWeekendAlert = false;
+                  });
+                },
+                child: Text('SKIP', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[600],
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -814,15 +934,37 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
   }
 
   void _startRaceWeekend() {
-    // Navigate to existing race setup/qualifying system
-    Navigator.pushNamed(
-      context,
-      '/setup', // Use existing race setup
-      arguments: {
-        'careerMode': true,
-        'careerDriver': careerDriver,
-      },
-    );
+    final currentRaceWeekend = CareerCalendar.instance.currentRaceWeekend;
+
+    if (currentRaceWeekend != null) {
+      // Navigate with current race weekend track
+      Navigator.pushNamed(
+        context,
+        '/setup',
+        arguments: {
+          'careerMode': true,
+          'careerDriver': careerDriver,
+          'track': currentRaceWeekend.track,
+          'raceWeekend': currentRaceWeekend,
+        },
+      ).then((_) {
+        // When returning, mark race weekend as completed
+        CareerCalendar.instance.completeCurrentRaceWeekend();
+        setState(() {
+          showRaceWeekendAlert = false;
+        });
+      });
+    } else {
+      // Fallback to regular race setup
+      Navigator.pushNamed(
+        context,
+        '/setup',
+        arguments: {
+          'careerMode': true,
+          'careerDriver': careerDriver,
+        },
+      );
+    }
   }
 
   void _viewContractOffers() {

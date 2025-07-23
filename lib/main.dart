@@ -1,11 +1,10 @@
-// lib/main.dart - Updated with Career Mode routes
+// lib/main.dart - Fixed version with proper imports and calendar integration
 import 'package:flutter/material.dart';
 import 'ui/main_menu_page.dart';
 import 'ui/race_setup_page.dart';
 import 'ui/qualifying_page.dart';
 import 'ui/race_simulator_page.dart';
-import 'ui/race_results_page.dart';
-// NEW: Career Mode imports
+import 'ui/race_results_page.dart'; // ✅ ONLY import from race_results_page.dart
 import 'ui/career/driver_creation_page.dart';
 import 'ui/career/career_home_page.dart';
 
@@ -14,6 +13,8 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key); // ✅ FIXED: Added key parameter
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -35,9 +36,9 @@ class MyApp extends StatelessWidget {
         '/setup': (context) => RaceSetupPage(),
         '/qualifying': (context) => QualifyingPage(),
         '/race': (context) => F1RaceSimulator(),
-        '/results': (context) => RaceResultsPage(),
+        '/results': (context) => const RaceResultsPage(), // ✅ FIXED: Added const and proper constructor
 
-        // NEW: Career Mode routes
+        // Career Mode routes
         '/driver_creation': (context) => DriverCreationPage(),
         '/career_home': (context) => CareerHomePage(),
       },
