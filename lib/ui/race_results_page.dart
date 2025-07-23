@@ -1,6 +1,9 @@
 // lib/ui/race_results_page.dart - Complete file with Calendar Integration (Fixed)
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:real_formula/services/career/career_calendar.dart';
+import 'package:real_formula/services/career/championship_manager.dart';
+import 'package:real_formula/services/career/save_manager.dart';
 import 'dart:math';
 import '../models/driver.dart';
 import '../models/career/career_driver.dart';
@@ -54,6 +57,21 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
 
     debugPrint("=== RACE RESULTS DEBUG ===");
     debugPrint("Arguments received: $args");
+
+    // 🆕 ADD THIS DEBUG BLOCK:
+    debugPrint("=== CAREER MODE DEBUG ===");
+    if (args != null) {
+      debugPrint("careerMode key exists: ${args.containsKey('careerMode')}");
+      debugPrint("careerMode value: ${args['careerMode']}");
+      debugPrint("careerDriver key exists: ${args.containsKey('careerDriver')}");
+      debugPrint("careerDriver value: ${args['careerDriver']}");
+      debugPrint("isCalendarRace key exists: ${args.containsKey('isCalendarRace')}");
+      debugPrint("isCalendarRace value: ${args['isCalendarRace']}");
+      debugPrint("raceWeekend key exists: ${args.containsKey('raceWeekend')}");
+      debugPrint("raceWeekend value: ${args['raceWeekend']?.name ?? 'null'}");
+    } else {
+      debugPrint("❌ NO ARGUMENTS RECEIVED!");
+    }
 
     if (args != null) {
       setState(() {
@@ -117,6 +135,13 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
         // 🆕 NEW: Load calendar race data
         raceWeekend = args['raceWeekend'];
         isCalendarRace = args['isCalendarRace'] ?? false;
+
+        // 🆕 ADD FINAL DEBUG CONFIRMATION:
+        debugPrint("=== FINAL VALUES SET ===");
+        debugPrint("isCareerMode: $isCareerMode");
+        debugPrint("careerDriver: ${careerDriver?.name ?? 'null'}");
+        debugPrint("isCalendarRace: $isCalendarRace");
+        debugPrint("raceWeekend: ${raceWeekend?.name ?? 'null'}");
 
         // Sort by position without modifying other data
         if (drivers.isNotEmpty) {
@@ -899,21 +924,39 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     );
   }
 
-  // 🆕 NEW: Handle navigation based on career mode and calendar integration
+  // 🆕 IMPROVED: Handle navigation with championship debug
   void _handleReturnNavigation() {
-    // Handle calendar race completion
-    if (isCareerMode && raceWeekend != null && isCalendarRace) {
+    debugPrint("=== NAVIGATION DEBUG ===");
+    debugPrint("isCareerMode: $isCareerMode");
+    debugPrint("raceWeekend: ${raceWeekend?.name}");
+    debugPrint("isCalendarRace: $isCalendarRace");
+    debugPrint("careerDriver: ${careerDriver?.name}");
+
+    // STEP 1: Complete calendar race weekend if this is a career mode calendar race
+    if (isCareerMode && raceWeekend != null && isCalendarRace && careerDriver != null) {
+      debugPrint("Completing calendar race weekend...");
       _completeCalendarRaceWeekend();
+
+      // 🆕 NEW: Show championship standings debug
+      _showChampionshipDebug();
     }
 
-    // Navigate to appropriate destination
+    // STEP 2: Auto-save career progress if in career mode
+    if (isCareerMode && careerDriver != null) {
+      debugPrint("Auto-saving career...");
+      _autoSaveCareer();
+    }
+
+    // STEP 3: Navigate to appropriate destination
     if (isCareerMode) {
+      debugPrint("Navigating to career home...");
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/career_home',
         (route) => false,
       );
     } else {
+      debugPrint("Navigating to main menu...");
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/',
@@ -922,29 +965,131 @@ class _RaceResultsPageState extends State<RaceResultsPage> {
     }
   }
 
+// 🆕 NEW: Auto-save career progress
+  void _autoSaveCareer() {
+    try {
+      // Use the existing SaveManager to auto-save
+      SaveManager.autoSave().then((_) {
+        debugPrint("Career auto-saved successfully");
+
+        // Show brief confirmation
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Progress saved!'),
+              backgroundColor: Colors.green[600],
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      }).catchError((error) {
+        debugPrint("Auto-save failed: $error");
+      });
+    } catch (e) {
+      debugPrint("Error during auto-save: $e");
+    }
+  }
+
   // 🆕 NEW: Complete calendar race weekend
+  // 🆕 IMPROVED: Complete calendar race weekend with proper error handling and data updates
+  // 🆕 ENHANCED: Complete calendar race weekend with championship standings update
   void _completeCalendarRaceWeekend() {
-    if (careerDriver == null || raceWeekend == null) return;
+    if (careerDriver == null || raceWeekend == null) {
+      debugPrint("ERROR: Missing careerDriver or raceWeekend data for championship update");
+      return;
+    }
 
     try {
-      // Find career driver's result
-      final careerDriverResult = drivers.firstWhere(
-        (r) => r.name == careerDriver!.name,
-        orElse: () => drivers.first,
-      );
+      debugPrint("=== COMPLETING RACE WEEKEND WITH CHAMPIONSHIP UPDATE ===");
+      debugPrint("Race: ${raceWeekend!.name}");
+      debugPrint("Career Driver: ${careerDriver!.name}");
+      debugPrint("Total drivers in race: ${drivers.length}");
 
-      // Complete the race weekend in career manager
+      // STEP 1: Find career driver's result from the race
+      Driver? careerDriverResult;
+      try {
+        careerDriverResult = drivers.firstWhere(
+          (driver) => driver.name == careerDriver!.name,
+          orElse: () => throw Exception("Career driver not found in results"),
+        );
+      } catch (e) {
+        debugPrint("ERROR: Could not find career driver in results: $e");
+        // Fallback - create a basic result if somehow missing
+        careerDriverResult = drivers.isNotEmpty ? drivers.first : null;
+      }
+
+      if (careerDriverResult == null) {
+        debugPrint("ERROR: No valid driver result found");
+        return;
+      }
+
+      // STEP 2: Calculate race data
+      int finalPosition = careerDriverResult.position;
+      int championshipPoints = _getPointsForPosition(finalPosition);
+      bool gotPolePosition = careerDriverResult.startingPosition == 1;
+      bool gotFastestLap = false; // TODO: Implement fastest lap detection if needed
+
+      debugPrint("Final Position: P$finalPosition");
+      debugPrint("Championship Points: $championshipPoints");
+      debugPrint("Pole Position: $gotPolePosition");
+
+      // STEP 3: 🆕 CRITICAL - Pass ALL race results for championship standings update
+      List<Driver> sortedResults = List.from(drivers);
+      sortedResults.sort((a, b) => a.position.compareTo(b.position));
+
+      debugPrint("=== CHAMPIONSHIP UPDATE - ALL RACE RESULTS ===");
+      for (int i = 0; i < sortedResults.length && i < 10; i++) {
+        Driver driver = sortedResults[i];
+        int points = _getPointsForPosition(driver.position);
+        debugPrint("P${driver.position}: ${driver.name} (${driver.team.name}) - $points pts");
+      }
+
+      // STEP 4: Update career statistics AND championship through CareerManager
       CareerManager.completeRaceWeekend(
         raceWeekend!,
-        position: careerDriverResult.position,
-        points: _getPointsForPosition(careerDriverResult.position),
-        polePosition: careerDriverResult.startingPosition == 1,
-        fastestLap: false, // TODO: Implement fastest lap detection if needed
+        position: finalPosition,
+        points: championshipPoints,
+        polePosition: gotPolePosition,
+        fastestLap: gotFastestLap,
+        allRaceResults: sortedResults, // 🆕 CRITICAL: Pass all results for championship
       );
 
-      debugPrint('Calendar race weekend completed successfully');
+      // STEP 5: Mark race weekend as completed in calendar (this is also done in CareerManager but double-check)
+      raceWeekend!.completeRace();
+
+      debugPrint("✅ Race weekend completion successful with championship update");
     } catch (e) {
-      debugPrint('Error completing calendar race weekend: $e');
+      debugPrint("❌ ERROR completing calendar race weekend: $e");
+
+      // Show error to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving race results: ${e.toString()}'),
+            backgroundColor: Colors.red[600],
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+// 🆕 NEW: Debug method to show championship standings after race
+  void _showChampionshipDebug() {
+    if (!isCareerMode || careerDriver == null) return;
+
+    try {
+      List<ChampionshipStanding> top5 = ChampionshipManager.getTop5Standings(careerDriverName: careerDriver!.name);
+
+      debugPrint("=== CHAMPIONSHIP STANDINGS AFTER RACE ===");
+      for (int i = 0; i < top5.length; i++) {
+        ChampionshipStanding standing = top5[i];
+        String indicator = standing.isCareerDriver ? " 👤 YOU" : "";
+        debugPrint("P${i + 1}: ${standing.driverName} (${standing.teamName}) - ${standing.points} pts${indicator}");
+      }
+      debugPrint("==========================================");
+    } catch (e) {
+      debugPrint("Error showing championship debug: $e");
     }
   }
 

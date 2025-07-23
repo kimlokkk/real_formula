@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:real_formula/services/career/career_calendar.dart';
 import 'package:real_formula/services/career/career_manager.dart';
+import 'package:real_formula/services/career/championship_manager.dart';
 import 'package:real_formula/ui/career/career_calendar_widget.dart';
 import '../../models/career/career_driver.dart';
 import '../../models/career/contract.dart';
@@ -45,15 +46,17 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     });
   }
 
+  // 🆕 NEW: Handle page resume - refresh data when returning to this screen
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Only load data once
-    if (!dataLoaded) {
-      _loadCareerData();
-      dataLoaded = true;
-    }
+    // Check if we're returning from a navigation and refresh data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _refreshCareerData();
+      }
+    });
   }
 
   void _loadCareerData() {
@@ -106,6 +109,7 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
           CareerCalendarWidget(
             onRaceWeekendReached: _onRaceWeekendReached,
           ),
+          _buildChampionshipStandings(),
 
           // 🆕 ADD this new alert widget:
           if (showRaceWeekendAlert) _buildRaceWeekendAlert(),
@@ -937,7 +941,7 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     final currentRaceWeekend = CareerCalendar.instance.currentRaceWeekend;
 
     if (currentRaceWeekend != null && careerDriver != null) {
-      // NEW: Navigate directly to loading screen, skip race setup
+      // Navigate directly to loading screen, skip race setup
       Navigator.pushNamed(
         context,
         '/race_weekend_loading',
@@ -946,10 +950,25 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
           'careerDriver': careerDriver,
         },
       ).then((_) {
-        // When returning from race weekend (after race completion)
+        // 🆕 IMPROVED: When returning from race weekend, refresh all data
+        debugPrint("Returned from race weekend - refreshing data...");
+
+        // Refresh career data
+        _refreshCareerData();
+
+        // Hide race weekend alert and refresh UI
         setState(() {
           showRaceWeekendAlert = false;
         });
+
+        // Show completion message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Race weekend completed! Data updated.'),
+            backgroundColor: Colors.green[600],
+            duration: Duration(seconds: 2),
+          ),
+        );
       });
     } else {
       // Fallback: Show error if no race weekend or career driver
@@ -980,5 +999,272 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
         backgroundColor: Colors.green[600],
       ),
     );
+  }
+
+  // 🆕 NEW: Refresh career data when returning from race
+  // 🆕 ENHANCED: Refresh career data including championship standings
+  void _refreshCareerData() {
+    debugPrint("=== REFRESHING CAREER DATA ===");
+
+    try {
+      // Get updated career driver data
+      CareerDriver? updatedDriver = CareerManager.currentCareerDriver;
+
+      if (updatedDriver != null) {
+        setState(() {
+          careerDriver = updatedDriver;
+          debugPrint(
+              "Career data refreshed - Wins: ${careerDriver!.careerWins}, Points: ${careerDriver!.careerPoints}");
+        });
+
+        // Also refresh the calendar instance to get updated race data
+        CareerCalendar.instance.notifyListeners();
+
+        // 🆕 NEW: Force UI refresh to show updated championship standings
+        Future.delayed(Duration(milliseconds: 100), () {
+          if (mounted) {
+            setState(() {}); // Trigger rebuild to refresh championship standings
+          }
+        });
+
+        debugPrint("✅ Career data refresh successful");
+      } else {
+        debugPrint("❌ No career driver found during refresh");
+      }
+    } catch (e) {
+      debugPrint("❌ Error refreshing career data: $e");
+    }
+  }
+
+  // 🆕 NEW: Build championship standings widget
+  Widget _buildChampionshipStandings() {
+    if (careerDriver == null) return Container();
+
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[700]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.emoji_events, color: Colors.yellow[600], size: 24),
+              SizedBox(width: 12),
+              Text(
+                'CHAMPIONSHIP STANDINGS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          _buildStandingsTable(),
+        ],
+      ),
+    );
+  }
+
+// 🆕 NEW: Build the standings table
+  Widget _buildStandingsTable() {
+    try {
+      List<ChampionshipStanding> standings = ChampionshipManager.getTop5Standings(
+        careerDriverName: careerDriver?.name,
+      );
+
+      if (standings.isEmpty) {
+        return Container(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'No championship data available',
+            style: TextStyle(color: Colors.grey[400]),
+          ),
+        );
+      }
+
+      return Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  child: Text(
+                    'POS',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'DRIVER',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'TEAM',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 50,
+                  child: Text(
+                    'PTS',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 8),
+          // Standings rows
+          ...standings.asMap().entries.map((entry) {
+            int index = entry.key;
+            ChampionshipStanding standing = entry.value;
+            return _buildStandingRow(index + 1, standing);
+          }).toList(),
+        ],
+      );
+    } catch (e) {
+      debugPrint("Error building standings table: $e");
+      return Container(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Error loading championship standings',
+          style: TextStyle(color: Colors.red[400]),
+        ),
+      );
+    }
+  }
+
+// 🆕 NEW: Build individual standing row
+  Widget _buildStandingRow(int position, ChampionshipStanding standing) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: standing.isCareerDriver ? Colors.green[900]?.withOpacity(0.3) : Colors.grey[900],
+        borderRadius: BorderRadius.circular(8),
+        border: standing.isCareerDriver ? Border.all(color: Colors.green[400]!, width: 2) : null,
+      ),
+      child: Row(
+        children: [
+          // Position
+          Container(
+            width: 40,
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: _getPositionColor(position),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$position',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                if (standing.isCareerDriver) ...[
+                  SizedBox(width: 8),
+                  Icon(Icons.person, color: Colors.green[400], size: 16),
+                ],
+              ],
+            ),
+          ),
+          // Driver name
+          Expanded(
+            flex: 3,
+            child: Text(
+              standing.driverName,
+              style: TextStyle(
+                color: standing.isCareerDriver ? Colors.green[400] : Colors.white,
+                fontSize: 14,
+                fontWeight: standing.isCareerDriver ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          // Team
+          Expanded(
+            flex: 2,
+            child: Text(
+              standing.teamName,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 12,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Points
+          Container(
+            width: 50,
+            child: Text(
+              '${standing.points}',
+              style: TextStyle(
+                color: standing.isCareerDriver ? Colors.green[400] : Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+// 🆕 NEW: Get position color for championship standings
+  Color _getPositionColor(int position) {
+    switch (position) {
+      case 1:
+        return Colors.yellow[600]!; // Gold
+      case 2:
+        return Colors.grey[400]!; // Silver
+      case 3:
+        return Colors.orange[600]!; // Bronze
+      default:
+        return Colors.blue[600]!; // Regular
+    }
   }
 }

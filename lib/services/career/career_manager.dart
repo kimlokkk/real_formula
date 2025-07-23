@@ -1,7 +1,10 @@
 // lib/services/career/career_manager.dart
 import 'dart:math';
+import 'package:flutter/material.dart';
 import 'package:real_formula/models/career/race_weekend.dart';
 import 'package:real_formula/services/career/career_calendar.dart';
+import 'package:real_formula/services/career/championship_manager.dart';
+import 'package:real_formula/services/career/save_manager.dart';
 
 import '../../models/career/career_driver.dart';
 import '../../models/career/contract.dart';
@@ -139,27 +142,73 @@ class CareerManager {
     _currentCareerDriver!.updateTeamReputation(currentTeam, reputationChange);
   }
 
-  static void completeRaceWeekend(
-    RaceWeekend raceWeekend, {
-    required int position,
-    required int points,
-    bool polePosition = false,
-    bool fastestLap = false,
-  }) {
+  // 🆕 ENHANCED: Complete race weekend with comprehensive data updates and auto-save
+  // 🆕 ENHANCED: Complete race weekend with championship standings update
+// 🆕 NEW: Initialize championship when starting new career
+  static void initializeNewCareer(CareerDriver careerDriver, int season) {
+    _currentCareerDriver = careerDriver;
+    _currentSeason = season;
+
+    // Initialize championship standings
+    ChampionshipManager.initializeChampionship();
+
+    debugPrint("✅ New career initialized with championship standings");
+  }
+
+// 🆕 NEW: Auto-save career progress after race completion
+  static Future<void> _autoSaveCareerProgress() async {
+    try {
+      // Use the existing SaveManager to auto-save
+      await SaveManager.autoSave();
+      debugPrint("✅ Career auto-saved successfully");
+    } catch (e) {
+      debugPrint("❌ Auto-save failed: $e");
+      throw Exception("Failed to save career progress: $e");
+    }
+  }
+
+// 🆕 NEW: Update season-specific progress tracking
+  static void _updateSeasonProgress() {
     if (_currentCareerDriver == null) return;
 
-    // Process race results
-    processRaceResult(
-      position: position,
-      championshipPoints: points,
-      polePosition: polePosition,
-      fastestLap: fastestLap,
-      beatTeammate: _calculateTeammateBeaten(position),
-    );
+    try {
+      // Check if season is complete (all 24 races done)
+      int completedRaces = CareerCalendar.instance.getCompletedRaces().length;
 
-    // Mark race weekend as completed
-    raceWeekend.completeRace();
-    CareerCalendar.instance.completeCurrentRaceWeekend();
+      debugPrint("Season progress: $completedRaces/24 races completed");
+
+      // If season is complete, prepare for next season
+      if (completedRaces >= 24) {
+        debugPrint("🏁 Season complete! Preparing for next season...");
+        _prepareForNextSeason();
+      }
+
+      // Update any other season-specific data here
+      // (e.g., contract renewals, team changes, etc.)
+    } catch (e) {
+      debugPrint("⚠️ Error updating season progress: $e");
+      // Don't throw - this is not critical enough to fail the whole operation
+    }
+  }
+
+// 🆕 NEW: Prepare for next season when current season is complete
+  static void _prepareForNextSeason() {
+    if (_currentCareerDriver == null) return;
+
+    try {
+      // This will be expanded later, but for now just log
+      debugPrint("🎉 Congratulations on completing the season!");
+      debugPrint(
+          "Final season stats: ${_currentCareerDriver!.currentSeasonWins} wins, ${_currentCareerDriver!.currentSeasonPoints} points");
+
+      // TODO: Add season-end processing:
+      // - Check championship position
+      // - Handle contract renewals
+      // - Award season bonuses
+      // - Generate season summary
+    } catch (e) {
+      debugPrint("⚠️ Error preparing for next season: $e");
+    }
   }
 
   static bool _calculateTeammateBeaten(int position) {
@@ -359,18 +408,98 @@ class CareerManager {
     };
   }
 
-  // Load career from save data
-  static void loadCareer(Map<String, dynamic> saveData) {
-    // TODO: Implement full save/load system
-    _currentSeason = saveData['currentSeason'] ?? 2025;
+  static Future<void> completeRaceWeekend(
+    RaceWeekend raceWeekend, {
+    required int position,
+    required int points,
+    bool polePosition = false,
+    bool fastestLap = false,
+    List<Driver>? allRaceResults, // 🆕 NEW: Add this parameter
+  }) async {
+    if (_currentCareerDriver == null) {
+      debugPrint("❌ ERROR: No career driver found for race completion");
+      return;
+    }
+
+    debugPrint("=== COMPLETING RACE WEEKEND ===");
+    debugPrint("Driver: ${_currentCareerDriver!.name}");
+    debugPrint("Race: ${raceWeekend.name}");
+    debugPrint("Position: P$position");
+    debugPrint("Points: $points");
+
+    try {
+      // STEP 1: Process race results and update career statistics
+      processRaceResult(
+        position: position,
+        championshipPoints: points,
+        polePosition: polePosition,
+        fastestLap: fastestLap,
+        beatTeammate: _calculateTeammateBeaten(position),
+      );
+
+      debugPrint("✅ Career statistics updated");
+
+      // STEP 2: 🆕 NEW: Update championship standings with all race results
+      if (allRaceResults != null && allRaceResults.isNotEmpty) {
+        ChampionshipManager.updateRaceResults(allRaceResults);
+
+        // Get career driver's championship position
+        int championshipPosition = ChampionshipManager.getCareerDriverPosition(_currentCareerDriver!.name);
+        debugPrint("✅ Championship updated - Career driver now P$championshipPosition");
+      } else {
+        debugPrint("⚠️ No race results provided for championship update");
+      }
+
+      // STEP 3: Mark race weekend as completed in the calendar
+      raceWeekend.completeRace();
+      CareerCalendar.instance.completeCurrentRaceWeekend();
+
+      debugPrint("✅ Calendar advanced to next race");
+
+      // STEP 4: Auto-save career progress (CRITICAL FOR PERSISTENCE)
+      await _autoSaveCareerProgress();
+
+      // STEP 5: Update any season-specific data
+      _updateSeasonProgress();
+
+      debugPrint("✅ Race weekend completion successful");
+      debugPrint(
+          "Updated totals: ${_currentCareerDriver!.careerWins} wins, ${_currentCareerDriver!.careerPoints} points");
+    } catch (e) {
+      debugPrint("❌ ERROR during race weekend completion: $e");
+      // Even if there's an error, try to save what we can
+      try {
+        await _autoSaveCareerProgress();
+        debugPrint("⚠️ Emergency save completed despite error");
+      } catch (saveError) {
+        debugPrint("❌ CRITICAL: Failed to save career progress: $saveError");
+      }
+      rethrow; // Re-throw the original error for upper layers to handle
+    }
   }
 
-  // Save career data
+  // 🆕 ENHANCED: Load career from save data including championship
+  static void loadCareer(Map<String, dynamic> saveData) {
+    _currentSeason = saveData['currentSeason'] ?? 2025;
+
+    // Load championship standings if available
+    if (saveData.containsKey('championshipStandings')) {
+      ChampionshipManager.fromJson(saveData['championshipStandings']);
+      debugPrint("✅ Championship standings loaded from save");
+    } else {
+      // Initialize fresh championship if no saved data
+      ChampionshipManager.initializeChampionship();
+      debugPrint("✅ Fresh championship standings initialized");
+    }
+  }
+
+  // 🆕 ENHANCED: Save career data including championship standings
   static Map<String, dynamic> saveCareer() {
     return {
       'currentSeason': _currentSeason,
       'careerDriver': _currentCareerDriver?.toJson(),
       'currentSeasonDrivers': _currentSeasonDrivers.map((d) => d.name).toList(),
+      'championshipStandings': ChampionshipManager.toJson(), // 🆕 NEW
     };
   }
 

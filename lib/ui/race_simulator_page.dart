@@ -273,15 +273,35 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   }
 
   void _navigateToResults() {
+    // 🆕 GET THE ORIGINAL ARGUMENTS from when this page was loaded
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+    // 🆕 CREATE RESULT ARGUMENTS including all original career data
+    Map<String, dynamic> resultArguments = {
+      'drivers': drivers,
+      'track': currentTrack,
+      'weather': currentWeather,
+      'totalLaps': totalLaps,
+    };
+
+    // 🆕 PASS THROUGH ALL CAREER MODE DATA that was passed to this page
+    if (args != null) {
+      resultArguments['careerMode'] = args['careerMode'] ?? false;
+      resultArguments['careerDriver'] = args['careerDriver'];
+      resultArguments['raceWeekend'] = args['raceWeekend'];
+      resultArguments['isCalendarRace'] = args['isCalendarRace'] ?? false;
+
+      // 🆕 DEBUG: Let's see what we're passing
+      debugPrint("=== RACE SIMULATOR TO RESULTS ===");
+      debugPrint("Passing careerMode: ${resultArguments['careerMode']}");
+      debugPrint("Passing careerDriver: ${resultArguments['careerDriver']?.name ?? 'null'}");
+      debugPrint("Passing isCalendarRace: ${resultArguments['isCalendarRace']}");
+    }
+
     Navigator.pushReplacementNamed(
       context,
       '/results',
-      arguments: {
-        'drivers': drivers,
-        'track': currentTrack,
-        'weather': currentWeather,
-        'totalLaps': totalLaps,
-      },
+      arguments: resultArguments,
     );
   }
 
