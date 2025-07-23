@@ -279,6 +279,7 @@ class _CareerCalendarWidgetState extends State<CareerCalendarWidget> with Single
             icon: Icon(
               calendar.isRunning && !calendar.isPaused ? Icons.pause : Icons.play_arrow,
               size: 18,
+              color: Colors.white,
             ),
             label: Text(
               calendar.isRunning && !calendar.isPaused ? 'PAUSE' : 'CONTINUE',
@@ -298,7 +299,11 @@ class _CareerCalendarWidgetState extends State<CareerCalendarWidget> with Single
         // Skip to next race
         ElevatedButton(
           onPressed: calendar.nextRaceWeekend != null ? () => calendar.skipToNextRaceWeekend() : null,
-          child: Icon(Icons.skip_next, size: 18),
+          child: Icon(
+            Icons.skip_next,
+            size: 18,
+            color: Colors.white,
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue[600],
             foregroundColor: Colors.white,

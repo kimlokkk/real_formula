@@ -74,6 +74,21 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
+  fonts:
+    - family: Formula1
+      fonts:
+        - asset: fonts/Formula1-Regular_web_0.ttf
+          weight: 400
+        - asset: fonts/Formula1-Bold_web_0.ttf
+          weight: 700
+        - asset: fonts/Formula1-Wide_web_0.ttf
+          weight: 900
+
+    # Backup font family for specific use cases
+    - family: Formula1Wide
+      fonts:
+        - asset: fonts/Formula1-Wide_web_0.ttf
+          weight: 400
   # fonts:
   #   - family: Schyler
   #     fonts:

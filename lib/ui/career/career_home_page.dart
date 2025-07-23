@@ -1,4 +1,4 @@
-// lib/ui/career/career_home_page.dart
+import '../../models/team.dart'; // lib/ui/career/career_home_page.dart - Navigation-Based Career Hub with Real Data
 import 'package:flutter/material.dart';
 import 'package:real_formula/services/career/career_calendar.dart';
 import 'package:real_formula/services/career/career_manager.dart';
@@ -6,6 +6,9 @@ import 'package:real_formula/services/career/championship_manager.dart';
 import 'package:real_formula/ui/career/career_calendar_widget.dart';
 import '../../models/career/career_driver.dart';
 import '../../models/career/contract.dart';
+import '../../models/driver.dart';
+import '../../data/team_data.dart';
+import '../../data/driver_data.dart';
 
 class CareerHomePage extends StatefulWidget {
   @override
@@ -14,19 +17,29 @@ class CareerHomePage extends StatefulWidget {
 
 class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStateMixin {
   CareerDriver? careerDriver;
-  int selectedTab = 0; // 0: Overview, 1: Skills, 2: Contract, 3: Statistics
-  bool dataLoaded = false; // Add this flag to prevent multiple loads
+  int selectedNavIndex = 0; // Navigation index
   bool showRaceWeekendAlert = false;
+  int? selectedDriverIndex; // For driver details expansion
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     careerDriver = CareerManager.currentCareerDriver;
-    //_loadCareerData();
 
+    _initializeAnimations();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      CareerCalendar.instance.initialize();
+      _fadeController.forward();
+    });
+  }
+
+  void _initializeAnimations() {
     // Pulse animation for XP indicator
     _pulseController = AnimationController(
       duration: Duration(seconds: 2),
@@ -41,17 +54,23 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     ));
     _pulseController.repeat(reverse: true);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      CareerCalendar.instance.initialize();
-    });
+    // Fade animation
+    _fadeController = AnimationController(
+      duration: Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    ));
   }
 
-  // 🆕 NEW: Handle page resume - refresh data when returning to this screen
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Check if we're returning from a navigation and refresh data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _refreshCareerData();
@@ -68,108 +87,182 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
   @override
   void dispose() {
     _pulseController.dispose();
+    _fadeController.dispose();
     super.dispose();
+  }
+
+  void _refreshCareerData() {
+    try {
+      CareerDriver? updatedDriver = CareerManager.currentCareerDriver;
+      if (updatedDriver != null) {
+        setState(() {
+          careerDriver = updatedDriver;
+        });
+        CareerCalendar.instance.notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error refreshing career data: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (careerDriver == null) {
       return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.red[600]),
+        body: Container(
+          decoration: _buildBackgroundGradient(),
+          child: Center(
+            child: CircularProgressIndicator(color: Colors.red[400]),
+          ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          _buildCareerHeader(),
-          CareerCalendarWidget(
-            onRaceWeekendReached: _onRaceWeekendReached,
-          ),
-          _buildChampionshipStandings(),
-
-          // 🆕 ADD this new alert widget:
-          if (showRaceWeekendAlert) _buildRaceWeekendAlert(),
-          _buildTabBar(),
-          Expanded(
-            child: _buildTabContent(),
-          ),
-          _buildBottomActions(),
-        ],
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.red[600],
-      elevation: 0,
-      title: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'F1',
-              style: TextStyle(
-                color: Colors.red[600],
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+      body: Container(
+        decoration: _buildBackgroundGradient(),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              // PRESERVE: Race weekend alert (essential functionality)
+              if (showRaceWeekendAlert) _buildRaceWeekendAlert(),
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: _buildCurrentPage(),
+                ),
               ),
+              //_buildBottomNavigation(),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  BoxDecoration _buildBackgroundGradient() {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF1A1A2E),
+          Color(0xFF16213E),
+          Color(0xFF0F3460),
+          Color(0xFF0A1128),
+        ],
+        stops: [0.0, 0.3, 0.7, 1.0],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.red[600]!.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Back button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.home, color: Colors.white),
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false),
             ),
           ),
+
+          SizedBox(width: 16),
+
+          // Racing stripe
+          Container(
+            width: 4,
+            height: 30,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.red[400]!, Colors.red[600]!],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
           SizedBox(width: 12),
-          Text(
-            'CAREER MODE',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w300,
-              letterSpacing: 2,
+
+          // Title section
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'F1 CAREER MODE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                Text(
+                  '${careerDriver!.name} • ${careerDriver!.team.name}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Save button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.save, color: Colors.white),
+              onPressed: _saveCareer,
             ),
           ),
         ],
       ),
-      leading: IconButton(
-        icon: Icon(Icons.home, color: Colors.white),
-        onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false),
-      ),
-      actions: [
-        IconButton(
-          icon: Icon(Icons.save, color: Colors.white),
-          onPressed: _saveCareer,
-        ),
-      ],
     );
   }
 
+  // PRESERVE: Essential race weekend alert functionality
   Widget _buildRaceWeekendAlert() {
     final raceWeekend = CareerCalendar.instance.currentRaceWeekend;
     if (raceWeekend == null) return SizedBox.shrink();
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange[800]!, Colors.orange[600]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [Colors.orange[600]!, Colors.orange[800]!],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.orange[600]!.withOpacity(0.3),
+            spreadRadius: 2,
             blurRadius: 8,
-            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -184,47 +277,58 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'RACE WEEKEND',
+                      'RACE WEEKEND ACTIVE',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                        letterSpacing: 1,
                       ),
                     ),
                     Text(
-                      raceWeekend.name,
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                      '${raceWeekend.name} • ${raceWeekend.track.name}',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                        fontFamily: 'Formula1',
+                      ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    showRaceWeekendAlert = false;
-                  });
-                },
-                icon: Icon(Icons.close, color: Colors.white70),
-              ),
             ],
           ),
-          SizedBox(height: 12),
+          SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _startRaceWeekend,
-                  icon: Icon(Icons.play_arrow, size: 20),
-                  label: Text(
-                    'START ${raceWeekend.nextSession.toUpperCase()}',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/race_weekend_loading',
+                      arguments: {
+                        'raceWeekend': raceWeekend,
+                        'careerDriver': careerDriver,
+                      },
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[600],
-                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.orange[800],
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'START RACE WEEKEND',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Formula1',
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
@@ -236,12 +340,20 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
                     showRaceWeekendAlert = false;
                   });
                 },
-                child: Text('SKIP', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[600],
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'SKIP',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                  ),
                 ),
               ),
             ],
@@ -251,523 +363,155 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     );
   }
 
-  Widget _buildCareerHeader() {
-    return Container(
-      color: Colors.grey[900],
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              // Driver avatar
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: careerDriver!.team.primaryColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: Center(
-                  child: Text(
-                    careerDriver!.abbreviation,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 16),
-
-              // Driver info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      careerDriver!.name.toUpperCase(),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '${careerDriver!.team.name.toUpperCase()} • Season ${CareerManager.currentSeason}',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      'Career Rating: ${careerDriver!.careerRating.toStringAsFixed(1)}',
-                      style: TextStyle(
-                        color: Colors.orange[300],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // XP indicator
-              Column(
-                children: [
-                  AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: _pulseAnimation.value,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: careerDriver!.experiencePoints > 0 ? Colors.green[600] : Colors.grey[600],
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${careerDriver!.experiencePoints} XP',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Experience',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          SizedBox(height: 16),
-
-          // Quick stats
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildQuickStat('Wins', '${careerDriver!.careerWins}', Colors.yellow),
-              _buildQuickStat('Podiums', '${careerDriver!.careerPodiums}', Colors.grey[300]!),
-              _buildQuickStat('Points', '${careerDriver!.careerPoints}', Colors.green),
-              _buildQuickStat('Seasons', '${careerDriver!.seasonsCompleted}', Colors.blue),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStat(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 10,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTabBar() {
-    List<String> tabs = ['OVERVIEW', 'SKILLS', 'CONTRACT', 'STATS'];
-    List<IconData> icons = [Icons.home, Icons.trending_up, Icons.description, Icons.analytics];
-
-    return Container(
-      color: Colors.grey[800],
-      child: Row(
-        children: tabs.asMap().entries.map((entry) {
-          int index = entry.key;
-          String tab = entry.value;
-          bool isSelected = selectedTab == index;
-
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => selectedTab = index),
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.red[600] : Colors.transparent,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isSelected ? Colors.red[600]! : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      icons[index],
-                      color: isSelected ? Colors.white : Colors.grey[400],
-                      size: 16,
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      tab,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.grey[400],
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildTabContent() {
-    switch (selectedTab) {
+  Widget _buildCurrentPage() {
+    switch (selectedNavIndex) {
       case 0:
-        return _buildOverviewTab();
+        return _buildHomePage();
       case 1:
-        return _buildSkillsTab();
+        return _buildStandingsPage();
       case 2:
-        return _buildContractTab();
+        return _buildContractPage();
       case 3:
-        return _buildStatsTab();
+        return _buildSkillsPage();
+      case 4:
+        return _buildCarsPage();
+      case 5:
+        return _buildDriversPage();
       default:
-        return _buildOverviewTab();
+        return _buildHomePage();
     }
   }
 
-  Widget _buildOverviewTab() {
+  // HOME PAGE - Overview + Calendar
+  Widget _buildHomePage() {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Current Season Progress
-          _buildSectionCard(
-            title: 'CURRENT SEASON',
-            icon: Icons.calendar_today,
-            child: Column(
-              children: [
-                _buildOverviewRow('Season', '${CareerManager.currentSeason}'),
-                _buildOverviewRow('Team', careerDriver!.team.name),
-                _buildOverviewRow('Wins', '${careerDriver!.currentSeasonWins}'),
-                _buildOverviewRow('Podiums', '${careerDriver!.currentSeasonPodiums}'),
-                _buildOverviewRow('Points', '${careerDriver!.currentSeasonPoints}'),
-              ],
-            ),
-          ),
-
-          SizedBox(height: 16),
-
-          // Next Actions
-          _buildSectionCard(
-            title: 'NEXT ACTIONS',
-            icon: Icons.play_arrow,
-            child: Column(
-              children: [
-                if (careerDriver!.experiencePoints > 0) ...[
-                  ListTile(
-                    leading: Icon(Icons.trending_up, color: Colors.green),
-                    title: Text('Upgrade Skills', style: TextStyle(color: Colors.white)),
-                    subtitle: Text('${careerDriver!.experiencePoints} XP available',
-                        style: TextStyle(color: Colors.grey[400])),
-                    trailing: Icon(Icons.arrow_forward, color: Colors.grey[400]),
-                    onTap: () => setState(() => selectedTab = 1),
-                  ),
-                  Divider(color: Colors.grey[700]),
-                ],
-                if (CareerManager.needsNewContract()) ...[
-                  ListTile(
-                    leading: Icon(Icons.description, color: Colors.orange),
-                    title: Text('Contract Needed', style: TextStyle(color: Colors.white)),
-                    subtitle: Text('Your contract has expired', style: TextStyle(color: Colors.grey[400])),
-                    trailing: Icon(Icons.arrow_forward, color: Colors.grey[400]),
-                    onTap: () => setState(() => selectedTab = 2),
-                  ),
-                  Divider(color: Colors.grey[700]),
-                ],
-                ListTile(
-                  leading: Icon(Icons.sports_motorsports, color: Colors.red[600]),
-                  title: Text('Start Race Weekend', style: TextStyle(color: Colors.white)),
-                  subtitle: Text('Begin qualifying and race', style: TextStyle(color: Colors.grey[400])),
-                  trailing: Icon(Icons.arrow_forward, color: Colors.grey[400]),
-                  onTap: _startRaceWeekend,
-                ),
-              ],
-            ),
-          ),
+          _buildDriverOverviewCard(),
+          _buildQuickStatsRow(),
+          _buildCalendarSection(),
+          SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildSkillsTab() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // XP status
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[850],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'AVAILABLE EXPERIENCE',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '${careerDriver!.experiencePoints} XP',
-                  style: TextStyle(
-                    color: Colors.green[400],
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          SizedBox(height: 16),
-
-          // Skill upgrade cards
-          _buildSkillUpgradeCard('Speed', careerDriver!.speed, Icons.speed),
-          _buildSkillUpgradeCard('Consistency', careerDriver!.consistency, Icons.trending_flat),
-          _buildSkillUpgradeCard('Tire Management', careerDriver!.tyreManagementSkill, Icons.settings),
-          _buildSkillUpgradeCard('Racecraft', careerDriver!.racecraft, Icons.directions_car),
-          _buildSkillUpgradeCard('Experience', careerDriver!.experience, Icons.school),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSkillUpgradeCard(String skillName, int currentValue, IconData icon) {
-    int upgradeCost = careerDriver!.getUpgradeCost(currentValue);
-    bool canUpgrade = careerDriver!.canUpgradeSkill(currentValue);
-
+  Widget _buildDriverOverviewCard() {
     return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      padding: EdgeInsets.all(16),
+      margin: EdgeInsets.all(20),
+      padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          colors: [
+            careerDriver!.team.primaryColor.withOpacity(0.15),
+            careerDriver!.team.primaryColor.withOpacity(0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: canUpgrade ? Colors.green[600]! : Colors.grey[700]!,
+          color: careerDriver!.team.primaryColor.withOpacity(0.3),
           width: 1,
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 24),
-          SizedBox(width: 12),
+          // Driver helmet/avatar
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: careerDriver!.team.primaryColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: careerDriver!.team.primaryColor.withOpacity(0.3),
+                  spreadRadius: 2,
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                careerDriver!.abbreviation,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                ),
+              ),
+            ),
+          ),
+
+          SizedBox(width: 20),
+
+          // Driver info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  skillName.toUpperCase(),
+                  careerDriver!.name,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
                   ),
                 ),
+                SizedBox(height: 4),
                 Text(
-                  'Current: $currentValue${currentValue >= 99 ? ' (MAX)' : ''}',
+                  '${careerDriver!.team.name} • Season ${CareerManager.currentSeason}',
                   style: TextStyle(
                     color: Colors.grey[400],
-                    fontSize: 12,
+                    fontSize: 14,
+                    fontFamily: 'Formula1',
                   ),
                 ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                currentValue >= 99 ? 'MAX' : '$upgradeCost XP',
-                style: TextStyle(
-                  color: currentValue >= 99 ? Colors.yellow[600] : Colors.orange[300],
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 4),
-              ElevatedButton(
-                onPressed: canUpgrade ? () => _upgradeSkill(skillName) : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: canUpgrade ? Colors.green[600] : Colors.grey[700],
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  minimumSize: Size(60, 30),
-                ),
-                child: Text(
-                  currentValue >= 99 ? 'MAX' : 'UP',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContractTab() {
-    Contract? contract = careerDriver!.currentContract;
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          if (contract != null) ...[
-            _buildSectionCard(
-              title: 'CURRENT CONTRACT',
-              icon: Icons.description,
-              child: Column(
-                children: [
-                  _buildOverviewRow('Team', contract.team.name),
-                  _buildOverviewRow('Length', '${contract.lengthInYears} year${contract.lengthInYears > 1 ? 's' : ''}'),
-                  _buildOverviewRow('Salary', '€${contract.salaryPerYear.toStringAsFixed(1)}M/year'),
-                  _buildOverviewRow('Status', contract.getContractDescription(CareerManager.currentSeason)),
-                  _buildOverviewRow('Total Value', '€${contract.totalValue.toStringAsFixed(1)}M'),
-                ],
-              ),
-            ),
-          ] else ...[
-            _buildSectionCard(
-              title: 'NO ACTIVE CONTRACT',
-              icon: Icons.warning,
-              child: Column(
-                children: [
-                  Text(
-                    'You need a contract to continue your career!',
-                    style: TextStyle(color: Colors.orange[300], fontSize: 14),
-                  ),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _viewContractOffers,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[600],
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.emoji_events, color: Colors.orange[300], size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Rating: ${careerDriver!.careerRating.toStringAsFixed(1)}',
+                      style: TextStyle(
+                        color: Colors.orange[300],
+                        fontSize: 12,
+                        fontFamily: 'Formula1',
+                      ),
                     ),
-                    child: Text('VIEW OFFERS'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          SizedBox(height: 16),
-
-          // Team reputation
-          _buildSectionCard(
-            title: 'TEAM REPUTATION',
-            icon: Icons.star,
-            child: Column(
-              children: careerDriver!.teamReputation.entries.map((entry) {
-                return _buildReputationRow(entry.key, entry.value);
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReputationRow(String teamName, int reputation) {
-    Color color = Colors.grey;
-    String status = 'Neutral';
-
-    if (reputation >= 80) {
-      color = Colors.green;
-      status = 'Excellent';
-    } else if (reputation >= 60) {
-      color = Colors.blue;
-      status = 'Good';
-    } else if (reputation >= 40) {
-      color = Colors.orange;
-      status = 'Fair';
-    } else if (reputation >= 20) {
-      color = Colors.red;
-      status = 'Poor';
-    } else {
-      color = Colors.red[800]!;
-      status = 'Hostile';
-    }
-
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            teamName,
-            style: TextStyle(color: Colors.white, fontSize: 12),
-          ),
-          Row(
-            children: [
-              Text(
-                '$reputation',
-                style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(width: 8),
-              Text(
-                status,
-                style: TextStyle(color: color, fontSize: 10),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsTab() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildSectionCard(
-            title: 'CAREER STATISTICS',
-            icon: Icons.analytics,
-            child: Column(
-              children: [
-                _buildOverviewRow('Total Races', '${careerDriver!.careerRaces}'),
-                _buildOverviewRow('Wins', '${careerDriver!.careerWins}'),
-                _buildOverviewRow('Podiums', '${careerDriver!.careerPodiums}'),
-                _buildOverviewRow('Poles', '${careerDriver!.careerPoles}'),
-                _buildOverviewRow('Points', '${careerDriver!.careerPoints}'),
-                _buildOverviewRow('Win Rate', '${careerDriver!.winPercentage.toStringAsFixed(1)}%'),
-                _buildOverviewRow('Podium Rate', '${careerDriver!.podiumPercentage.toStringAsFixed(1)}%'),
+                    SizedBox(width: 16),
+                    // XP indicator with pulse animation
+                    AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _pulseAnimation.value,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: careerDriver!.experiencePoints > 0 ? Colors.green[600] : Colors.grey[600],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${careerDriver!.experiencePoints} XP',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Formula1',
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -776,422 +520,469 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     );
   }
 
-  Widget _buildSectionCard({required String title, required IconData icon, required Widget child}) {
+  Widget _buildQuickStatsRow() {
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[700]!, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverviewRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(color: Colors.grey[400], fontSize: 12),
-          ),
-          Text(
-            value,
-            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomActions() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[800],
-        border: Border(
-          top: BorderSide(color: Colors.grey[700]!, width: 1),
-        ),
-      ),
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
           Expanded(
-            child: ElevatedButton(
-              onPressed: _startRaceWeekend,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[600],
-                padding: EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.sports_motorsports, size: 20),
-                  SizedBox(width: 8),
-                  Text('START RACE WEEKEND', style: TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
+            child: _buildStatCard(
+              'WINS',
+              '${careerDriver!.careerWins}',
+              Icons.emoji_events,
+              Colors.amber,
             ),
           ),
           SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: _viewContractOffers,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange[600],
-              padding: EdgeInsets.all(12),
+          Expanded(
+            child: _buildStatCard(
+              'PODIUMS',
+              '${careerDriver!.careerPodiums}',
+              Icons.military_tech,
+              Colors.orange[400]!,
             ),
-            child: Icon(Icons.description, size: 20),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              'POINTS',
+              '${careerDriver!.careerPoints}',
+              Icons.stars,
+              Colors.blue[400]!,
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _upgradeSkill(String skillName) {
-    setState(() {
-      switch (skillName) {
-        case 'Speed':
-          careerDriver!.upgradeSpeed();
-          break;
-        case 'Consistency':
-          careerDriver!.upgradeConsistency();
-          break;
-        case 'Tire Management':
-          careerDriver!.upgradeTyreManagement();
-          break;
-        case 'Racecraft':
-          careerDriver!.upgradeRacecraft();
-          break;
-        case 'Experience':
-          careerDriver!.upgradeExperience();
-          break;
-      }
-    });
-
-    // Show upgrade confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$skillName upgraded to ${_getCurrentSkillValue(skillName)}!'),
-        backgroundColor: Colors.green[600],
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  int _getCurrentSkillValue(String skillName) {
-    switch (skillName) {
-      case 'Speed':
-        return careerDriver!.speed;
-      case 'Consistency':
-        return careerDriver!.consistency;
-      case 'Tire Management':
-        return careerDriver!.tyreManagementSkill;
-      case 'Racecraft':
-        return careerDriver!.racecraft;
-      case 'Experience':
-        return careerDriver!.experience;
-      default:
-        return 0;
-    }
-  }
-
-  void _startRaceWeekend() {
-    final currentRaceWeekend = CareerCalendar.instance.currentRaceWeekend;
-
-    if (currentRaceWeekend != null && careerDriver != null) {
-      // Navigate directly to loading screen, skip race setup
-      Navigator.pushNamed(
-        context,
-        '/race_weekend_loading',
-        arguments: {
-          'raceWeekend': currentRaceWeekend,
-          'careerDriver': careerDriver,
-        },
-      ).then((_) {
-        // 🆕 IMPROVED: When returning from race weekend, refresh all data
-        debugPrint("Returned from race weekend - refreshing data...");
-
-        // Refresh career data
-        _refreshCareerData();
-
-        // Hide race weekend alert and refresh UI
-        setState(() {
-          showRaceWeekendAlert = false;
-        });
-
-        // Show completion message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Race weekend completed! Data updated.'),
-            backgroundColor: Colors.green[600],
-            duration: Duration(seconds: 2),
-          ),
-        );
-      });
-    } else {
-      // Fallback: Show error if no race weekend or career driver
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No active race weekend available'),
-          backgroundColor: Colors.red[600],
-        ),
-      );
-    }
-  }
-
-  void _viewContractOffers() {
-    // TODO: Navigate to contract offers page
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Contract offers system coming soon!'),
-        backgroundColor: Colors.orange[600],
-      ),
-    );
-  }
-
-  void _saveCareer() {
-    // TODO: Implement save system
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Career saved successfully!'),
-        backgroundColor: Colors.green[600],
-      ),
-    );
-  }
-
-  // 🆕 NEW: Refresh career data when returning from race
-  // 🆕 ENHANCED: Refresh career data including championship standings
-  void _refreshCareerData() {
-    debugPrint("=== REFRESHING CAREER DATA ===");
-
-    try {
-      // Get updated career driver data
-      CareerDriver? updatedDriver = CareerManager.currentCareerDriver;
-
-      if (updatedDriver != null) {
-        setState(() {
-          careerDriver = updatedDriver;
-          debugPrint(
-              "Career data refreshed - Wins: ${careerDriver!.careerWins}, Points: ${careerDriver!.careerPoints}");
-        });
-
-        // Also refresh the calendar instance to get updated race data
-        CareerCalendar.instance.notifyListeners();
-
-        // 🆕 NEW: Force UI refresh to show updated championship standings
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (mounted) {
-            setState(() {}); // Trigger rebuild to refresh championship standings
-          }
-        });
-
-        debugPrint("✅ Career data refresh successful");
-      } else {
-        debugPrint("❌ No career driver found during refresh");
-      }
-    } catch (e) {
-      debugPrint("❌ Error refreshing career data: $e");
-    }
-  }
-
-  // 🆕 NEW: Build championship standings widget
-  Widget _buildChampionshipStandings() {
-    if (careerDriver == null) return Container();
-
+  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return Container(
-      margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[700]!),
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Formula1',
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              fontFamily: 'Formula1',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // PRESERVE: Calendar section with all existing functionality
+  Widget _buildCalendarSection() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.emoji_events, color: Colors.yellow[600], size: 24),
-              SizedBox(width: 12),
-              Text(
-                'CHAMPIONSHIP STANDINGS',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-          _buildStandingsTable(),
-        ],
-      ),
-    );
-  }
-
-// 🆕 NEW: Build the standings table
-  Widget _buildStandingsTable() {
-    try {
-      List<ChampionshipStanding> standings = ChampionshipManager.getTop5Standings(
-        careerDriverName: careerDriver?.name,
-      );
-
-      if (standings.isEmpty) {
-        return Container(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'No championship data available',
-            style: TextStyle(color: Colors.grey[400]),
-          ),
-        );
-      }
-
-      return Column(
-        children: [
-          // Header
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              borderRadius: BorderRadius.circular(8),
-            ),
+          Padding(
+            padding: EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
-                  width: 40,
-                  child: Text(
-                    'POS',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  width: 3,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.red[400],
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'DRIVER',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'TEAM',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 50,
-                  child: Text(
-                    'PTS',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.right,
+                SizedBox(width: 12),
+                Text(
+                  'SEASON CALENDAR',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1,
                   ),
                 ),
               ],
             ),
           ),
-          SizedBox(height: 8),
-          // Standings rows
-          ...standings.asMap().entries.map((entry) {
-            int index = entry.key;
-            ChampionshipStanding standing = entry.value;
-            return _buildStandingRow(index + 1, standing);
-          }).toList(),
+          // PRESERVE: Existing calendar widget with all functionality
+          CareerCalendarWidget(
+            onRaceWeekendReached: _onRaceWeekendReached,
+          ),
         ],
-      );
-    } catch (e) {
-      debugPrint("Error building standings table: $e");
-      return Container(
-        padding: EdgeInsets.all(16),
-        child: Text(
-          'Error loading championship standings',
-          style: TextStyle(color: Colors.red[400]),
-        ),
-      );
-    }
+      ),
+    );
   }
 
-// 🆕 NEW: Build individual standing row
-  Widget _buildStandingRow(int position, ChampionshipStanding standing) {
+  // STANDINGS PAGE - Championship Standings (ALL DRIVERS + CONSTRUCTORS)
+  Widget _buildStandingsPage() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Driver Standings
+          _buildDriverStandingsCard(),
+          SizedBox(height: 20),
+          // Constructor Standings
+          _buildConstructorStandingsCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverStandingsCard() {
+    // Get all drivers including career driver (with 0 points to start)
+    List<ChampionshipStanding> allDrivers =
+        ChampionshipManager.getCurrentStandings(careerDriverName: careerDriver!.name);
+
+    // If championship is empty (season not started), initialize with all drivers at 0 points
+    if (allDrivers.isEmpty) {
+      allDrivers = _initializeEmptyStandings();
+    }
+
     return Container(
-      margin: EdgeInsets.only(bottom: 4),
-      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      margin: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: standing.isCareerDriver ? Colors.green[900]?.withOpacity(0.3) : Colors.grey[900],
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.yellow[600],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'DRIVER CHAMPIONSHIP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Championship table header
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    child: Text(
+                      'POS',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      'DRIVER',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'TEAM',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 60,
+                    child: Text(
+                      'POINTS',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SizedBox(height: 8),
+
+          // Driver standings (all drivers with 0 points initially)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children:
+                  allDrivers.asMap().entries.map((entry) => _buildStandingRow(entry.value, entry.key + 1)).toList(),
+            ),
+          ),
+
+          SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConstructorStandingsCard() {
+    Map<String, int> constructorPoints = _calculateConstructorStandings();
+    List<MapEntry<String, int>> sortedConstructors = constructorPoints.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Container(
+      margin: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.orange[600],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'CONSTRUCTOR CHAMPIONSHIP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Constructor standings
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: sortedConstructors
+                  .asMap()
+                  .entries
+                  .map((entry) => _buildConstructorRow(entry.value.key, entry.value.value, entry.key + 1))
+                  .toList(),
+            ),
+          ),
+
+          SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConstructorRow(String teamName, int points, int position) {
+    Team? team = TeamData.teams.firstWhere((t) => t.name == teamName, orElse: () => TeamData.teams.first);
+    bool isCurrentTeam = teamName == careerDriver!.team.name;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isCurrentTeam ? team.primaryColor.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: standing.isCareerDriver ? Border.all(color: Colors.green[400]!, width: 2) : null,
+        border: isCurrentTeam ? Border.all(color: team.primaryColor, width: 1) : null,
       ),
       child: Row(
         children: [
           // Position
           Container(
             width: 40,
-            child: Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: _getPositionColor(position),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$position',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                if (standing.isCareerDriver) ...[
-                  SizedBox(width: 8),
-                  Icon(Icons.person, color: Colors.green[400], size: 16),
-                ],
-              ],
+            child: Text(
+              '$position',
+              style: TextStyle(
+                color: _getPositionColor(position),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+              ),
+            ),
+          ),
+          // Team color indicator
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: team.primaryColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              Icons.sports_motorsports,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+          SizedBox(width: 16),
+          // Team name
+          Expanded(
+            child: Text(
+              teamName,
+              style: TextStyle(
+                color: isCurrentTeam ? Colors.white : Colors.grey[300],
+                fontSize: 14,
+                fontWeight: isCurrentTeam ? FontWeight.w700 : FontWeight.w400,
+                fontFamily: 'Formula1',
+              ),
+            ),
+          ),
+          // Points
+          Container(
+            width: 60,
+            child: Text(
+              '$points',
+              style: TextStyle(
+                color: isCurrentTeam ? team.primaryColor : Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<ChampionshipStanding> _initializeEmptyStandings() {
+    List<Driver> allDrivers = _getAllDriversIncludingCareer();
+
+    return allDrivers
+        .map((driver) => ChampionshipStanding(
+              driverName: driver.name,
+              teamName: driver.team.name,
+              points: 0,
+              wins: 0,
+              podiums: 0,
+              isCareerDriver: driver.name == careerDriver!.name,
+            ))
+        .toList();
+  }
+
+  Map<String, int> _calculateConstructorStandings() {
+    Map<String, int> constructorPoints = {};
+
+    // Initialize all teams with 0 points
+    for (Team team in TeamData.teams) {
+      constructorPoints[team.name] = 0;
+    }
+
+    // Add points from current championship standings
+    List<ChampionshipStanding> driverStandings = ChampionshipManager.getCurrentStandings();
+    for (ChampionshipStanding standing in driverStandings) {
+      constructorPoints[standing.teamName] = (constructorPoints[standing.teamName] ?? 0) + standing.points;
+    }
+
+    return constructorPoints;
+  }
+
+  Widget _buildStandingRow(ChampionshipStanding standing, int position) {
+    bool isCareerDriver = standing.isCareerDriver;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isCareerDriver ? Colors.green[600]!.withOpacity(0.2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: isCareerDriver ? Border.all(color: Colors.green[600]!, width: 1) : null,
+      ),
+      child: Row(
+        children: [
+          // Position
+          Container(
+            width: 40,
+            child: Text(
+              '$position',
+              style: TextStyle(
+                color: _getPositionColor(position),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+              ),
             ),
           ),
           // Driver name
@@ -1200,9 +991,10 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
             child: Text(
               standing.driverName,
               style: TextStyle(
-                color: standing.isCareerDriver ? Colors.green[400] : Colors.white,
+                color: isCareerDriver ? Colors.green[400] : Colors.white,
                 fontSize: 14,
-                fontWeight: standing.isCareerDriver ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isCareerDriver ? FontWeight.w700 : FontWeight.w400,
+                fontFamily: 'Formula1',
               ),
             ),
           ),
@@ -1214,19 +1006,21 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 12,
+                fontFamily: 'Formula1',
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           // Points
           Container(
-            width: 50,
+            width: 60,
             child: Text(
               '${standing.points}',
               style: TextStyle(
-                color: standing.isCareerDriver ? Colors.green[400] : Colors.white,
+                color: isCareerDriver ? Colors.green[400] : Colors.white,
                 fontSize: 14,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
               ),
               textAlign: TextAlign.right,
             ),
@@ -1236,7 +1030,6 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     );
   }
 
-// 🆕 NEW: Get position color for championship standings
   Color _getPositionColor(int position) {
     switch (position) {
       case 1:
@@ -1249,4 +1042,1440 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
         return Colors.blue[600]!; // Regular
     }
   }
+
+  // CONTRACT PAGE - Real Contract Data
+  Widget _buildContractPage() {
+    return SingleChildScrollView(
+      child: Container(
+        margin: EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _buildCurrentContractCard(),
+            SizedBox(height: 20),
+            _buildTeamReputationCard(),
+            SizedBox(height: 20),
+            _buildContractOffersCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentContractCard() {
+    Contract? contract = careerDriver!.currentContract;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: contract != null
+              ? [careerDriver!.team.primaryColor.withOpacity(0.15), careerDriver!.team.primaryColor.withOpacity(0.05)]
+              : [Colors.red[600]!.withOpacity(0.15), Colors.red[800]!.withOpacity(0.05)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color:
+              contract != null ? careerDriver!.team.primaryColor.withOpacity(0.3) : Colors.red[600]!.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: contract != null ? Colors.green[400] : Colors.red[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'CURRENT CONTRACT',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          if (contract != null) ...[
+            _buildContractDetailRow('Team', contract.team.name),
+            _buildContractDetailRow(
+                'Contract Length', '${contract.lengthInYears} year${contract.lengthInYears > 1 ? 's' : ''}'),
+            _buildContractDetailRow('Annual Salary', '€${contract.salaryPerYear.toStringAsFixed(1)}M'),
+            _buildContractDetailRow('Total Value', '€${contract.totalValue.toStringAsFixed(1)}M'),
+            _buildContractDetailRow('Status', contract.getContractDescription(CareerManager.currentSeason)),
+            _buildContractDetailRow('Remaining Years', '${contract.getRemainingYears(CareerManager.currentSeason)}'),
+          ] else ...[
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red[600]!.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[600]!, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.red[400], size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'NO ACTIVE CONTRACT',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Formula1',
+                          ),
+                        ),
+                        Text(
+                          'You need to negotiate a new contract',
+                          style: TextStyle(
+                            color: Colors.grey[300],
+                            fontSize: 12,
+                            fontFamily: 'Formula1',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContractDetailRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
+              fontFamily: 'Formula1',
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Formula1',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamReputationCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.blue[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'TEAM REPUTATION',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: 16),
+
+          // Team reputation list
+          ...careerDriver!.teamReputation.entries.map((entry) => _buildReputationRow(entry.key, entry.value)).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReputationRow(String teamName, int reputation) {
+    Color color;
+    String status;
+
+    if (reputation >= 80) {
+      color = Colors.green[400]!;
+      status = 'Excellent';
+    } else if (reputation >= 60) {
+      color = Colors.blue[400]!;
+      status = 'Good';
+    } else if (reputation >= 40) {
+      color = Colors.orange[400]!;
+      status = 'Average';
+    } else {
+      color = Colors.red[400]!;
+      status = 'Poor';
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              teamName,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontFamily: 'Formula1',
+              ),
+            ),
+          ),
+          Container(
+            width: 60,
+            child: Text(
+              '$reputation',
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Container(
+            width: 80,
+            child: Text(
+              status,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontFamily: 'Formula1',
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContractOffersCard() {
+    // Get real contract offers (this would be implemented in CareerManager)
+    List<ContractOffer> offers = []; // CareerManager.generateContractOffers();
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.purple[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'CONTRACT OFFERS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          if (offers.isEmpty) ...[
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[800],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'No contract offers available at this time.',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 14,
+                  fontFamily: 'Formula1',
+                ),
+              ),
+            ),
+          ] else ...[
+            // Contract offers would be displayed here
+            ...offers.map((offer) => _buildOfferCard(offer)).toList(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfferCard(ContractOffer offer) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[800],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: offer.team.primaryColor.withOpacity(0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: offer.team.primaryColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  offer.team.name,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+              ),
+              Text(
+                '€${offer.totalValue.toStringAsFixed(1)}M Total',
+                style: TextStyle(
+                  color: Colors.green[400],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          Text(
+            '${offer.lengthInYears} year${offer.lengthInYears > 1 ? 's' : ''} • €${offer.salaryPerYear.toStringAsFixed(1)}M/year',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12,
+              fontFamily: 'Formula1',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // SKILLS PAGE - Real Skill Data with XP System
+  Widget _buildSkillsPage() {
+    return SingleChildScrollView(
+      child: Container(
+        margin: EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _buildXPCard(),
+            SizedBox(height: 20),
+            _buildSkillsCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildXPCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green[600]!.withOpacity(0.15), Colors.green[800]!.withOpacity(0.05)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.green[600]!.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.green[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'EXPERIENCE POINTS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available XP',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 14,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                    Text(
+                      '${careerDriver!.experiencePoints}',
+                      style: TextStyle(
+                        color: Colors.green[400],
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Career XP',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 14,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                    Text(
+                      '${careerDriver!.totalCareerXP}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkillsCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.blue[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'DRIVER SKILLS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 20),
+          _buildSkillRow('Speed', careerDriver!.speed, Icons.speed),
+          _buildSkillRow('Consistency', careerDriver!.consistency, Icons.track_changes),
+          _buildSkillRow('Tire Management', careerDriver!.tyreManagementSkill, Icons.donut_small),
+          _buildSkillRow('Racecraft', careerDriver!.racecraft, Icons.sports_motorsports),
+          _buildSkillRow('Experience', careerDriver!.experience, Icons.star),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkillRow(String label, int value, IconData icon) {
+    int upgradeCost = careerDriver!.getUpgradeCost(value);
+    bool canUpgrade = careerDriver!.canUpgradeSkill(value);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue[500]!, Colors.blue[700]!],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$value',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+              ),
+              SizedBox(width: 12),
+              Container(
+                width: 80,
+                height: 32,
+                child: ElevatedButton(
+                  onPressed: canUpgrade ? () => _upgradeSkill(label.toLowerCase()) : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: canUpgrade ? Colors.green[600] : Colors.grey[700],
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    canUpgrade ? '$upgradeCost XP' : 'MAX',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Formula1',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: 12),
+
+          // Skill bar
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: Colors.grey[700],
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: value / 100,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue[400],
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _upgradeSkill(String skillName) {
+    bool success = false;
+
+    switch (skillName) {
+      case 'speed':
+        success = careerDriver!.upgradeSpeed();
+        break;
+      case 'consistency':
+        success = careerDriver!.upgradeConsistency();
+        break;
+      case 'tire management':
+        success = careerDriver!.upgradeTyreManagement();
+        break;
+      case 'racecraft':
+        success = careerDriver!.upgradeRacecraft();
+        break;
+      case 'experience':
+        success = careerDriver!.upgradeExperience();
+        break;
+    }
+
+    if (success) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${skillName.toUpperCase()} upgraded!'),
+          backgroundColor: Colors.green[600],
+        ),
+      );
+    }
+  }
+
+  // CARS PAGE - Team Performance Data with Line Graph
+  Widget _buildCarsPage() {
+    return SingleChildScrollView(
+      child: Container(
+        margin: EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Performance Chart
+            _buildPerformanceChart(),
+            SizedBox(height: 20),
+            // Reliability List
+            _buildReliabilityList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPerformanceChart() {
+    // Sort teams by performance for the chart
+    List<Team> sortedTeams = List.from(TeamData.teams);
+    sortedTeams.sort((a, b) => b.carPerformance.compareTo(a.carPerformance));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.orange[400],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'CAR PERFORMANCE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Horizontal bar chart
+          Container(
+            height: 350,
+            padding: EdgeInsets.all(20),
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: HorizontalBarChartPainter(sortedTeams, careerDriver!.team.name),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReliabilityList() {
+    // Sort teams by reliability
+    List<Team> sortedTeams = List.from(TeamData.teams);
+    sortedTeams.sort((a, b) => b.reliability.compareTo(a.reliability));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.blue[400],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'RELIABILITY RANKINGS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Clean reliability list
+          ...sortedTeams.asMap().entries.map((entry) => _buildReliabilityRow(entry.value, entry.key + 1)).toList(),
+
+          SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReliabilityRow(Team team, int rank) {
+    bool isCurrentTeam = team.name == careerDriver!.team.name;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isCurrentTeam ? team.primaryColor.withOpacity(0.2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: isCurrentTeam ? Border.all(color: team.primaryColor, width: 1) : null,
+      ),
+      child: Row(
+        children: [
+          // Rank
+          Container(
+            width: 30,
+            child: Text(
+              '$rank',
+              style: TextStyle(
+                color: _getRankColor(rank),
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+              ),
+            ),
+          ),
+
+          SizedBox(width: 16),
+
+          // Team color indicator
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: team.primaryColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              Icons.sports_motorsports,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+
+          SizedBox(width: 16),
+
+          // Team name
+          Expanded(
+            child: Text(
+              team.name,
+              style: TextStyle(
+                color: isCurrentTeam ? Colors.white : Colors.grey[300],
+                fontSize: 14,
+                fontWeight: isCurrentTeam ? FontWeight.w700 : FontWeight.w400,
+                fontFamily: 'Formula1',
+              ),
+            ),
+          ),
+
+          // Reliability bar
+          Container(
+            width: 100,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.grey[700],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: team.reliability / 100,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _getReliabilityColor(team.reliability),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+
+          SizedBox(width: 12),
+
+          // Reliability score
+          Container(
+            width: 40,
+            child: Text(
+              '${team.reliability}',
+              style: TextStyle(
+                color: _getReliabilityColor(team.reliability),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getRankColor(int rank) {
+    switch (rank) {
+      case 1:
+        return Colors.yellow[600]!; // Gold
+      case 2:
+        return Colors.grey[400]!; // Silver
+      case 3:
+        return Colors.orange[600]!; // Bronze
+      default:
+        return Colors.blue[600]!; // Regular
+    }
+  }
+
+  Color _getReliabilityColor(int reliability) {
+    if (reliability >= 90) return Colors.green[400]!;
+    if (reliability >= 80) return Colors.blue[400]!;
+    if (reliability >= 70) return Colors.orange[400]!;
+    return Colors.red[400]!;
+  }
+
+  // DRIVERS PAGE - All Drivers List with Detailed Ratings (Career Driver Replaces Teammate)
+  Widget _buildDriversPage() {
+    List<Driver> allDrivers = _getAllDriversIncludingCareer();
+
+    return SingleChildScrollView(
+      child: Container(
+        margin: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 3,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.purple[400],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'ALL DRIVERS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Formula1',
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Drivers list with expandable details
+            ...allDrivers.asMap().entries.map((entry) => _buildExpandableDriverRow(entry.value, entry.key)).toList(),
+
+            SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Get all drivers including career driver (replace one teammate)
+  List<Driver> _getAllDriversIncludingCareer() {
+    List<Driver> allDrivers = DriverData.createDefaultDrivers();
+
+    // Find drivers from the same team as career driver
+    List<Driver> teammateDrivers = allDrivers.where((driver) => driver.team.name == careerDriver!.team.name).toList();
+
+    if (teammateDrivers.isNotEmpty) {
+      // Remove the first teammate to make room for career driver
+      Driver driverToReplace = teammateDrivers.first;
+      allDrivers.removeWhere((driver) => driver.name == driverToReplace.name);
+
+      // Add career driver
+      allDrivers.add(careerDriver!);
+    }
+
+    // Sort by car performance (highest to lowest)
+    allDrivers.sort((a, b) => b.team.carPerformance.compareTo(a.team.carPerformance));
+
+    return allDrivers;
+  }
+
+  Widget _buildExpandableDriverRow(Driver driver, int index) {
+    bool isCareerDriver = driver.name == careerDriver!.name;
+    bool isExpanded = selectedDriverIndex == index;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      decoration: BoxDecoration(
+        color: isCareerDriver ? Colors.green[600]!.withOpacity(0.2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: isCareerDriver ? Border.all(color: Colors.green[600]!, width: 1) : null,
+      ),
+      child: Column(
+        children: [
+          // Main driver row (clickable)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                selectedDriverIndex = isExpanded ? null : index;
+              });
+            },
+            child: Container(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Driver abbreviation
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: driver.team.primaryColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        driver.abbreviation,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Formula1',
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(width: 16),
+
+                  // Driver info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          driver.name,
+                          style: TextStyle(
+                            color: isCareerDriver ? Colors.green[400] : Colors.white,
+                            fontSize: 14,
+                            fontWeight: isCareerDriver ? FontWeight.w700 : FontWeight.w400,
+                            fontFamily: 'Formula1',
+                          ),
+                        ),
+                        Text(
+                          driver.team.name,
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 12,
+                            fontFamily: 'Formula1',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Driver rating
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getDriverRatingColor(driver).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _getDriverRatingColor(driver), width: 1),
+                    ),
+                    child: Text(
+                      '${((driver.speed + driver.consistency + driver.tyreManagementSkill + driver.racecraft + driver.experience) / 5).round()}',
+                      style: TextStyle(
+                        color: _getDriverRatingColor(driver),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(width: 8),
+
+                  // Expand/collapse icon
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey[400],
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Expanded details
+          if (isExpanded) _buildDriverDetails(driver),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverDetails(Driver driver) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'DETAILED RATINGS',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Formula1',
+              letterSpacing: 1,
+            ),
+          ),
+
+          SizedBox(height: 12),
+
+          // All detailed ratings
+          _buildDetailedRatingRow('Speed', driver.speed, Icons.speed),
+          _buildDetailedRatingRow('Consistency', driver.consistency, Icons.track_changes),
+          _buildDetailedRatingRow('Tire Management', driver.tyreManagementSkill, Icons.donut_small),
+          _buildDetailedRatingRow('Racecraft', driver.racecraft, Icons.sports_motorsports),
+          _buildDetailedRatingRow('Experience', driver.experience, Icons.star),
+
+          SizedBox(height: 8),
+
+          // Overall rating
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  _getDriverRatingColor(driver).withOpacity(0.2),
+                  _getDriverRatingColor(driver).withOpacity(0.1)
+                ],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _getDriverRatingColor(driver).withOpacity(0.3), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'OVERALL RATING',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+                Text(
+                  '${((driver.speed + driver.consistency + driver.tyreManagementSkill + driver.racecraft + driver.experience) / 5).toStringAsFixed(1)}',
+                  style: TextStyle(
+                    color: _getDriverRatingColor(driver),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedRatingRow(String label, int value, IconData icon) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.grey[400], size: 16),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 12,
+                fontFamily: 'Formula1',
+              ),
+            ),
+          ),
+          // Rating bar
+          Container(
+            width: 80,
+            height: 6,
+            decoration: BoxDecoration(
+              color: Colors.grey[700],
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: value / 100,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _getRatingColor(value),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          Container(
+            width: 30,
+            child: Text(
+              '$value',
+              style: TextStyle(
+                color: _getRatingColor(value),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getRatingColor(int rating) {
+    if (rating >= 90) return Colors.green[400]!;
+    if (rating >= 80) return Colors.blue[400]!;
+    if (rating >= 70) return Colors.orange[400]!;
+    return Colors.red[400]!;
+  }
+
+  Color _getDriverRatingColor(Driver driver) {
+    double rating =
+        (driver.speed + driver.consistency + driver.tyreManagementSkill + driver.racecraft + driver.experience) / 5;
+    if (rating >= 90) return Colors.green[400]!;
+    if (rating >= 80) return Colors.blue[400]!;
+    if (rating >= 70) return Colors.orange[400]!;
+    return Colors.red[400]!;
+  }
+
+  // Bottom Navigation Bar
+  Widget _buildBottomNavigation() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.8),
+        border: Border(
+          top: BorderSide(color: Colors.grey[700]!, width: 1),
+        ),
+      ),
+      child: Container(
+        height: 80,
+        child: Row(
+          children: [
+            _buildNavItem(0, Icons.home, 'Home'),
+            _buildNavItem(1, Icons.emoji_events, 'Standings'),
+            _buildNavItem(2, Icons.description, 'Contract'),
+            _buildNavItem(3, Icons.trending_up, 'Skills'),
+            _buildNavItem(4, Icons.directions_car, 'Cars'),
+            _buildNavItem(5, Icons.people, 'Drivers'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    bool isSelected = selectedNavIndex == index;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            selectedNavIndex = index;
+          });
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.red[600]!.withOpacity(0.2) : Colors.transparent,
+            border: isSelected
+                ? Border(
+                    top: BorderSide(color: Colors.red[600]!, width: 2),
+                  )
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.red[400] : Colors.grey[500],
+                size: 24,
+              ),
+              SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.red[400] : Colors.grey[500],
+                  fontSize: 8,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                  fontFamily: 'Formula1',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _saveCareer() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Career saved successfully!'),
+        backgroundColor: Colors.green[600],
+      ),
+    );
+  }
+}
+
+// Custom painter for horizontal bar chart
+class HorizontalBarChartPainter extends CustomPainter {
+  final List<Team> teams;
+  final String currentTeamName;
+
+  HorizontalBarChartPainter(this.teams, this.currentTeamName);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double barHeight = 10; // ADJUST INI UNTUK KECILKAN BAR (default was 25)
+    final double spacing = 20; // BOLEH ADJUST SPACING JUGA (default was 10)
+    final double totalHeight = (barHeight + spacing) * teams.length;
+    final double startY = (size.height - totalHeight) / 2;
+
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.left,
+    );
+
+    // Find max performance for scaling
+    final double maxPerformance = teams.map((t) => t.carPerformance).reduce((a, b) => a > b ? a : b).toDouble();
+    final double chartWidth = size.width * 0.6; // Leave space for labels
+    final double labelWidth = size.width * 0.3;
+
+    for (int i = 0; i < teams.length; i++) {
+      final team = teams[i];
+      final double y = startY + i * (barHeight + spacing);
+      final bool isCurrentTeam = team.name == currentTeamName;
+
+      // Draw team name
+      textPainter.text = TextSpan(
+        text: team.name,
+        style: TextStyle(
+          color: isCurrentTeam ? Colors.white : Colors.grey[300],
+          fontSize: 12,
+          fontWeight: isCurrentTeam ? FontWeight.w700 : FontWeight.w400,
+          fontFamily: 'Formula1',
+        ),
+      );
+      textPainter.layout(maxWidth: labelWidth);
+      textPainter.paint(canvas, Offset(10, y + (barHeight - textPainter.height) / 2));
+
+      // Calculate bar width based on performance
+      final double barWidth = (team.carPerformance / maxPerformance) * chartWidth;
+      final double barStartX = labelWidth + 20;
+
+      // Draw background bar
+      final backgroundBarPaint = Paint()
+        ..color = Colors.grey[800]!
+        ..style = PaintingStyle.fill;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(barStartX, y, chartWidth, barHeight),
+          Radius.circular(barHeight / 2),
+        ),
+        backgroundBarPaint,
+      );
+
+      // Draw performance bar
+      final barPaint = Paint()
+        ..color = isCurrentTeam ? Colors.green[400]! : team.primaryColor
+        ..style = PaintingStyle.fill;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(barStartX, y, barWidth, barHeight),
+          Radius.circular(barHeight / 2),
+        ),
+        barPaint,
+      );
+
+      // Draw performance value at the end of bar
+      textPainter.text = TextSpan(
+        text: '${team.carPerformance}',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Formula1',
+        ),
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(barStartX + barWidth + 8, y + (barHeight - textPainter.height) / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

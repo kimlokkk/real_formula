@@ -192,13 +192,15 @@ class _RaceWeekendLoadingScreenState extends State<RaceWeekendLoadingScreen> wit
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                Colors.red[900]!.withOpacity(0.3),
-                Colors.black,
-                Colors.red[900]!.withOpacity(0.2),
+                Color(0xFF1A1A2E),
+                Color(0xFF16213E),
+                Color(0xFF0F3460),
+                Color(0xFF0A1128),
               ],
+              stops: [0.0, 0.3, 0.7, 1.0],
             ),
           ),
           child: SafeArea(
@@ -351,9 +353,9 @@ class _RaceWeekendLoadingScreenState extends State<RaceWeekendLoadingScreen> wit
             builder: (context, child) {
               return Positioned(
                 left: MediaQuery.of(context).size.width * 0.8 * _carSlideAnimation.value,
-                bottom: 10,
+                bottom: 5,
                 child: Icon(
-                  Icons.directions_car,
+                  Icons.double_arrow_outlined,
                   color: Colors.red[400],
                   size: 32,
                 ),

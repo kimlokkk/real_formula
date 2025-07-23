@@ -58,9 +58,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
         }
 
         // Show career mode indicators
-        if (args['careerMode'] == true) {
-          _showCareerModeWelcome(args);
-        }
+        if (args['careerMode'] == true) {}
       } else {
         // Original logic for manual race setup
         if (drivers.isEmpty) {
@@ -164,27 +162,6 @@ class _QualifyingPageState extends State<QualifyingPage> {
     }
 
     Navigator.pushNamed(context, '/race', arguments: raceArguments);
-  }
-
-  void _showCareerModeWelcome(Map<String, dynamic> args) {
-    // Optional: Show a brief welcome message for career mode
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final raceWeekend = args['raceWeekend'];
-        if (raceWeekend != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Welcome to ${raceWeekend.name}! Weather: ${currentWeather.name}',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              backgroundColor: Colors.green[600],
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    });
   }
 
   @override
