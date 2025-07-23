@@ -140,6 +140,11 @@ class ContractOffer {
     this.isRejected = false,
   });
 
+  // ADD this getter:
+  double get totalValue {
+    return salaryPerYear * lengthInYears;
+  }
+
   // Check if offer is still valid
   bool get isValid {
     return !isAccepted && !isRejected && DateTime.now().isBefore(offerExpirationDate);

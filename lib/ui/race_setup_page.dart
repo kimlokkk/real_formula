@@ -88,23 +88,42 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
     }
   }
 
+  // Fixed _createCareerModeDrivers method for race_setup_page.dart
+// Replace the existing method with this corrected version
+
   List<Driver> _createCareerModeDrivers() {
     List<Driver> careerDrivers = [];
 
     // Add the career driver first
     careerDrivers.add(careerDriver!);
 
-    // Create AI drivers for other teams
+    // Create AI drivers for all teams
     List<Driver> aiDrivers = DriverData.createDefaultDrivers();
 
-    // Remove any AI driver from the same team as career driver
-    aiDrivers.removeWhere((driver) => driver.team.name == careerDriver!.team.name);
+    // Remove only ONE driver from the same team as career driver
+    // This preserves the teammate
+    bool removedTeammate = false;
+    aiDrivers.removeWhere((driver) {
+      if (driver.team.name == careerDriver!.team.name && !removedTeammate) {
+        removedTeammate = true;
+        return true; // Remove this driver (first teammate found)
+      }
+      return false; // Keep all other drivers
+    });
 
-    // Add AI drivers up to total of 20 drivers
-    int maxDrivers = 20;
-    for (int i = 0; i < aiDrivers.length && careerDrivers.length < maxDrivers; i++) {
-      careerDrivers.add(aiDrivers[i]);
+    // Add all remaining AI drivers (including the preserved teammate)
+    careerDrivers.addAll(aiDrivers);
+
+    // Ensure we have exactly 20 drivers
+    print('Career mode drivers: ${careerDrivers.length}');
+    print('Career driver team: ${careerDriver!.team.name}');
+
+    // Count drivers per team for debugging
+    Map<String, int> driversPerTeam = {};
+    for (var driver in careerDrivers) {
+      driversPerTeam[driver.team.name] = (driversPerTeam[driver.team.name] ?? 0) + 1;
     }
+    print('Drivers per team: $driversPerTeam');
 
     return careerDrivers;
   }

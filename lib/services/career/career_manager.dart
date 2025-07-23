@@ -348,4 +348,20 @@ class CareerManager {
     _currentSeason = 2025;
     _currentSeasonDrivers.clear();
   }
+
+  // Add this public method to load career data
+  static void loadCareerDriver(CareerDriver driver, int season) {
+    _currentCareerDriver = driver;
+    _currentSeason = season;
+  }
+
+  // Add this public setter for current season
+  static void setCurrentSeason(int season) {
+    _currentSeason = season;
+  }
+
+  // Add this public setter for career driver
+  static void setCurrentCareerDriver(CareerDriver? driver) {
+    _currentCareerDriver = driver;
+  }
 }

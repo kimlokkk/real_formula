@@ -326,7 +326,7 @@ class CareerDriver extends Driver {
       currentSeasonPoints: json['currentSeasonPoints'] ?? 0,
       teamReputation: Map<String, int>.from(json['teamReputation'] ?? {}),
       careerStartDate: DateTime.parse(json['careerStartDate']),
-      currentContract: json['currentContract'] != null ? Contract.fromJson(json['currentContract']) : null,
+      currentContract: json['currentContract'] != null ? Contract.fromJson(json['currentContract'], team) : null,
     );
   }
 

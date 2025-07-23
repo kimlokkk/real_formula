@@ -76,7 +76,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
           child: Column(
             children: [
               // Top spacer
-              Expanded(flex: 2, child: Container()),
+              Expanded(child: Container()),
 
               // Logo section
               Expanded(
@@ -421,43 +421,6 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                       Text('LOAD CAREER', style: TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                ),
-              ),
-
-              SizedBox(height: 16),
-
-              // Career mode description
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[850],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Career Mode Features:',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      '• Start as rookie, become legend\n'
-                      '• Upgrade skills with XP\n'
-                      '• Contract negotiations\n'
-                      '• Multi-season progression\n'
-                      '• Team reputation system',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 11,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],

@@ -12,6 +12,7 @@ class CareerHomePage extends StatefulWidget {
 class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStateMixin {
   CareerDriver? careerDriver;
   int selectedTab = 0; // 0: Overview, 1: Skills, 2: Contract, 3: Statistics
+  bool dataLoaded = false; // Add this flag to prevent multiple loads
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -19,7 +20,7 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
   @override
   void initState() {
     super.initState();
-    _loadCareerData();
+    //_loadCareerData();
 
     // Pulse animation for XP indicator
     _pulseController = AnimationController(
@@ -36,6 +37,17 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     _pulseController.repeat(reverse: true);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Only load data once
+    if (!dataLoaded) {
+      _loadCareerData();
+      dataLoaded = true;
+    }
+  }
+
   void _loadCareerData() {
     // Get career driver from arguments or CareerManager
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -45,6 +57,11 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
       // No career found, go back to main menu
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/');
+      });
+    } else {
+      // If we have a career driver, trigger a rebuild
+      setState(() {
+        // Data is now loaded
       });
     }
   }

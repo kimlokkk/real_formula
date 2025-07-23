@@ -290,6 +290,7 @@ class SaveManager {
         saveData['careerDriver'] is Map;
   }
 
+  // In save_manager.dart, in the _loadCareerFromSaveData method:
   static Future<void> _loadCareerFromSaveData(Map<String, dynamic> saveData) async {
     // Extract data
     int currentSeason = saveData['currentSeason'];
@@ -299,13 +300,12 @@ class SaveManager {
     String teamName = driverData['teamName'];
     var team = TeamData.getTeamByName(teamName);
 
-    // Create career driver from save data
+    // Create career driver from save data - FIX: Add the team parameter
     CareerDriver careerDriver = CareerDriver.fromJson(driverData, team);
 
-    // Update career manager
+    // Update career manager - Use the proper method to set the data
     CareerManager.resetCareer();
-    CareerManager._currentCareerDriver = careerDriver;
-    CareerManager._currentSeason = currentSeason;
+    CareerManager.loadCareerDriver(careerDriver, currentSeason);
   }
 
   static Future<void> _updateCareerSlotsList(Map<String, dynamic> saveData) async {
@@ -356,16 +356,5 @@ class SaveManager {
         'error': e.toString(),
       };
     }
-  }
-}
-
-/// Extension to add missing methods to CareerManager
-extension CareerManagerPrivate on CareerManager {
-  static set _currentCareerDriver(CareerDriver? driver) {
-    CareerManager._currentCareerDriver = driver;
-  }
-
-  static set _currentSeason(int season) {
-    CareerManager._currentSeason = season;
   }
 }

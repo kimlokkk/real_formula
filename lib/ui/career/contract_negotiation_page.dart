@@ -1,8 +1,8 @@
 // lib/ui/career/contract_negotiation_page.dart
 import 'package:flutter/material.dart';
+import 'package:real_formula/models/career/contract.dart';
 import 'package:real_formula/services/career/career_manager.dart';
 import '../../models/career/career_driver.dart';
-import '../../models/career/contract.dart';
 
 class ContractNegotiationPage extends StatefulWidget {
   @override

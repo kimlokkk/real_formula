@@ -299,9 +299,14 @@ class _DriverCreationPageState extends State<DriverCreationPage> {
     );
   }
 
+  // Fixed _buildSkillSlider method for driver_creation_page.dart
+
   Widget _buildSkillSlider(String label, String key, String description) {
     int currentValue = skillPoints[key]!;
     int totalValue = 70 + currentValue;
+
+    // Calculate the maximum this slider can go based on remaining points
+    int maxPossibleValue = (currentValue + _remainingSkillPoints).clamp(0, 29);
 
     return Container(
       margin: EdgeInsets.only(bottom: 16),
@@ -352,14 +357,27 @@ class _DriverCreationPageState extends State<DriverCreationPage> {
                 child: Slider(
                   value: currentValue.toDouble(),
                   min: 0,
-                  max: _remainingSkillPoints + currentValue > 29 ? 29 : _remainingSkillPoints + currentValue.toDouble(),
-                  divisions: _remainingSkillPoints + currentValue > 29 ? 29 : _remainingSkillPoints + currentValue,
+                  max: 29.0, // Fixed maximum
+                  divisions: 29, // Fixed divisions to avoid the assertion error
                   activeColor: Colors.red[600],
                   inactiveColor: Colors.grey[700],
                   onChanged: (value) {
-                    setState(() {
-                      skillPoints[key] = value.round();
-                    });
+                    int newValue = value.round();
+
+                    // Calculate how many points this change would use
+                    int pointsDifference = newValue - currentValue;
+
+                    // Only allow the change if we have enough remaining points
+                    if (pointsDifference <= _remainingSkillPoints) {
+                      setState(() {
+                        skillPoints[key] = newValue;
+                      });
+                    } else {
+                      // If not enough points, set to the maximum possible value
+                      setState(() {
+                        skillPoints[key] = maxPossibleValue;
+                      });
+                    }
                   },
                 ),
               ),
@@ -373,6 +391,30 @@ class _DriverCreationPageState extends State<DriverCreationPage> {
                 color: _remainingSkillPoints > 0 && currentValue < 29 ? Colors.green[400] : Colors.grey[600],
               ),
             ],
+          ),
+
+          // Add a visual indicator of the current limit
+          Container(
+            height: 2,
+            margin: EdgeInsets.symmetric(horizontal: 40),
+            child: Stack(
+              children: [
+                // Background bar
+                Container(
+                  width: double.infinity,
+                  height: 2,
+                  color: Colors.grey[700],
+                ),
+                // Current limit indicator
+                FractionallySizedBox(
+                  widthFactor: maxPossibleValue / 29.0,
+                  child: Container(
+                    height: 2,
+                    color: _remainingSkillPoints > 0 ? Colors.orange[400] : Colors.green[400],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
