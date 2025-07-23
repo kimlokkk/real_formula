@@ -1,5 +1,8 @@
+// lib/ui/race_setup_page.dart - Updated for Career Mode integration
 import 'package:flutter/material.dart';
+import 'package:real_formula/services/career/career_manager.dart';
 import '../models/driver.dart';
+import '../models/career/career_driver.dart';
 import '../models/track.dart';
 import '../models/enums.dart';
 import '../data/driver_data.dart';
@@ -16,7 +19,10 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
   WeatherCondition selectedWeather = WeatherCondition.clear;
   SimulationSpeed selectedSpeed = SimulationSpeed.normal;
   List<Driver> drivers = [];
-  bool includeRookieDriver = false;
+
+  // NEW: Career mode detection
+  bool isCareerMode = false;
+  CareerDriver? careerDriver;
 
   // UI state
   int selectedTab = 0; // 0: Track, 1: Weather, 2: Drivers, 3: Settings
@@ -27,9 +33,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-
-    // Initialize drivers
-    drivers = DriverData.createDefaultDrivers();
+    _initializeRaceSetup();
 
     // Setup animations
     _slideController = AnimationController(
@@ -48,6 +52,64 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Check if coming from career mode
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+    if (args != null) {
+      isCareerMode = args['careerMode'] ?? false;
+      careerDriver = args['careerDriver'];
+
+      // Load other settings if provided
+      selectedTrack = args['track'] ?? TrackData.getDefaultTrack();
+      selectedWeather = args['weather'] ?? WeatherCondition.clear;
+      selectedSpeed = args['speed'] ?? SimulationSpeed.normal;
+    }
+
+    _initializeDrivers();
+  }
+
+  void _initializeRaceSetup() {
+    if (!isCareerMode) {
+      // Standard race setup
+      drivers = DriverData.createDefaultDrivers();
+    }
+  }
+
+  void _initializeDrivers() {
+    if (isCareerMode && careerDriver != null) {
+      // Career mode: Create AI drivers + career driver
+      drivers = _createCareerModeDrivers();
+    } else if (drivers.isEmpty) {
+      // Standard mode: Use default drivers
+      drivers = DriverData.createDefaultDrivers();
+    }
+  }
+
+  List<Driver> _createCareerModeDrivers() {
+    List<Driver> careerDrivers = [];
+
+    // Add the career driver first
+    careerDrivers.add(careerDriver!);
+
+    // Create AI drivers for other teams
+    List<Driver> aiDrivers = DriverData.createDefaultDrivers();
+
+    // Remove any AI driver from the same team as career driver
+    aiDrivers.removeWhere((driver) => driver.team.name == careerDriver!.team.name);
+
+    // Add AI drivers up to total of 20 drivers
+    int maxDrivers = 20;
+    for (int i = 0; i < aiDrivers.length && careerDrivers.length < maxDrivers; i++) {
+      careerDrivers.add(aiDrivers[i]);
+    }
+
+    return careerDrivers;
+  }
+
+  @override
   void dispose() {
     _slideController.dispose();
     super.dispose();
@@ -60,6 +122,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
       appBar: _buildAppBar(),
       body: Column(
         children: [
+          if (isCareerMode) _buildCareerHeader(),
           _buildTabBar(),
           Expanded(
             child: SlideTransition(
@@ -96,7 +159,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
           ),
           SizedBox(width: 12),
           Text(
-            'RACE SETUP',
+            isCareerMode ? 'CAREER RACE SETUP' : 'RACE SETUP',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -108,13 +171,104 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
       ),
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () {
+          if (isCareerMode) {
+            // Return to career home
+            Navigator.pop(context);
+          } else {
+            // Return to main menu
+            Navigator.pop(context);
+          }
+        },
+      ),
+    );
+  }
+
+  // NEW: Career mode header showing driver info
+  Widget _buildCareerHeader() {
+    if (careerDriver == null) return Container();
+
+    return Container(
+      color: Colors.grey[900],
+      padding: EdgeInsets.all(16),
+      child: Row(
+        children: [
+          // Career driver avatar
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: careerDriver!.team.primaryColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange, width: 2),
+            ),
+            child: Center(
+              child: Text(
+                careerDriver!.abbreviation,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 12),
+
+          // Career driver info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  careerDriver!.name.toUpperCase(),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${careerDriver!.team.name} • Season ${CareerManager.currentSeason}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Career stats
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'Rating: ${careerDriver!.careerRating.toStringAsFixed(1)}',
+                style: TextStyle(
+                  color: Colors.orange[300],
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'XP: ${careerDriver!.experiencePoints}',
+                style: TextStyle(
+                  color: Colors.green[300],
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTabBar() {
-    List<String> tabs = ['TRACK', 'WEATHER', 'DRIVERS', 'SETTINGS'];
+    List<String> tabs = isCareerMode
+        ? ['TRACK', 'WEATHER', 'GRID', 'SETTINGS'] // Different for career mode
+        : ['TRACK', 'WEATHER', 'DRIVERS', 'SETTINGS'];
 
     return Container(
       color: Colors.grey[900],
@@ -170,7 +324,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
       case 1:
         return _buildWeatherSelection();
       case 2:
-        return _buildDriverLineup();
+        return isCareerMode ? _buildCareerGrid() : _buildDriverLineup();
       case 3:
         return _buildRaceSettings();
       default:
@@ -178,6 +332,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
     }
   }
 
+  // Existing track selection (unchanged)
   Widget _buildTrackSelection() {
     return Container(
       color: Colors.grey[900],
@@ -311,6 +466,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
     );
   }
 
+  // Existing weather selection (unchanged)
   Widget _buildWeatherSelection() {
     return Container(
       color: Colors.grey[900],
@@ -414,6 +570,208 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
     );
   }
 
+  // NEW: Career mode grid view (shows career driver + AI)
+  Widget _buildCareerGrid() {
+    return Container(
+      color: Colors.grey[900],
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[700]!, width: 1),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.format_list_numbered, color: Colors.blue, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'STARTING GRID',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${drivers.length} DRIVERS',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Career driver highlight
+          if (careerDriver != null) ...[
+            Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange[600]!.withOpacity(0.2),
+                border: Border.all(color: Colors.orange[600]!, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.star, color: Colors.orange[400], size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'YOUR DRIVER',
+                          style: TextStyle(
+                            color: Colors.orange[300],
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          careerDriver!.name.toUpperCase(),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${careerDriver!.team.name} • Rating: ${careerDriver!.careerRating.toStringAsFixed(1)}',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // AI drivers list
+          Expanded(
+            child: ListView.builder(
+              itemCount: drivers.length,
+              itemBuilder: (context, index) {
+                Driver driver = drivers[index];
+                bool isCareerDriver = driver == careerDriver;
+
+                return Container(
+                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isCareerDriver ? Colors.orange[600]!.withOpacity(0.1) : Colors.grey[850],
+                    border: Border.all(
+                      color: isCareerDriver ? Colors.orange[600]! : Colors.grey[700]!,
+                      width: isCareerDriver ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      // Grid position
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: isCareerDriver ? Colors.orange[600] : driver.team.primaryColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(width: 12),
+
+                      // Driver info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  driver.name.toUpperCase(),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (isCareerDriver) ...[
+                                  SizedBox(width: 8),
+                                  Icon(Icons.star, color: Colors.orange[400], size: 16),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              driver.team.name.toUpperCase(),
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Stats
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'SPD ${driver.speed} • CON ${driver.consistency}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            'CAR ${driver.team.carPerformance} • REL ${driver.team.reliability}',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Existing driver lineup (for non-career mode)
   Widget _buildDriverLineup() {
     return Container(
       color: Colors.grey[900],
@@ -534,7 +892,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
                             ),
                           ),
                           Text(
-                            'CAR ${driver.team.carPerformance} • REL ${driver.team.reliability} • ${driver.driverTier}',
+                            'CAR ${driver.team.carPerformance} • REL ${driver.team.reliability}',
                             style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 9,
@@ -553,6 +911,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
     );
   }
 
+  // Existing race settings (unchanged)
   Widget _buildRaceSettings() {
     return Container(
       color: Colors.grey[900],
@@ -637,7 +996,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
 
                   // Race summary
                   _buildSettingSection(
-                    title: 'RACE SUMMARY',
+                    title: isCareerMode ? 'CAREER RACE SUMMARY' : 'RACE SUMMARY',
                     child: Container(
                       padding: EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -647,6 +1006,11 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
                       ),
                       child: Column(
                         children: [
+                          if (isCareerMode) ...[
+                            _buildSummaryRow('Driver', careerDriver?.name ?? 'Unknown'),
+                            _buildSummaryRow('Team', careerDriver?.team.name ?? 'Unknown'),
+                            _buildSummaryRow('Season', '${CareerManager.currentSeason}'),
+                          ],
                           _buildSummaryRow('Track', selectedTrack.name),
                           _buildSummaryRow('Country', selectedTrack.country),
                           _buildSummaryRow('Laps', '${selectedTrack.totalLaps}'),
@@ -749,7 +1113,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
                   ),
                   SizedBox(width: 8),
                   Text(
-                    'START RACE',
+                    isCareerMode ? 'START CAREER RACE' : 'START RACE',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -775,7 +1139,7 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
   }
 
   void _startRace() {
-    // Navigate to qualifying with configuration (changed from '/race' to '/qualifying')
+    // Navigate to qualifying with configuration
     Navigator.pushNamed(
       context,
       '/qualifying',
@@ -784,6 +1148,8 @@ class _RaceSetupPageState extends State<RaceSetupPage> with TickerProviderStateM
         'weather': selectedWeather,
         'speed': selectedSpeed,
         'drivers': drivers,
+        'careerMode': isCareerMode,
+        'careerDriver': careerDriver,
       },
     );
   }

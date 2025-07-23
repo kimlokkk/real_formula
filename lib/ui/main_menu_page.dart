@@ -1,4 +1,6 @@
+// lib/ui/main_menu_page.dart - Updated with Career Mode
 import 'package:flutter/material.dart';
+import 'package:real_formula/services/career/career_manager.dart';
 
 class MainMenuPage extends StatefulWidget {
   @override
@@ -144,27 +146,39 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Start Race Button
+                            // Career Mode Button (NEW - Primary)
                             _buildMainButton(
-                              label: 'START RACE',
-                              icon: Icons.flag,
-                              onPressed: () {
-                                Navigator.pushNamed(context, '/setup');
-                              },
+                              label: 'CAREER MODE',
+                              icon: Icons.timeline,
+                              onPressed: _handleCareerMode,
                               isPrimary: true,
+                              description: 'Build your F1 legend',
                             ),
 
-                            SizedBox(height: 20),
+                            SizedBox(height: 16),
 
                             // Quick Race Button
                             _buildMainButton(
                               label: 'QUICK RACE',
                               icon: Icons.flash_on,
                               onPressed: () {
-                                // Navigate directly to race with default settings
-                                Navigator.pushNamed(context, '/race');
+                                Navigator.pushNamed(context, '/setup');
                               },
                               isPrimary: false,
+                              description: 'Single race weekend',
+                            ),
+
+                            SizedBox(height: 16),
+
+                            // Championship Button (for full season mode)
+                            _buildMainButton(
+                              label: 'CHAMPIONSHIP',
+                              icon: Icons.emoji_events,
+                              onPressed: () {
+                                Navigator.pushNamed(context, '/setup');
+                              },
+                              isPrimary: false,
+                              description: 'Full F1 season',
                             ),
 
                             SizedBox(height: 30),
@@ -204,7 +218,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      'v1.0.0',
+                      'v1.1.0 - Career Mode',
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 12,
@@ -226,40 +240,58 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     required IconData icon,
     required VoidCallback onPressed,
     required bool isPrimary,
+    String? description,
   }) {
     return Container(
-      width: 280,
-      height: 60,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isPrimary ? Colors.red[600] : Colors.grey[700],
-          foregroundColor: Colors.white,
-          elevation: 10,
-          shadowColor: isPrimary ? Colors.red.withOpacity(0.5) : Colors.black.withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: Colors.white,
+      width: 320,
+      child: Column(
+        children: [
+          Container(
+            height: 60,
+            child: ElevatedButton(
+              onPressed: onPressed,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isPrimary ? Colors.red[600] : Colors.grey[700],
+                foregroundColor: Colors.white,
+                elevation: 10,
+                shadowColor: isPrimary ? Colors.red.withOpacity(0.5) : Colors.black.withOpacity(0.3),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 24,
+                    color: Colors.white,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(width: 12),
+          ),
+          if (description != null) ...[
+            SizedBox(height: 4),
             Text(
-              label,
+              description,
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
+                color: Colors.grey[500],
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -301,6 +333,146 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
           ],
         ),
       ),
+    );
+  }
+
+  // NEW: Handle Career Mode button press
+  void _handleCareerMode() {
+    // Check if there's an existing career
+    if (CareerManager.currentCareerDriver != null) {
+      // Resume existing career
+      Navigator.pushNamed(context, '/career_home');
+    } else {
+      // Show career options dialog
+      _showCareerModeDialog();
+    }
+  }
+
+  // NEW: Show career mode options
+  void _showCareerModeDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Row(
+            children: [
+              Icon(Icons.timeline, color: Colors.red[600], size: 24),
+              SizedBox(width: 8),
+              Text(
+                'CAREER MODE',
+                style: TextStyle(
+                  color: Colors.white,
+                  letterSpacing: 2,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose your career path:',
+                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+              ),
+              SizedBox(height: 16),
+
+              // New Career Button
+              Container(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.pushNamed(context, '/driver_creation');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.person_add, size: 20),
+                      SizedBox(width: 8),
+                      Text('NEW CAREER', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 12),
+
+              // Load Career Button (placeholder)
+              Container(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: null, // TODO: Implement load career
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[700],
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.upload, size: 20),
+                      SizedBox(width: 8),
+                      Text('LOAD CAREER', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+              // Career mode description
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[850],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Career Mode Features:',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      '• Start as rookie, become legend\n'
+                      '• Upgrade skills with XP\n'
+                      '• Contract negotiations\n'
+                      '• Multi-season progression\n'
+                      '• Team reputation system',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 11,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(color: Colors.grey[400]),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -363,6 +535,10 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                 style: TextStyle(color: Colors.grey[400]),
               ),
               SizedBox(height: 10),
+              Text(
+                '• Career Mode - Build your F1 legend',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
               Text(
                 '• Real driver skills and car performance',
                 style: TextStyle(color: Colors.white, fontSize: 12),
