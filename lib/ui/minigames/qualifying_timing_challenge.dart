@@ -1,6 +1,5 @@
 // lib/ui/minigames/qualifying_timing_challenge.dart
 import 'package:flutter/material.dart';
-import 'dart:math';
 import '../../models/driver.dart';
 import '../../models/track.dart';
 import '../../models/enums.dart';

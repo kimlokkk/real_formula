@@ -1,11 +1,10 @@
-// lib/main.dart - Fixed version with proper imports and calendar integration
+// lib/main.dart - Career Mode Only
 import 'package:flutter/material.dart';
 import 'package:real_formula/ui/career/race_weekend_loading.dart';
 import 'ui/main_menu_page.dart';
-import 'ui/race_setup_page.dart';
 import 'ui/qualifying_page.dart';
 import 'ui/race_simulator_page.dart';
-import 'ui/race_results_page.dart'; // ✅ ONLY import from race_results_page.dart
+import 'ui/race_results_page.dart';
 import 'ui/career/driver_creation_page.dart';
 import 'ui/career/career_home_page.dart';
 
@@ -14,12 +13,12 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key); // ✅ FIXED: Added key parameter
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'F1 Race Simulator - Career Mode',
+      title: 'F1 Career Simulator',
       theme: ThemeData(
         primarySwatch: Colors.red,
         visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -30,14 +29,16 @@ class MyApp extends StatelessWidget {
       // Set initial route to main menu
       initialRoute: '/',
 
-      // Define all routes (existing + new career routes)
+      // Define career-only routes
       routes: {
-        // Existing routes
+        // Main menu (career-focused)
         '/': (context) => MainMenuPage(),
-        '/setup': (context) => RaceSetupPage(),
-        '/qualifying': (context) => QualifyingPage(),
-        '/race': (context) => F1RaceSimulator(),
-        '/results': (context) => const RaceResultsPage(), // ✅ FIXED: Added const and proper constructor
+
+        // Career Mode routes
+        '/driver_creation': (context) => DriverCreationPage(),
+        '/career_home': (context) => CareerHomePage(),
+
+        // Race weekend flow (career only)
         '/race_weekend_loading': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return RaceWeekendLoadingScreen(
@@ -46,12 +47,13 @@ class MyApp extends StatelessWidget {
           );
         },
 
-        // Career Mode routes
-        '/driver_creation': (context) => DriverCreationPage(),
-        '/career_home': (context) => CareerHomePage(),
+        // Race session routes (career context)
+        '/qualifying': (context) => QualifyingPage(),
+        '/race': (context) => F1RaceSimulator(),
+        '/results': (context) => const RaceResultsPage(),
       },
 
-      // Handle unknown routes
+      // Handle unknown routes - redirect to main menu
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
           builder: (context) => MainMenuPage(),

@@ -360,13 +360,6 @@ class StrategyEngine {
 
     // SELECT COMPOUND BASED ON WEIGHTED PROBABILITIES
     TireCompound selectedCompound = _selectFromWeightedProbabilities(compoundProbabilities);
-
-    // DEBUG: Log compound selection reasoning
-    print("COMPOUND SELECTION: ${driver.name} Lap $currentLap - ${estimatedStintLength} laps remaining");
-    print("  Available: ${availableCompounds.map((c) => c.name).join(', ')}");
-    print("  Feasible: ${feasibleCompounds.map((c) => c.name).join(', ')}");
-    print("  Optimal: ${optimalCompound.name}, Selected: ${selectedCompound.name}");
-
     return selectedCompound;
   }
 
@@ -380,10 +373,7 @@ class StrategyEngine {
 
       if (stintLength <= maxViableLaps) {
         feasible.add(compound);
-        print("  ${compound.name} CAN do $stintLength laps (max viable: $maxViableLaps)");
-      } else {
-        print("  ${compound.name} CANNOT do $stintLength laps (max viable: $maxViableLaps)");
-      }
+      } else {}
     }
 
     return feasible;

@@ -59,24 +59,6 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     });
   }
 
-  void _loadCareerData() {
-    // Get career driver from arguments or CareerManager
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    careerDriver = args?['careerDriver'] ?? CareerManager.currentCareerDriver;
-
-    if (careerDriver == null) {
-      // No career found, go back to main menu
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/');
-      });
-    } else {
-      // If we have a career driver, trigger a rebuild
-      setState(() {
-        // Data is now loaded
-      });
-    }
-  }
-
   void _onRaceWeekendReached() {
     setState(() {
       showRaceWeekendAlert = true;

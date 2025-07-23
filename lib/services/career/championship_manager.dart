@@ -2,9 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/driver.dart';
-import '../../models/career/career_driver.dart';
 import '../../data/driver_data.dart';
-import '../../data/team_data.dart';
 
 class ChampionshipStanding {
   final String driverName;

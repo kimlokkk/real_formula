@@ -6,7 +6,6 @@ import '../models/track.dart';
 import '../services/performance_calculator.dart';
 import '../services/incident_simulator.dart';
 import '../services/strategy_engine.dart';
-import '../services/overtaking_engine.dart'; // Still needed for overtaking processing
 import '../data/driver_data.dart';
 import '../data/track_data.dart';
 import '../utils/constants.dart';
@@ -29,7 +28,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
 
   late AnimationController _pulseController;
 
-  int selectedTab = 0; // 0: Standings, 1: Incidents (removed overtaking)
+  int selectedTab = 0; // 0: Standings, 1: Incidents
 
   @override
   void initState() {
@@ -72,41 +71,7 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     }
   }
 
-  void _initializePulseAnimation() {
-    _pulseController = AnimationController(
-      duration: Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _pulseController.repeat(reverse: true);
-  }
-
-  void _initializeRace() {
-    drivers = DriverData.createDefaultDrivers();
-    DriverData.initializeStartingGrid(drivers);
-    totalLaps = currentTrack.totalLaps;
-
-    for (Driver driver in drivers) {
-      driver.currentCompound = driver.getWeatherAppropriateStartingCompound(currentWeather);
-    }
-  }
-
-  void _resetRaceWithCurrentConfig() {
-    DriverData.initializeStartingGrid(drivers);
-    totalLaps = currentTrack.totalLaps;
-    currentLap = 0;
-    isRacing = false;
-    raceFinished = false;
-    raceTimer?.cancel();
-
-    for (Driver driver in drivers) {
-      driver.resetForNewRace();
-      driver.currentCompound = driver.getWeatherAppropriateStartingCompound(currentWeather);
-    }
-  }
-
   void _resetRaceWithQualifyingGrid() {
-    _debugPrintGrid("BEFORE reset with qualifying grid");
-
     totalLaps = currentTrack.totalLaps;
     currentLap = 0;
     isRacing = false;
@@ -129,40 +94,16 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     }
 
     drivers.sort((a, b) => a.position.compareTo(b.position));
-    _debugPrintGrid("AFTER reset with qualifying grid");
   }
 
   void _processQualifyingResults(List<dynamic> qualifyingResults) {
     if (qualifyingResults.isNotEmpty && drivers.isNotEmpty) {
-      _debugPrintGrid("BEFORE processing qualifying results");
-
-      Driver polePosition = drivers.firstWhere((d) => d.position == 1, orElse: () => drivers.first);
-
-      print("=== QUALIFYING INTEGRATION ===");
-      print("Processed qualifying results for ${drivers.length} drivers");
-      print("Pole position: ${polePosition.name} (P${polePosition.position})");
-      print("Starting grid preserved from qualifying");
-
       drivers.sort((a, b) => a.position.compareTo(b.position));
-      _debugPrintGrid("AFTER processing qualifying results");
     }
   }
 
-  void _debugPrintGrid(String context) {
-    print("=== GRID DEBUG: $context ===");
-    for (int i = 0; i < drivers.length; i++) {
-      Driver driver = drivers[i];
-      print(
-          "Index $i: ${driver.name} - Position: ${driver.position}, StartPos: ${driver.startingPosition}, Tire: ${driver.currentCompound.name}");
-    }
-    print("=== END GRID DEBUG ===");
-  }
-
-  // UPDATED _simulateLap() method with overtaking integration
   void _simulateLap() {
     if (currentLap >= totalLaps) {
-      print("=== RACE FINISHED ===");
-      print("Final lap: $currentLap, Total laps: $totalLaps");
       _stopRace();
       setState(() {
         raceFinished = true;
@@ -198,15 +139,6 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         driver.totalTime += lapTime;
         driver.lapsCompleted++;
         driver.lapsOnCurrentTires++;
-      }
-
-      // STEP 3: Process overtaking opportunities BEFORE sorting by time
-      List<String> overtakingIncidents =
-          OvertakingEngine.processOvertakingOpportunities(drivers, currentLap, currentTrack, currentWeather);
-
-      // Add overtaking incidents to the race log (but don't show in UI)
-      for (String incident in overtakingIncidents) {
-        print("OVERTAKING: $incident");
       }
 
       // STEP 4: Sort drivers by total time (but positions may have been updated by overtaking)
@@ -273,10 +205,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
   }
 
   void _navigateToResults() {
-    // 🆕 GET THE ORIGINAL ARGUMENTS from when this page was loaded
     final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
-    // 🆕 CREATE RESULT ARGUMENTS including all original career data
     Map<String, dynamic> resultArguments = {
       'drivers': drivers,
       'track': currentTrack,
@@ -284,24 +214,82 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
       'totalLaps': totalLaps,
     };
 
-    // 🆕 PASS THROUGH ALL CAREER MODE DATA that was passed to this page
+    // Pass through all career mode data that was passed to this page
     if (args != null) {
       resultArguments['careerMode'] = args['careerMode'] ?? false;
       resultArguments['careerDriver'] = args['careerDriver'];
       resultArguments['raceWeekend'] = args['raceWeekend'];
       resultArguments['isCalendarRace'] = args['isCalendarRace'] ?? false;
-
-      // 🆕 DEBUG: Let's see what we're passing
-      debugPrint("=== RACE SIMULATOR TO RESULTS ===");
-      debugPrint("Passing careerMode: ${resultArguments['careerMode']}");
-      debugPrint("Passing careerDriver: ${resultArguments['careerDriver']?.name ?? 'null'}");
-      debugPrint("Passing isCalendarRace: ${resultArguments['isCalendarRace']}");
     }
 
     Navigator.pushReplacementNamed(
       context,
       '/results',
       arguments: resultArguments,
+    );
+  }
+
+  void _initializePulseAnimation() {
+    _pulseController = AnimationController(
+      duration: Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _pulseController.repeat(reverse: true);
+  }
+
+  void _initializeRace() {
+    drivers = DriverData.createDefaultDrivers();
+    DriverData.initializeStartingGrid(drivers);
+    totalLaps = currentTrack.totalLaps;
+
+    for (Driver driver in drivers) {
+      driver.currentCompound = driver.getWeatherAppropriateStartingCompound(currentWeather);
+    }
+  }
+
+  void _resetRaceWithCurrentConfig() {
+    DriverData.initializeStartingGrid(drivers);
+    totalLaps = currentTrack.totalLaps;
+    currentLap = 0;
+    isRacing = false;
+    raceFinished = false;
+    raceTimer?.cancel();
+
+    for (Driver driver in drivers) {
+      driver.resetForNewRace();
+      driver.currentCompound = driver.getWeatherAppropriateStartingCompound(currentWeather);
+    }
+  }
+
+  void _showExitDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[850],
+          title: Text(
+            'Exit Race?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            'Are you sure you want to exit the race? All progress will be lost.',
+            style: TextStyle(color: Colors.grey[300]),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey[400])),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              },
+              child: Text('Exit', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -376,46 +364,15 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
             child: Text(
               raceFinished ? 'FINISHED' : (isRacing ? 'LIVE' : 'PAUSED'),
               style: TextStyle(
-                color: Colors.white,
+                color: raceFinished ? Colors.green : (isRacing ? Colors.red : Colors.orange),
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
+                letterSpacing: 1,
               ),
             ),
           ),
         ),
       ],
-    );
-  }
-
-  void _showExitDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: Text(
-            'EXIT RACE',
-            style: TextStyle(color: Colors.white, letterSpacing: 1),
-          ),
-          content: Text(
-            'Are you sure you want to exit the race?',
-            style: TextStyle(color: Colors.grey[400]),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('CANCEL', style: TextStyle(color: Colors.grey[400])),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-              },
-              child: Text('EXIT', style: TextStyle(color: Colors.red[600])),
-            ),
-          ],
-        );
-      },
     );
   }
 

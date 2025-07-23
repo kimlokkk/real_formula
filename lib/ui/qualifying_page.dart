@@ -106,24 +106,22 @@ class _QualifyingPageState extends State<QualifyingPage> {
       }
     }
 
-    if (playerDriver != null) {
-      // Show mini-game for player
-      final result = await Navigator.push<QualifyingTimingResult>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => QualifyingTimingChallenge(
-            driver: playerDriver!,
-            track: currentTrack,
-            weather: currentWeather,
-          ),
+    // Show mini-game for player
+    final result = await Navigator.push<QualifyingTimingResult>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QualifyingTimingChallenge(
+          driver: playerDriver!,
+          track: currentTrack,
+          weather: currentWeather,
         ),
-      );
+      ),
+    );
 
-      if (result != null && mounted) {
-        setState(() {
-          playerMinigameResult = result;
-        });
-      }
+    if (result != null && mounted) {
+      setState(() {
+        playerMinigameResult = result;
+      });
     }
 
     // Simulate qualifying for all drivers
@@ -137,160 +135,6 @@ class _QualifyingPageState extends State<QualifyingPage> {
         status = QualifyingStatus.finished;
       });
     }
-  }
-
-  // Handle qualifying with user driver minigame
-  Future<List<QualifyingResult>> _simulateQualifyingWithUserDriver(Driver userDriver) async {
-    List<QualifyingResult> allResults = [];
-
-    // First, simulate all AI drivers
-    List<Driver> aiDrivers = drivers.where((d) => d.name != "Rookie").toList();
-
-    for (Driver driver in aiDrivers) {
-      double lapTime = QualifyingEngine.calculateQualifyingLapTime(
-        driver,
-        currentWeather,
-        currentTrack,
-      );
-
-      TireCompound bestTire = currentWeather == WeatherCondition.rain ? TireCompound.intermediate : TireCompound.soft;
-
-      // Apply tire performance
-      lapTime += bestTire.lapTimeDelta;
-
-      allResults.add(QualifyingResult(
-        driver: driver,
-        bestLapTime: lapTime,
-        position: 0, // Will be set after sorting
-        session: QualifyingSession.QUALIFYING,
-        bestTire: bestTire,
-      ));
-    }
-
-    // Show message that it's user's turn
-    await _showUserTurnMessage();
-
-    // Now show minigame for user driver
-    QualifyingTimingResult? userResult = await showDialog<QualifyingTimingResult>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => QualifyingTimingChallenge(
-        driver: userDriver,
-        track: currentTrack,
-        weather: currentWeather,
-      ),
-    );
-
-    // Calculate user's lap time based on minigame result
-    double userLapTime = _calculateUserQualifyingTime(userDriver, userResult);
-
-    TireCompound userTire = currentWeather == WeatherCondition.rain ? TireCompound.intermediate : TireCompound.soft;
-
-    // Add user result
-    allResults.add(QualifyingResult(
-      driver: userDriver,
-      bestLapTime: userLapTime,
-      position: 0, // Will be set after sorting
-      session: QualifyingSession.QUALIFYING,
-      bestTire: userTire,
-    ));
-
-    // Sort all results by lap time and assign positions
-    allResults.sort((a, b) => a.bestLapTime.compareTo(b.bestLapTime));
-
-    double poleTime = allResults.isNotEmpty ? allResults.first.bestLapTime : 0.0;
-
-    for (int i = 0; i < allResults.length; i++) {
-      double gapToPole = i == 0 ? 0.0 : allResults[i].bestLapTime - poleTime;
-
-      allResults[i] = allResults[i].copyWith(
-        position: i + 1,
-        gapToPole: gapToPole,
-      );
-    }
-
-    return allResults;
-  }
-
-  // Show user turn message
-  Future<void> _showUserTurnMessage() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: 300,
-          height: 200,
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue[600]!, width: 2),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.person, color: Colors.blue[600], size: 48),
-              SizedBox(height: 16),
-              Text(
-                'YOUR TURN!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Time to set your qualifying lap',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 14,
-                ),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[600],
-                  foregroundColor: Colors.white,
-                ),
-                child: Text('START LAP'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Calculate user's qualifying time based on minigame result
-  double _calculateUserQualifyingTime(Driver userDriver, QualifyingTimingResult? result) {
-    // Base qualifying time for user driver
-    double baseTime = currentTrack.baseLapTime * 0.97; // Qualifying pace
-
-    // Apply driver skills
-    double speedFactor = (100 - userDriver.speed) * 0.015;
-    double consistencyFactor = (100 - userDriver.consistency) * 0.008;
-    double carFactor = (100 - userDriver.team.carPerformance) * 0.018;
-
-    double driverAdjustedTime = baseTime + speedFactor + consistencyFactor + carFactor;
-
-    // Apply weather penalty if any
-    if (currentWeather == WeatherCondition.rain) {
-      double weatherPenalty = 2.5 + ((100 - userDriver.consistency) / 100.0 * 1.5);
-      driverAdjustedTime += weatherPenalty;
-    }
-
-    // Apply minigame result
-    if (result != null) {
-      driverAdjustedTime += result.timeModifier;
-    } else {
-      // If somehow no result, apply bad penalty
-      driverAdjustedTime += 0.4;
-    }
-
-    return driverAdjustedTime;
   }
 
   // UPDATE: Modified proceedToRace method to pass all career data

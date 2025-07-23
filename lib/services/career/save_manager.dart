@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/career/career_driver.dart';
-import '../../models/career/contract.dart';
 import '../../data/team_data.dart';
 import 'career_manager.dart';
 
