@@ -1621,12 +1621,12 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
                 ),
               ),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Colors.blue[500]!, Colors.blue[700]!],
                   ),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(5),
                 ),
                 child: Text(
                   '$value',

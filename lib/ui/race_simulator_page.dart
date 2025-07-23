@@ -53,10 +53,12 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
         drivers = List.from(configDrivers);
       }
 
-      List<dynamic>? qualifyingResults = args['qualifyingResults'];
-      if (qualifyingResults != null) {
-        hasQualifyingResults = true;
-        _processQualifyingResults(qualifyingResults);
+      // Check for qualifying results flag
+      hasQualifyingResults = args['hasQualifyingResults'] ?? false;
+
+      // Also check legacy format for backward compatibility
+      if (!hasQualifyingResults) {
+        hasQualifyingResults = args['qualifyingResults'] != null;
       }
     }
 
@@ -71,6 +73,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     }
   }
 
+// Replace the _resetRaceWithQualifyingGrid method in race_simulator_page.dart
+
   void _resetRaceWithQualifyingGrid() {
     totalLaps = currentTrack.totalLaps;
     currentLap = 0;
@@ -78,27 +82,40 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator> with TickerProviderSt
     raceFinished = false;
     raceTimer?.cancel();
 
+    // Debug: Check if positions are set correctly
+    print('🏁 Qualifying Grid Setup:');
     for (Driver driver in drivers) {
+      print('   ${driver.name}: P${driver.position} (start P${driver.startingPosition})');
+    }
+
+    // Sort drivers by their qualifying position
+    drivers.sort((a, b) => a.startingPosition.compareTo(b.startingPosition));
+
+    // Reset race-specific data while preserving qualifying results
+    for (Driver driver in drivers) {
+      // Save qualifying data
       int savedStartingPosition = driver.startingPosition;
-      int savedPosition = driver.position;
+      int savedGridPosition = driver.position;
       TireCompound savedCompound = driver.currentCompound;
       bool savedFreeTireChoice = driver.hasFreeTireChoice;
 
+      // Reset for race
       driver.resetForNewRace();
 
+      // Restore qualifying data
       driver.startingPosition = savedStartingPosition;
-      driver.position = savedPosition;
+      driver.position = savedGridPosition; // Start the race in qualifying position
       driver.currentCompound = savedCompound;
       driver.hasFreeTireChoice = savedFreeTireChoice;
       driver.positionChangeFromStart = 0;
     }
 
+    // Final sort by position to ensure grid order
     drivers.sort((a, b) => a.position.compareTo(b.position));
-  }
 
-  void _processQualifyingResults(List<dynamic> qualifyingResults) {
-    if (qualifyingResults.isNotEmpty && drivers.isNotEmpty) {
-      drivers.sort((a, b) => a.position.compareTo(b.position));
+    print('🏎️ Final Race Grid:');
+    for (int i = 0; i < drivers.length; i++) {
+      print('   P${i + 1}: ${drivers[i].name} (was P${drivers[i].startingPosition} in qualifying)');
     }
   }
 

@@ -1,4 +1,4 @@
-// lib/ui/qualifying_page.dart - Fixed version
+// lib/ui/qualifying_page.dart - Clean Professional F1 Design
 import 'package:flutter/material.dart';
 import 'package:real_formula/ui/minigames/qualifying_timing_challenge.dart';
 import 'dart:async';
@@ -11,11 +11,13 @@ import '../data/track_data.dart';
 import '../data/driver_data.dart';
 
 class QualifyingPage extends StatefulWidget {
+  const QualifyingPage({Key? key}) : super(key: key);
+
   @override
   _QualifyingPageState createState() => _QualifyingPageState();
 }
 
-class _QualifyingPageState extends State<QualifyingPage> {
+class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStateMixin {
   // Configuration
   List<Driver> drivers = [];
   Track currentTrack = TrackData.getDefaultTrack();
@@ -26,8 +28,35 @@ class _QualifyingPageState extends State<QualifyingPage> {
   QualifyingStatus status = QualifyingStatus.waiting;
   List<QualifyingResult> results = [];
 
-  // FIXED: Add missing variable declaration
+  // PRESERVE: Add missing variable declaration
   QualifyingTimingResult? playerMinigameResult;
+
+  // Clean animations - just fade
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+  }
+
+  void _initializeAnimations() {
+    _fadeController = AnimationController(
+      duration: Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -49,7 +78,7 @@ class _QualifyingPageState extends State<QualifyingPage> {
         drivers = List.from(configDrivers);
       }
 
-      // NEW: Handle pre-configured career mode sessions
+      // PRESERVE: Handle pre-configured career mode sessions
       if (isPreConfigured) {
         // Drivers and settings are already configured by loading screen
         // Just initialize if drivers are empty (fallback)
@@ -73,8 +102,10 @@ class _QualifyingPageState extends State<QualifyingPage> {
     }
   }
 
-  // FIXED: Handle the case where no "Rookie" driver exists
+  // PRESERVE: Handle the case where no "Rookie" driver exists
   Future<void> _startQualifying() async {
+    if (!mounted) return;
+
     setState(() {
       status = QualifyingStatus.running;
     });
@@ -82,19 +113,20 @@ class _QualifyingPageState extends State<QualifyingPage> {
     // Show qualifying in progress for 1 second
     await Future.delayed(Duration(seconds: 1));
 
+    if (!mounted) return;
+
     // Get route arguments to check for career mode
     final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     bool isCareerMode = args?['careerMode'] ?? false;
 
-    // Find player driver (career mode) or rookie driver (quick race)
+    // PRESERVE: Find player driver properly
     Driver? playerDriver;
     if (isCareerMode && args?['careerDriver'] != null) {
       // In career mode, find the career driver
       final careerDriver = args!['careerDriver'];
-      playerDriver = drivers.firstWhere(
-        (d) => d.name == careerDriver.name,
-        orElse: () => drivers.first,
-      );
+      playerDriver = drivers.where((d) => d.name == careerDriver.name).isNotEmpty
+          ? drivers.firstWhere((d) => d.name == careerDriver.name)
+          : drivers.first;
     } else {
       // In quick race, look for "Rookie" driver (original logic)
       try {
@@ -104,28 +136,34 @@ class _QualifyingPageState extends State<QualifyingPage> {
       }
     }
 
-    // Show mini-game for player
-    final result = await Navigator.push<QualifyingTimingResult>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => QualifyingTimingChallenge(
-          driver: playerDriver!,
-          track: currentTrack,
-          weather: currentWeather,
+    if (isCareerMode && playerDriver != null && mounted) {
+      // PRESERVE: Show timing mini-game for career mode with proper parameters
+      final result = await Navigator.push<QualifyingTimingResult>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QualifyingTimingChallenge(
+            driver: playerDriver!,
+            track: currentTrack,
+            weather: currentWeather,
+          ),
         ),
-      ),
-    );
+      );
 
-    if (result != null && mounted) {
-      setState(() {
+      if (mounted) {
         playerMinigameResult = result;
-      });
+      }
     }
 
-    // Simulate qualifying for all drivers
-    results = QualifyingEngine.simulateQualifying(drivers, currentWeather, currentTrack);
+    if (!mounted) return;
 
-    // Apply results to drivers
+    // PRESERVE: Generate qualifying results with correct parameter order
+    results = QualifyingEngine.simulateQualifying(
+      drivers,
+      currentWeather,
+      currentTrack,
+    );
+
+    // CRITICAL: Apply qualifying results to set starting grid positions
     QualifyingEngine.applyQualifyingResults(drivers, results);
 
     if (mounted) {
@@ -135,25 +173,17 @@ class _QualifyingPageState extends State<QualifyingPage> {
     }
   }
 
-  // UPDATE: Modified proceedToRace method to pass all career data
+  // PRESERVE: Navigation to race
   void _proceedToRace() {
-    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-
     Map<String, dynamic> raceArguments = {
       'track': currentTrack,
       'weather': currentWeather,
       'speed': currentSpeed,
-      'drivers': drivers,
-      'qualifyingResults': results
-          .map((r) => {
-                'driver': r.driver,
-                'position': r.position,
-                'lapTime': r.bestLapTime,
-              })
-          .toList(),
+      'drivers': drivers, // Drivers now have correct positions from applyQualifyingResults
+      'hasQualifyingResults': true, // Flag to use qualifying grid setup
     };
 
-    // Pass through all career mode data
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       raceArguments['careerMode'] = args['careerMode'] ?? false;
       raceArguments['careerDriver'] = args['careerDriver'];
@@ -167,121 +197,169 @@ class _QualifyingPageState extends State<QualifyingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(child: _buildContent()),
-          if (status == QualifyingStatus.finished) _buildProceedButton(),
-        ],
+      body: Container(
+        decoration: _buildBackgroundGradient(),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(child: _buildContent()),
+                if (status == QualifyingStatus.finished) _buildProceedButton(),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.red[600],
-      elevation: 0,
-      title: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'F1',
-              style: TextStyle(
-                color: Colors.red[600],
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          SizedBox(width: 12),
-          Text(
-            'QUALIFYING',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w300,
-              letterSpacing: 2,
-            ),
-          ),
+  // Match career home page background
+  BoxDecoration _buildBackgroundGradient() {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF1A1A2E),
+          Color(0xFF16213E),
+          Color(0xFF0F3460),
+          Color(0xFF0A1128),
         ],
-      ),
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
+        stops: [0.0, 0.3, 0.7, 1.0],
       ),
     );
   }
 
   Widget _buildHeader() {
     return Container(
-      color: Colors.grey[900],
-      padding: EdgeInsets.all(16),
-      child: Column(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.red[600]!.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'QUALIFYING SESSION',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Single session • Grid positions 1-${drivers.length}',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+          // Back button - match career home style
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+
+          SizedBox(width: 16),
+
+          // Racing stripe - match career home style
+          Container(
+            width: 4,
+            height: 30,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.red[400]!, Colors.red[600]!],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: status.color,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  status.label,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          SizedBox(width: 12),
+
+          // Title section
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'QUALIFYING SESSION',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1.5,
                   ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(Icons.location_on, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text(
-                '${currentTrack.name.toUpperCase()} • ${currentWeather.icon} ${currentWeather.name.toUpperCase()}',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
+                Text(
+                  '${currentTrack.name} • ${currentWeather.name.toUpperCase()}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Formula1',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+
+          // Session status
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  _getStatusText(),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Color _getStatusColor() {
+    switch (status) {
+      case QualifyingStatus.waiting:
+        return Colors.orange[400]!;
+      case QualifyingStatus.running:
+        return Colors.green[400]!;
+      case QualifyingStatus.finished:
+        return Colors.blue[400]!;
+    }
+  }
+
+  String _getStatusText() {
+    switch (status) {
+      case QualifyingStatus.waiting:
+        return 'READY';
+      case QualifyingStatus.running:
+        return 'LIVE';
+      case QualifyingStatus.finished:
+        return 'COMPLETE';
+    }
   }
 
   Widget _buildContent() {
@@ -296,109 +374,159 @@ class _QualifyingPageState extends State<QualifyingPage> {
   }
 
   Widget _buildWaitingScreen() {
-    return Container(
-      color: Colors.grey[900],
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.flag,
-              size: 80,
-              color: Colors.red[600],
-            ),
-            SizedBox(height: 24),
-            Text(
-              'READY FOR QUALIFYING',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
+    return Padding(
+      padding: EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Spacer(),
+
+          // Centered icon and title from v2
+          Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.red[600]!.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.red[600]!.withValues(alpha: 0.3),
+                width: 2,
               ),
             ),
-            SizedBox(height: 16),
-            Text(
-              '${drivers.length} drivers will compete for pole position',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 14,
-              ),
+            child: Icon(
+              Icons.sports_motorsports,
+              size: 64,
+              color: Colors.red[400],
             ),
-            SizedBox(height: 48),
-            Container(
-              width: 300,
-              height: 60,
-              child: ElevatedButton(
-                onPressed: _startQualifying,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red[600],
-                  foregroundColor: Colors.white,
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+          ),
+
+          SizedBox(height: 32),
+
+          // Main title from v2
+          Text(
+            'READY FOR QUALIFYING',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Formula1',
+              letterSpacing: 2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          SizedBox(height: 16),
+
+          // Subtitle
+          Text(
+            '${drivers.length} drivers will compete for pole position',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              fontFamily: 'Formula1',
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          Spacer(),
+
+          // Start Button - match career home style
+          Container(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _startQualifying,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.play_arrow, size: 24),
+                  SizedBox(width: 12),
+                  Text(
+                    'START QUALIFYING',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Formula1',
+                      letterSpacing: 1,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.play_arrow,
-                      size: 28,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'START QUALIFYING',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+
+          SizedBox(height: 40),
+        ],
       ),
     );
   }
 
   Widget _buildRunningScreen() {
-    return Container(
-      color: Colors.grey[900],
-      child: Center(
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Spinning animation
-            SizedBox(
-              width: 100,
-              height: 100,
-              child: CircularProgressIndicator(
-                strokeWidth: 6,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.red[600]!),
-              ),
+            // Animated progress indicator from v2
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 8,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green[400]!),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.green[400]!.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.timer,
+                    size: 40,
+                    color: Colors.green[400],
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 32),
+            SizedBox(height: 40),
+
+            // Main status text
             Text(
               'QUALIFYING IN PROGRESS',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
                 letterSpacing: 2,
               ),
+              textAlign: TextAlign.center,
             ),
             SizedBox(height: 16),
+
+            // Subtitle
             Text(
               'Drivers are setting their fastest laps...',
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 14,
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Formula1',
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -407,203 +535,170 @@ class _QualifyingPageState extends State<QualifyingPage> {
   }
 
   Widget _buildResultsScreen() {
-    return Container(
-      color: Colors.grey[900],
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[700]!, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.emoji_events, color: Colors.yellow, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'QUALIFYING RESULTS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+    return Padding(
+      padding: EdgeInsets.all(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            // Results Header
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1,
                   ),
                 ),
-                Spacer(),
-                if (results.isNotEmpty) ...[
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 3,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.red[400],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  SizedBox(width: 12),
                   Text(
-                    'POLE: ${results.first.driver.name.toUpperCase()}',
+                    'QUALIFYING RESULTS',
                     style: TextStyle(
-                      color: Colors.yellow,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Formula1',
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  Spacer(),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'FINAL',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Formula1',
+                        letterSpacing: 1,
+                      ),
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-
-          // Results table header
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey[850],
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[700]!, width: 1),
               ),
             ),
-            child: Row(
-              children: [
-                Container(width: 40, child: Text('POS', style: _headerStyle())),
-                Expanded(flex: 3, child: Text('DRIVER', style: _headerStyle())),
-                Container(width: 80, child: Text('TIME', style: _headerStyle())),
-                Container(width: 60, child: Text('TIRE', style: _headerStyle())),
-                Container(width: 80, child: Text('GAP', style: _headerStyle())),
-              ],
-            ),
-          ),
 
-          // Results list
-          Expanded(
-            child: ListView.builder(
-              itemCount: results.length,
-              itemBuilder: (context, index) {
-                return _buildResultRow(results[index], index);
-              },
+            // Results List
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: results.length,
+                itemBuilder: (context, index) {
+                  final result = results[index];
+                  return _buildResultItem(result, index);
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildResultRow(QualifyingResult result, int index) {
-    bool isPole = result.position == 1;
-    bool isTopThree = result.position <= 3;
-
-    Color rowColor = isPole
-        ? Colors.yellow.withOpacity(0.1)
-        : isTopThree
-            ? Colors.green.withOpacity(0.05)
-            : Colors.grey[900]!;
+  Widget _buildResultItem(QualifyingResult result, int index) {
+    bool isPole = index == 0;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: rowColor,
         border: Border(
-          bottom: BorderSide(color: Colors.grey[800]!, width: 0.5),
-          left: isPole ? BorderSide(color: Colors.yellow, width: 4) : BorderSide.none,
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 1,
+          ),
         ),
       ),
       child: Row(
         children: [
           // Position
           Container(
-            width: 40,
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: _getTeamColor(result.driver.team.name),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${result.position}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isPole ? Colors.yellow[600] : Colors.grey[700],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                '${index + 1}',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
                 ),
-              ],
+              ),
             ),
           ),
+          SizedBox(width: 16),
 
-          // Driver
+          // Driver info
           Expanded(
-            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  result.driver.name.toUpperCase(),
+                  result.driver.name,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
                   ),
                 ),
                 Text(
-                  result.driver.team.name.toUpperCase(),
+                  result.driver.team.name,
                   style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 11,
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Formula1',
                   ),
                 ),
               ],
             ),
           ),
 
-          // Time
+          // Lap time
           Container(
-            width: 80,
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Text(
               result.formattedLapTime,
               style: TextStyle(
-                color: isPole ? Colors.yellow : Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Formula1',
+                fontFeatures: [FontFeature.tabularFigures()],
               ),
-            ),
-          ),
-
-          // Tire
-          Container(
-            width: 60,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  result.bestTire.icon,
-                  style: TextStyle(fontSize: 16),
-                ),
-                SizedBox(width: 4),
-                Text(
-                  result.bestTire.name[0],
-                  style: TextStyle(
-                    color: result.bestTire.color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Gap
-          Container(
-            width: 80,
-            child: Text(
-              result.formattedGap,
-              style: TextStyle(
-                color: isPole ? Colors.yellow : Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
-              ),
-              textAlign: TextAlign.right,
             ),
           ),
         ],
@@ -613,103 +708,48 @@ class _QualifyingPageState extends State<QualifyingPage> {
 
   Widget _buildProceedButton() {
     return Container(
-      width: double.infinity,
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.grey[850],
         border: Border(
-          top: BorderSide(color: Colors.green, width: 3),
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
         ),
       ),
-      child: Column(
-        children: [
-          Text(
-            'QUALIFYING COMPLETE',
-            style: TextStyle(
-              color: Colors.green,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: _proceedToRace,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green[600],
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
-          SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _proceedToRace,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
-                foregroundColor: Colors.white,
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.flag, size: 24),
+              SizedBox(width: 12),
+              Text(
+                'PROCEED TO RACE',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.sports_motorsports,
-                    size: 24,
-                    color: Colors.white,
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'PROCEED TO RACE',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Icon(
-                    Icons.arrow_forward,
-                    size: 24,
-                    color: Colors.white,
-                  ),
-                ],
-              ),
-            ),
+              SizedBox(width: 12),
+              Icon(Icons.arrow_forward, size: 20),
+            ],
           ),
-        ],
+        ),
       ),
-    );
-  }
-
-  Color _getTeamColor(String team) {
-    switch (team) {
-      case "Mercedes":
-        return Colors.teal;
-      case "Red Bull":
-        return Colors.blue[700]!;
-      case "Ferrari":
-        return Colors.red[600]!;
-      case "McLaren":
-        return Colors.orange[600]!;
-      case "Aston Martin":
-        return Colors.green[600]!;
-      case "Alpine":
-        return Colors.pink[400]!;
-      case "Haas":
-        return Colors.grey[600]!;
-      case "Racing Bulls":
-        return Colors.blue[400]!;
-      case "Williams":
-        return Colors.blue[300]!;
-      case "Sauber":
-        return Colors.green[300]!;
-      default:
-        return Colors.grey[600]!;
-    }
-  }
-
-  TextStyle _headerStyle() {
-    return TextStyle(
-      color: Colors.grey[400],
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
     );
   }
 }

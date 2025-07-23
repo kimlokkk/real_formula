@@ -153,10 +153,24 @@ class _RaceWeekendLoadingScreenState extends State<RaceWeekendLoadingScreen> wit
   List<Driver> _createRaceDrivers() {
     List<Driver> raceDrivers = [];
 
-    // Create AI drivers (19 drivers)
-    List<Driver> aiDrivers = DriverData.createDefaultDrivers().take(19).toList();
+    // Get all AI drivers
+    List<Driver> aiDrivers = DriverData.createDefaultDrivers();
 
-    // Add career driver
+    // Find and remove the driver that the career driver is replacing
+    // (the one from the same team as the career driver)
+    List<Driver> teammateDrivers =
+        aiDrivers.where((driver) => driver.team.name == widget.careerDriver.team.name).toList();
+
+    if (teammateDrivers.isNotEmpty) {
+      // Remove the first teammate to make room for career driver
+      Driver driverToReplace = teammateDrivers.first;
+      aiDrivers.removeWhere((driver) => driver.name == driverToReplace.name);
+
+      print(
+          '🔄 Replacing ${driverToReplace.name} with ${widget.careerDriver.name} in ${widget.careerDriver.team.name}');
+    }
+
+    // Create career driver for race
     Driver careerDriverForRace = Driver(
       name: widget.careerDriver.name,
       abbreviation: widget.careerDriver.abbreviation,
@@ -168,8 +182,15 @@ class _RaceWeekendLoadingScreenState extends State<RaceWeekendLoadingScreen> wit
       experience: widget.careerDriver.experience,
     );
 
+    // Add career driver first
     raceDrivers.add(careerDriverForRace);
+
+    // Add the remaining AI drivers (should be 19 now)
     raceDrivers.addAll(aiDrivers);
+
+    print('📊 Total drivers: ${raceDrivers.length}');
+    print(
+        '🏎️ ${widget.careerDriver.team.name} drivers: ${raceDrivers.where((d) => d.team.name == widget.careerDriver.team.name).map((d) => d.name).join(", ")}');
 
     return raceDrivers;
   }

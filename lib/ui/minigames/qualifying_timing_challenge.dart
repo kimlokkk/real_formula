@@ -1,4 +1,4 @@
-// lib/ui/minigames/qualifying_timing_challenge.dart
+// lib/ui/minigames/qualifying_timing_challenge.dart - Enhanced F1 Design
 import 'package:flutter/material.dart';
 import '../../models/driver.dart';
 import '../../models/track.dart';
@@ -35,9 +35,11 @@ class QualifyingTimingChallenge extends StatefulWidget {
   _QualifyingTimingChallengeState createState() => _QualifyingTimingChallengeState();
 }
 
-class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> with SingleTickerProviderStateMixin {
+class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> with TickerProviderStateMixin {
   late AnimationController _controller;
+  late AnimationController _fadeController;
   late Animation<double> _animation;
+  late Animation<double> _fadeAnimation;
   late GameSettings _settings;
 
   bool _hasAttempted = false;
@@ -54,12 +56,18 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
     // Get difficulty settings based on driver skill
     _settings = QualifyingDifficulty.getSettings(widget.driver);
 
-    print('=== MINIGAME DEBUG ===');
-    print('Driver: ${widget.driver.name}');
-    print('Skill: ${(widget.driver.speed + widget.driver.consistency) ~/ 2}');
-    print('Animation Speed: ${_settings.animationSpeed} seconds');
+    _initializeAnimations();
 
-    // Create animation with skill-based speed (higher skill = slower = easier)
+    // Start the animation with a small delay
+    Future.delayed(Duration(milliseconds: 800), () {
+      if (mounted) {
+        _controller.repeat(reverse: true);
+      }
+    });
+  }
+
+  void _initializeAnimations() {
+    // Timing bar animation
     _controller = AnimationController(
       duration: Duration(milliseconds: (_settings.animationSpeed * 1000).round()),
       vsync: this,
@@ -73,19 +81,22 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       curve: Curves.linear,
     ));
 
-    // Add listener to debug animation
+    // Fade in animation
+    _fadeController = AnimationController(
+      duration: Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+
+    _fadeController.forward();
+
+    // Add listener for rebuilds
     _animation.addListener(() {
       if (mounted) {
-        // This will trigger rebuilds to show the moving pointer
         setState(() {});
-      }
-    });
-
-    // Start the animation with a small delay
-    Future.delayed(Duration(milliseconds: 500), () {
-      if (mounted) {
-        _controller.repeat(reverse: true);
-        print('Animation started!');
       }
     });
   }
@@ -93,6 +104,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
   @override
   void dispose() {
     _controller.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -110,7 +122,6 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
 
   // Calculate final qualifying lap time
   double _calculateFinalLapTime() {
-    // Use same calculation as in qualifying_page.dart
     double baseTime = widget.track.baseLapTime * 0.97; // Qualifying pace
 
     // Apply driver skills
@@ -173,47 +184,42 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        width: 420,
-        height: 600,
+    return Scaffold(
+      body: Container(
         decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red[600]!, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.8),
-              blurRadius: 20,
-              spreadRadius: 5,
-            ),
-          ],
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1A1A2E),
+              Color(0xFF16213E),
+              Color(0xFF0F3460),
+              Color(0xFF0A1128),
+            ],
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
         ),
-        child: Column(
-          children: [
-            // FIXED HEADER
-            _buildHeader(),
-
-            // MAIN CONTENT AREA - Expandable
-            Expanded(
-              child: Column(
-                children: [
-                  // TOP SECTION - Instructions or Results (More space)
-                  Expanded(
-                    flex: 3,
-                    child: _buildTopSection(),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildTopSection(),
+                      ),
+                      _buildCenterSection(),
+                      _buildBottomSection(),
+                    ],
                   ),
-
-                  // CENTER SECTION - Always contains the timing bar (Compact)
-                  _buildCenterSection(),
-
-                  // BOTTOM SECTION - Always contains the action button (Compact)
-                  _buildBottomSection(),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -221,42 +227,100 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
 
   Widget _buildHeader() {
     return Container(
-      width: double.infinity,
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.red[900]!, Colors.red[600]!],
-        ),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(14),
-          topRight: Radius.circular(14),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.red[600]!.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            '${widget.driver.name.toUpperCase()} - QUALIFYING',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+          // Back button - match other pages
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            '${widget.track.name} • Target: ${_formatLapTime(_baseQualifyingTime)}',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+
+          SizedBox(width: 16),
+
+          // Racing stripe
+          Container(
+            width: 4,
+            height: 30,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.red[400]!, Colors.red[600]!],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          SizedBox(height: 4),
-          Text(
-            'Skills: SPD ${widget.driver.speed} • CON ${widget.driver.consistency}',
-            style: TextStyle(
-              color: Colors.white60,
-              fontSize: 12,
+
+          SizedBox(width: 12),
+
+          // Title section
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'QUALIFYING LAP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                Text(
+                  '${widget.driver.name} • ${widget.track.name}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Weather indicator
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.weather.icon,
+                  style: TextStyle(fontSize: 12),
+                ),
+                SizedBox(width: 4),
+                Text(
+                  widget.weather.name.toUpperCase(),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -265,252 +329,318 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
   }
 
   Widget _buildTopSection() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    if (_hasAttempted && _result != null) {
+      return _buildResultDisplay();
+    } else {
+      return _buildInstructions();
+    }
+  }
+
+  Widget _buildInstructions() {
+    return Padding(
+      padding: EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (!_hasAttempted) ...[
-            // INSTRUCTIONS STATE - Compact version
-            Flexible(
-              child: Icon(
-                Icons.touch_app,
-                color: Colors.purple[400],
-                size: 40,
+          // Motorsports icon
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.red[600]!.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.red[600]!.withValues(alpha: 0.3),
+                width: 1,
               ),
             ),
-            SizedBox(height: 12),
-            Flexible(
-              child: Text(
-                'TAP WHEN POINTER HITS PURPLE!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+            child: Icon(
+              Icons.speed,
+              size: 48,
+              color: Colors.red[400],
+            ),
+          ),
+
+          SizedBox(height: 24),
+
+          Text(
+            'FIND THE PERFECT MOMENT',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Formula1',
+              letterSpacing: 1,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          SizedBox(height: 12),
+
+          Text(
+            _getInstructionText(),
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              fontFamily: 'Formula1',
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          SizedBox(height: 20),
+
+          // Skill indicator
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.bar_chart,
+                  color: Colors.orange[400],
+                  size: 16,
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                _getInstructionText(),
-                style: TextStyle(
-                  color: Colors.grey[300],
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
+                SizedBox(width: 8),
+                Text(
+                  'DRIVER SKILL: ${((widget.driver.speed + widget.driver.consistency) ~/ 2)}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 0.5,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              ],
             ),
-            SizedBox(height: 6),
-            Flexible(
-              child: Text(
-                'Purple = Perfect • Green = Good • Orange = Okay • Red = Bad',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 10,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ] else if (_result != null) ...[
-            // RESULTS STATE - Compact version
-            Flexible(
-              child: Icon(
-                _result!.quality == 'perfect'
-                    ? Icons.star
-                    : _result!.quality == 'good'
-                        ? Icons.thumb_up
-                        : _result!.quality == 'okay'
-                            ? Icons.thumbs_up_down
-                            : Icons.thumb_down,
-                color: _result!.color,
-                size: 48,
-              ),
-            ),
-            SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                _result!.description,
-                style: TextStyle(
-                  color: _result!.color,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                _result!.timeModifier >= 0
-                    ? '+${_result!.timeModifier.toStringAsFixed(1)}s'
-                    : '${_result!.timeModifier.toStringAsFixed(1)}s',
-                style: TextStyle(
-                  color: _result!.color,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            SizedBox(height: 8),
-            // Lap time display - Compact
-            Flexible(
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[800],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[600]!, width: 1),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'QUALIFYING TIME',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      _formatLapTime(_calculateFinalLapTime()),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCenterSection() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+  Widget _buildResultDisplay() {
+    return Padding(
+      padding: EdgeInsets.all(24),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Zone legend - More compact
+          // Result icon with color
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
-              color: Colors.grey[850],
-              borderRadius: BorderRadius.circular(6),
+              color: _result!.color.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _result!.color,
+                width: 2,
+              ),
             ),
-            child: Text(
-              'Timing Zones',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+            child: Center(
+              child: Icon(
+                _getResultIcon(),
+                size: 40,
+                color: _result!.color,
               ),
             ),
           ),
-          SizedBox(height: 8),
 
-          // TIMING BAR - Slightly smaller
+          SizedBox(height: 20),
+
+          Text(
+            _result!.description.toUpperCase(),
+            style: TextStyle(
+              color: _result!.color,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Formula1',
+              letterSpacing: 2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          SizedBox(height: 16),
+
+          // Time display
           Container(
-            width: 320,
-            height: 50,
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey[800],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey[600]!, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: Offset(0, 3),
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'LAP TIME',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  _formatLapTime(_calculateFinalLapTime()),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Formula1',
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
-            child: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: TimingBarPainter(
-                    indicatorPosition: _animation.value,
-                    hasAttempted: _hasAttempted,
-                    resultPosition: _hasAttempted ? _animation.value : null,
-                  ),
-                  size: Size(320, 50),
-                );
-              },
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getResultIcon() {
+    switch (_result!.quality) {
+      case 'perfect':
+        return Icons.star;
+      case 'good':
+        return Icons.thumb_up;
+      case 'okay':
+        return Icons.horizontal_rule;
+      case 'bad':
+        return Icons.thumb_down;
+      default:
+        return Icons.help;
+    }
+  }
+
+  Widget _buildCenterSection() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        children: [
+          // Zone legend
+          if (!_hasAttempted) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildZoneLegend('PERFECT', Colors.purple),
+                SizedBox(width: 16),
+                _buildZoneLegend('GOOD', Colors.green),
+                SizedBox(width: 16),
+                _buildZoneLegend('OKAY', Colors.orange),
+                SizedBox(width: 16),
+                _buildZoneLegend('MISS', Colors.red),
+              ],
+            ),
+            SizedBox(height: 16),
+          ],
+
+          // Timing bar
+          Container(
+            width: 340,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 2,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AnimatedBuilder(
+                animation: _animation,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: TimingBarPainter(
+                      indicatorPosition: _animation.value,
+                      hasAttempted: _hasAttempted,
+                      resultPosition: _hasAttempted ? _animation.value : null,
+                    ),
+                    size: Size(340, 60),
+                  );
+                },
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildZoneLegend(String text, Color color) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Formula1',
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
 
   Widget _buildBottomSection() {
     return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // ACTION BUTTON - Always at bottom
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _hasAttempted ? () => Navigator.of(context).pop(_result) : _onTap,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _hasAttempted ? Colors.green[600] : Colors.purple[600],
-                foregroundColor: Colors.white,
-                elevation: 8,
-                shadowColor: (_hasAttempted ? Colors.green : Colors.purple).withOpacity(0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+      padding: EdgeInsets.all(24),
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: _hasAttempted ? () => Navigator.of(context).pop(_result) : _onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _hasAttempted ? Colors.green[600] : Colors.red[600],
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _hasAttempted ? Icons.check : Icons.touch_app,
+                size: 24,
+                color: Colors.white,
+              ),
+              SizedBox(width: 12),
+              Text(
+                _hasAttempted ? 'CONTINUE' : 'TAP NOW!',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _hasAttempted ? Icons.arrow_forward : Icons.touch_app,
-                    size: 20,
-                    color: Colors.white,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    _hasAttempted ? 'CONTINUE TO GRID' : 'TAP NOW!',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
-          SizedBox(height: 8),
-
-          // Helper text - Compact
-          Text(
-            _hasAttempted ? 'Ready to proceed to the starting grid' : 'Watch the pointer and tap when it hits purple!',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 10,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -519,7 +649,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
     int skill = (widget.driver.speed + widget.driver.consistency) ~/ 2;
 
     if (skill >= 80) {
-      return 'Your skill gives you precise control';
+      return 'Your high skill gives you precise control';
     } else if (skill >= 60) {
       return 'Steady hands, you can do this!';
     } else {
@@ -579,7 +709,7 @@ class QualifyingDifficulty {
     } else if (skill >= 60) {
       return 2.0; // Fast bar
     } else {
-      return 1.5; // Very fast bar (hardest) - This is Rookie!
+      return 1.5; // Very fast bar (hardest)
     }
   }
 }
@@ -598,76 +728,76 @@ class TimingBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint();
+    final double width = size.width;
+    final double height = size.height;
 
-    // Draw timing zones with clean colors
-    _drawZone(canvas, size, 0.0, 0.25, Colors.red[600]!, paint); // Bad (left)
-    _drawZone(canvas, size, 0.25, 0.36, Colors.orange[600]!, paint); // Okay
-    _drawZone(canvas, size, 0.36, 0.45, Colors.green[600]!, paint); // Good
-    _drawZone(canvas, size, 0.45, 0.55, Colors.purple[600]!, paint); // Perfect
-    _drawZone(canvas, size, 0.55, 0.64, Colors.green[600]!, paint); // Good
-    _drawZone(canvas, size, 0.64, 0.75, Colors.orange[600]!, paint); // Okay
-    _drawZone(canvas, size, 0.75, 1.0, Colors.red[600]!, paint); // Bad (right)
+    // Draw colored zones
+    _drawZone(canvas, 0.0, 0.25, Colors.red.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.25, 0.36, Colors.orange.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.36, 0.45, Colors.green.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.45, 0.55, Colors.purple.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.55, 0.64, Colors.green.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.64, 0.75, Colors.orange.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.75, 1.0, Colors.red.withValues(alpha: 0.6), width, height);
 
     // Draw moving indicator
     if (!hasAttempted) {
-      _drawIndicator(canvas, size, indicatorPosition, Colors.white, paint);
-    } else if (resultPosition != null) {
-      _drawIndicator(canvas, size, resultPosition!, Colors.yellow[400]!, paint);
+      _drawIndicator(canvas, indicatorPosition, Colors.white, width, height);
+    }
+
+    // Draw result indicator
+    if (hasAttempted && resultPosition != null) {
+      Color resultColor = _getResultColor(resultPosition!);
+      _drawIndicator(canvas, resultPosition!, resultColor, width, height);
     }
   }
 
-  void _drawZone(Canvas canvas, Size size, double start, double end, Color color, Paint paint) {
-    paint.color = color;
-    paint.style = PaintingStyle.fill;
-    canvas.drawRect(
-      Rect.fromLTWH(
-        start * size.width,
-        0,
-        (end - start) * size.width,
-        size.height,
-      ),
-      paint,
+  void _drawZone(Canvas canvas, double start, double end, Color color, double width, double height) {
+    final paint = Paint()..color = color;
+    final rect = Rect.fromLTWH(
+      start * width,
+      0,
+      (end - start) * width,
+      height,
     );
+    canvas.drawRect(rect, paint);
   }
 
-  void _drawIndicator(Canvas canvas, Size size, double position, Color color, Paint paint) {
-    paint.color = color;
-    paint.strokeWidth = 3;
+  void _drawIndicator(Canvas canvas, double position, Color color, double width, double height) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke;
 
-    double x = position * size.width;
-
-    // Draw vertical line indicator
+    final x = position * width;
     canvas.drawLine(
-      Offset(x, 6),
-      Offset(x, size.height - 6),
+      Offset(x, 0),
+      Offset(x, height),
       paint,
     );
 
-    // Draw triangle pointer at top
-    Path triangle = Path();
-    triangle.moveTo(x, 6);
-    triangle.lineTo(x - 6, -3);
-    triangle.lineTo(x + 6, -3);
-    triangle.close();
+    // Draw arrow at top
+    final arrowPaint = Paint()..color = color;
+    final path = Path();
+    path.moveTo(x, 8);
+    path.lineTo(x - 6, 0);
+    path.lineTo(x + 6, 0);
+    path.close();
+    canvas.drawPath(path, arrowPaint);
+  }
 
-    paint.style = PaintingStyle.fill;
-    canvas.drawPath(triangle, paint);
-
-    // Draw triangle pointer at bottom
-    Path bottomTriangle = Path();
-    bottomTriangle.moveTo(x, size.height - 6);
-    bottomTriangle.lineTo(x - 6, size.height + 3);
-    bottomTriangle.lineTo(x + 6, size.height + 3);
-    bottomTriangle.close();
-
-    canvas.drawPath(bottomTriangle, paint);
+  Color _getResultColor(double position) {
+    if (position >= 0.45 && position <= 0.55) {
+      return Colors.purple;
+    } else if (position >= 0.36 && position <= 0.64) {
+      return Colors.green;
+    } else if (position >= 0.25 && position <= 0.75) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
   }
 
   @override
-  bool shouldRepaint(TimingBarPainter oldDelegate) {
-    return oldDelegate.indicatorPosition != indicatorPosition ||
-        oldDelegate.hasAttempted != hasAttempted ||
-        oldDelegate.resultPosition != resultPosition;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
