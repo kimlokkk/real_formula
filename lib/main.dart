@@ -1,5 +1,6 @@
 // lib/main.dart - Fixed version with proper imports and calendar integration
 import 'package:flutter/material.dart';
+import 'package:real_formula/ui/career/race_weekend_loading.dart';
 import 'ui/main_menu_page.dart';
 import 'ui/race_setup_page.dart';
 import 'ui/qualifying_page.dart';
@@ -37,6 +38,13 @@ class MyApp extends StatelessWidget {
         '/qualifying': (context) => QualifyingPage(),
         '/race': (context) => F1RaceSimulator(),
         '/results': (context) => const RaceResultsPage(), // ✅ FIXED: Added const and proper constructor
+        '/race_weekend_loading': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return RaceWeekendLoadingScreen(
+            raceWeekend: args['raceWeekend'],
+            careerDriver: args['careerDriver'],
+          );
+        },
 
         // Career Mode routes
         '/driver_creation': (context) => DriverCreationPage(),

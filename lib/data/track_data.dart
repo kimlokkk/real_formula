@@ -1,7 +1,12 @@
+// lib/data/track_data.dart - Complete F1 2025 Track Data
 import '../models/track.dart';
 
 class TrackData {
   static const List<Track> tracks = [
+    // ═══════════════════════════════════════════════════════════════
+    // EXISTING TRACKS (keep your current tracks)
+    // ═══════════════════════════════════════════════════════════════
+
     // Monaco - Ultimate driver track, easy on tires due to low speed
     Track(
       name: "Monaco",
@@ -9,17 +14,17 @@ class TrackData {
       baseLapTime: 71.0,
       type: TrackType.street,
       totalLaps: 78,
-      speedEmphasis: 0.6, // Speed less important
-      consistencyEmphasis: 1.4, // Consistency critical
-      tireManagementEmphasis: 0.8, // Less tire management needed
-      carPerformanceEmphasis: 0.7, // Car performance less important
-      tireDegradationMultiplier: 0.6, // Very easy on tires (was 0.7)
-      errorProbabilityMultiplier: 1.8, // High error probability
-      mechanicalStressMultiplier: 0.9, // Lower mechanical stress
-      weatherImpactMultiplier: 1.5, // Rain is devastating
-      overtakingDifficulty: 0.1, // Almost impossible to overtake
-      pitStopTimePenalty: 2.0, // Narrow pit lane
-      favorsTwoStop: false, // Usually one-stop
+      speedEmphasis: 0.6,
+      consistencyEmphasis: 1.4,
+      tireManagementEmphasis: 0.8,
+      carPerformanceEmphasis: 0.7,
+      tireDegradationMultiplier: 0.6,
+      errorProbabilityMultiplier: 1.8,
+      mechanicalStressMultiplier: 0.9,
+      weatherImpactMultiplier: 1.5,
+      overtakingDifficulty: 0.1,
+      pitStopTimePenalty: 2.0,
+      favorsTwoStop: false,
     ),
 
     // Monza - Power track, moderate on tires
@@ -29,17 +34,17 @@ class TrackData {
       baseLapTime: 80.0,
       type: TrackType.power,
       totalLaps: 53,
-      speedEmphasis: 1.3, // Speed very important
-      consistencyEmphasis: 0.8, // Consistency less critical
-      tireManagementEmphasis: 1.1, // Some tire management
-      carPerformanceEmphasis: 1.4, // Car performance critical
-      tireDegradationMultiplier: 1.1, // Moderate tire wear (unchanged)
-      errorProbabilityMultiplier: 0.9, // Lower error probability
-      mechanicalStressMultiplier: 1.3, // High mechanical stress
-      weatherImpactMultiplier: 1.0, // Standard weather impact
-      overtakingDifficulty: 0.8, // Good overtaking opportunities
-      pitStopTimePenalty: 0.0, // Standard pit lane
-      favorsTwoStop: false, // Usually one-stop
+      speedEmphasis: 1.3,
+      consistencyEmphasis: 0.8,
+      tireManagementEmphasis: 1.1,
+      carPerformanceEmphasis: 1.4,
+      tireDegradationMultiplier: 1.1,
+      errorProbabilityMultiplier: 0.9,
+      mechanicalStressMultiplier: 1.3,
+      weatherImpactMultiplier: 1.0,
+      overtakingDifficulty: 0.8,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
     ),
 
     // Silverstone - High-speed technical, hard on tires
@@ -49,17 +54,17 @@ class TrackData {
       baseLapTime: 87.0,
       type: TrackType.highSpeed,
       totalLaps: 52,
-      speedEmphasis: 1.1, // Speed important
-      consistencyEmphasis: 1.0, // Standard consistency needs
-      tireManagementEmphasis: 1.2, // Tire management important
-      carPerformanceEmphasis: 1.1, // Car performance important
-      tireDegradationMultiplier: 1.4, // Very hard on tires (was 1.3)
-      errorProbabilityMultiplier: 1.0, // Standard error rate
-      mechanicalStressMultiplier: 1.1, // Moderate mechanical stress
-      weatherImpactMultiplier: 1.2, // British weather!
-      overtakingDifficulty: 0.6, // Some overtaking opportunities
-      pitStopTimePenalty: 0.0, // Standard pit lane
-      favorsTwoStop: true, // Often favors two-stop
+      speedEmphasis: 1.1,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.2,
+      carPerformanceEmphasis: 1.1,
+      tireDegradationMultiplier: 1.4,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.1,
+      weatherImpactMultiplier: 1.2,
+      overtakingDifficulty: 0.6,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: true,
     ),
 
     // Hungary - Technical/tire management, VERY hard on tires
@@ -69,17 +74,17 @@ class TrackData {
       baseLapTime: 76.0,
       type: TrackType.technical,
       totalLaps: 70,
-      speedEmphasis: 0.8, // Speed less important
-      consistencyEmphasis: 1.2, // Consistency important
-      tireManagementEmphasis: 1.4, // Tire management critical
-      carPerformanceEmphasis: 0.9, // Car performance less important
-      tireDegradationMultiplier: 1.5, // VERY hard on tires (was 1.2) - makes 35-lap stints impossible
-      errorProbabilityMultiplier: 1.1, // Slightly higher error rate
-      mechanicalStressMultiplier: 0.9, // Lower mechanical stress
-      weatherImpactMultiplier: 1.1, // Moderate weather impact
-      overtakingDifficulty: 0.2, // Very difficult to overtake
-      pitStopTimePenalty: 0.0, // Standard pit lane
-      favorsTwoStop: false, // Usually one-stop due to difficulty overtaking
+      speedEmphasis: 0.8,
+      consistencyEmphasis: 1.2,
+      tireManagementEmphasis: 1.4,
+      carPerformanceEmphasis: 0.9,
+      tireDegradationMultiplier: 1.5,
+      errorProbabilityMultiplier: 1.1,
+      mechanicalStressMultiplier: 0.9,
+      weatherImpactMultiplier: 1.1,
+      overtakingDifficulty: 0.2,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
     ),
 
     // Spa - Mixed high-speed, moderate on tires
@@ -89,17 +94,17 @@ class TrackData {
       baseLapTime: 104.0,
       type: TrackType.mixed,
       totalLaps: 44,
-      speedEmphasis: 1.2, // Speed very important
-      consistencyEmphasis: 1.0, // Standard consistency
-      tireManagementEmphasis: 1.0, // Standard tire management
-      carPerformanceEmphasis: 1.2, // Car performance very important
-      tireDegradationMultiplier: 0.9, // Easier on tires (unchanged)
-      errorProbabilityMultiplier: 1.2, // Higher error probability
-      mechanicalStressMultiplier: 1.2, // Higher mechanical stress
-      weatherImpactMultiplier: 1.4, // Famous for weather changes
-      overtakingDifficulty: 0.7, // Good overtaking opportunities
-      pitStopTimePenalty: 0.0, // Standard pit lane
-      favorsTwoStop: false, // Usually one-stop
+      speedEmphasis: 1.2,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.0,
+      carPerformanceEmphasis: 1.2,
+      tireDegradationMultiplier: 0.9,
+      errorProbabilityMultiplier: 1.2,
+      mechanicalStressMultiplier: 1.2,
+      weatherImpactMultiplier: 1.4,
+      overtakingDifficulty: 0.7,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
     ),
 
     // Suzuka - Technical high-speed, hard on tires
@@ -109,37 +114,403 @@ class TrackData {
       baseLapTime: 91.0,
       type: TrackType.technical,
       totalLaps: 53,
-      speedEmphasis: 1.1, // Speed important
-      consistencyEmphasis: 1.3, // Consistency very important
-      tireManagementEmphasis: 1.1, // Tire management important
-      carPerformanceEmphasis: 1.0, // Standard car performance
-      tireDegradationMultiplier: 1.3, // Hard on tires (was 1.1)
-      errorProbabilityMultiplier: 1.3, // High error probability (technical)
-      mechanicalStressMultiplier: 1.0, // Standard mechanical stress
-      weatherImpactMultiplier: 1.3, // Rain makes it very challenging
-      overtakingDifficulty: 0.4, // Moderately difficult to overtake
-      pitStopTimePenalty: 0.0, // Standard pit lane
-      favorsTwoStop: true, // Often two-stop
+      speedEmphasis: 1.1,
+      consistencyEmphasis: 1.3,
+      tireManagementEmphasis: 1.1,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.3,
+      errorProbabilityMultiplier: 1.3,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.3,
+      overtakingDifficulty: 0.4,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: true,
     ),
 
-    // Generic/Default track (your original) - balanced
+    // ═══════════════════════════════════════════════════════════════
+    // NEW F1 2025 TRACKS
+    // ═══════════════════════════════════════════════════════════════
+
+    // Bahrain International Circuit
+    Track(
+      name: "Bahrain",
+      country: "Bahrain",
+      baseLapTime: 92.0,
+      type: TrackType.mixed,
+      totalLaps: 57,
+      speedEmphasis: 1.1,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.2,
+      carPerformanceEmphasis: 1.1,
+      tireDegradationMultiplier: 1.2,
+      errorProbabilityMultiplier: 0.9,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 0.8,
+      overtakingDifficulty: 0.7,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: true,
+    ),
+
+    // Jeddah Corniche Circuit (Saudi Arabia)
+    Track(
+      name: "Saudi Arabia",
+      country: "Saudi Arabia",
+      baseLapTime: 91.0,
+      type: TrackType.street,
+      totalLaps: 50,
+      speedEmphasis: 1.3,
+      consistencyEmphasis: 1.1,
+      tireManagementEmphasis: 0.9,
+      carPerformanceEmphasis: 1.2,
+      tireDegradationMultiplier: 0.8,
+      errorProbabilityMultiplier: 1.4,
+      mechanicalStressMultiplier: 1.1,
+      weatherImpactMultiplier: 0.7,
+      overtakingDifficulty: 0.6,
+      pitStopTimePenalty: 1.0,
+      favorsTwoStop: false,
+    ),
+
+    // Albert Park Circuit (Australia)
+    Track(
+      name: "Australia",
+      country: "Australia",
+      baseLapTime: 79.0,
+      type: TrackType.mixed,
+      totalLaps: 58,
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.1,
+      tireManagementEmphasis: 1.0,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.0,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.0,
+      overtakingDifficulty: 0.5,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Suzuka International Racing Course (Japan) - Already exists above
+
+    // Shanghai International Circuit (China)
+    Track(
+      name: "China",
+      country: "China",
+      baseLapTime: 94.0,
+      type: TrackType.mixed,
+      totalLaps: 56,
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.1,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.1,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.1,
+      overtakingDifficulty: 0.6,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: true,
+    ),
+
+    // Miami International Autodrome
+    Track(
+      name: "Miami",
+      country: "United States",
+      baseLapTime: 90.0,
+      type: TrackType.street,
+      totalLaps: 57,
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.1,
+      tireManagementEmphasis: 1.0,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.1,
+      errorProbabilityMultiplier: 1.2,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.2,
+      overtakingDifficulty: 0.4,
+      pitStopTimePenalty: 0.5,
+      favorsTwoStop: false,
+    ),
+
+    // Imola (Emilia Romagna)
+    Track(
+      name: "Imola",
+      country: "Italy",
+      baseLapTime: 75.0,
+      type: TrackType.technical,
+      totalLaps: 63,
+      speedEmphasis: 0.9,
+      consistencyEmphasis: 1.3,
+      tireManagementEmphasis: 1.1,
+      carPerformanceEmphasis: 0.9,
+      tireDegradationMultiplier: 1.2,
+      errorProbabilityMultiplier: 1.2,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.1,
+      overtakingDifficulty: 0.3,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Circuit Gilles Villeneuve (Canada)
+    Track(
+      name: "Canada",
+      country: "Canada",
+      baseLapTime: 73.0,
+      type: TrackType.power,
+      totalLaps: 70,
+      speedEmphasis: 1.2,
+      consistencyEmphasis: 0.9,
+      tireManagementEmphasis: 0.9,
+      carPerformanceEmphasis: 1.3,
+      tireDegradationMultiplier: 0.9,
+      errorProbabilityMultiplier: 1.1,
+      mechanicalStressMultiplier: 1.2,
+      weatherImpactMultiplier: 1.0,
+      overtakingDifficulty: 0.7,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Circuit de Barcelona-Catalunya (Spain)
+    Track(
+      name: "Spain",
+      country: "Spain",
+      baseLapTime: 78.0,
+      type: TrackType.technical,
+      totalLaps: 66,
+      speedEmphasis: 0.9,
+      consistencyEmphasis: 1.1,
+      tireManagementEmphasis: 1.3,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.3,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.0,
+      overtakingDifficulty: 0.3,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: true,
+    ),
+
+    // Red Bull Ring (Austria)
+    Track(
+      name: "Austria",
+      country: "Austria",
+      baseLapTime: 65.0,
+      type: TrackType.power,
+      totalLaps: 71,
+      speedEmphasis: 1.2,
+      consistencyEmphasis: 0.9,
+      tireManagementEmphasis: 1.0,
+      carPerformanceEmphasis: 1.2,
+      tireDegradationMultiplier: 1.1,
+      errorProbabilityMultiplier: 0.9,
+      mechanicalStressMultiplier: 1.1,
+      weatherImpactMultiplier: 1.1,
+      overtakingDifficulty: 0.7,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Circuit Zandvoort (Netherlands)
+    Track(
+      name: "Netherlands",
+      country: "Netherlands",
+      baseLapTime: 72.0,
+      type: TrackType.technical,
+      totalLaps: 72,
+      speedEmphasis: 0.9,
+      consistencyEmphasis: 1.2,
+      tireManagementEmphasis: 1.1,
+      carPerformanceEmphasis: 0.9,
+      tireDegradationMultiplier: 1.2,
+      errorProbabilityMultiplier: 1.1,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.2,
+      overtakingDifficulty: 0.3,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Baku City Circuit (Azerbaijan)
+    Track(
+      name: "Azerbaijan",
+      country: "Azerbaijan",
+      baseLapTime: 103.0,
+      type: TrackType.street,
+      totalLaps: 51,
+      speedEmphasis: 1.3,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 0.8,
+      carPerformanceEmphasis: 1.2,
+      tireDegradationMultiplier: 0.8,
+      errorProbabilityMultiplier: 1.5,
+      mechanicalStressMultiplier: 1.2,
+      weatherImpactMultiplier: 1.0,
+      overtakingDifficulty: 0.6,
+      pitStopTimePenalty: 1.0,
+      favorsTwoStop: false,
+    ),
+
+    // Marina Bay Street Circuit (Singapore)
+    Track(
+      name: "Singapore",
+      country: "Singapore",
+      baseLapTime: 103.0,
+      type: TrackType.street,
+      totalLaps: 61,
+      speedEmphasis: 0.7,
+      consistencyEmphasis: 1.4,
+      tireManagementEmphasis: 1.1,
+      carPerformanceEmphasis: 0.8,
+      tireDegradationMultiplier: 1.0,
+      errorProbabilityMultiplier: 1.6,
+      mechanicalStressMultiplier: 1.2,
+      weatherImpactMultiplier: 1.3,
+      overtakingDifficulty: 0.2,
+      pitStopTimePenalty: 1.5,
+      favorsTwoStop: false,
+    ),
+
+    // Circuit of the Americas (USA)
+    Track(
+      name: "United States",
+      country: "United States",
+      baseLapTime: 95.0,
+      type: TrackType.mixed,
+      totalLaps: 56,
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.1,
+      tireManagementEmphasis: 1.2,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.2,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.1,
+      overtakingDifficulty: 0.6,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: true,
+    ),
+
+    // Autódromo Hermanos Rodríguez (Mexico)
+    Track(
+      name: "Mexico",
+      country: "Mexico",
+      baseLapTime: 77.0,
+      type: TrackType.mixed,
+      totalLaps: 71,
+      speedEmphasis: 1.1,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.0,
+      carPerformanceEmphasis: 1.1,
+      tireDegradationMultiplier: 1.1,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.2,
+      weatherImpactMultiplier: 1.0,
+      overtakingDifficulty: 0.5,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Interlagos (Brazil)
+    Track(
+      name: "Brazil",
+      country: "Brazil",
+      baseLapTime: 71.0,
+      type: TrackType.mixed,
+      totalLaps: 71,
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.2,
+      tireManagementEmphasis: 1.0,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.1,
+      errorProbabilityMultiplier: 1.2,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.4,
+      overtakingDifficulty: 0.6,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Las Vegas Strip Circuit
+    Track(
+      name: "Las Vegas",
+      country: "United States",
+      baseLapTime: 96.0,
+      type: TrackType.street,
+      totalLaps: 50,
+      speedEmphasis: 1.2,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 0.9,
+      carPerformanceEmphasis: 1.2,
+      tireDegradationMultiplier: 0.9,
+      errorProbabilityMultiplier: 1.1,
+      mechanicalStressMultiplier: 1.1,
+      weatherImpactMultiplier: 0.8,
+      overtakingDifficulty: 0.6,
+      pitStopTimePenalty: 0.5,
+      favorsTwoStop: false,
+    ),
+
+    // Losail International Circuit (Qatar)
+    Track(
+      name: "Qatar",
+      country: "Qatar",
+      baseLapTime: 82.0,
+      type: TrackType.mixed,
+      totalLaps: 57,
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.2,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.3,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.1,
+      weatherImpactMultiplier: 0.8,
+      overtakingDifficulty: 0.5,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: true,
+    ),
+
+    // Abu Dhabi - Yas Marina Circuit
+    Track(
+      name: "Abu Dhabi",
+      country: "United Arab Emirates",
+      baseLapTime: 86.0,
+      type: TrackType.mixed,
+      totalLaps: 58,
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.1,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.1,
+      errorProbabilityMultiplier: 0.9,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 0.8,
+      overtakingDifficulty: 0.4,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
+    ),
+
+    // Generic/Default track (keep this last) - balanced
     Track(
       name: "Generic Circuit",
       country: "International",
       baseLapTime: 90.0,
       type: TrackType.mixed,
       totalLaps: 50,
-      speedEmphasis: 1.0, // Balanced
-      consistencyEmphasis: 1.0, // Balanced
-      tireManagementEmphasis: 1.0, // Balanced
-      carPerformanceEmphasis: 1.0, // Balanced
-      tireDegradationMultiplier: 1.0, // Standard tire wear
-      errorProbabilityMultiplier: 1.0, // Standard error rate
-      mechanicalStressMultiplier: 1.0, // Standard mechanical stress
-      weatherImpactMultiplier: 1.0, // Standard weather impact
-      overtakingDifficulty: 0.5, // Moderate overtaking
-      pitStopTimePenalty: 0.0, // Standard pit lane
-      favorsTwoStop: false, // Balanced strategy
+      speedEmphasis: 1.0,
+      consistencyEmphasis: 1.0,
+      tireManagementEmphasis: 1.0,
+      carPerformanceEmphasis: 1.0,
+      tireDegradationMultiplier: 1.0,
+      errorProbabilityMultiplier: 1.0,
+      mechanicalStressMultiplier: 1.0,
+      weatherImpactMultiplier: 1.0,
+      overtakingDifficulty: 0.5,
+      pitStopTimePenalty: 0.0,
+      favorsTwoStop: false,
     ),
   ];
 

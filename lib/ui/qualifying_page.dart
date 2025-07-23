@@ -26,6 +26,9 @@ class _QualifyingPageState extends State<QualifyingPage> {
   QualifyingStatus status = QualifyingStatus.waiting;
   List<QualifyingResult> results = [];
 
+  // FIXED: Add missing variable declaration
+  QualifyingTimingResult? playerMinigameResult;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -33,17 +36,42 @@ class _QualifyingPageState extends State<QualifyingPage> {
     final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
     if (args != null) {
+      // Get configuration from arguments
       currentTrack = args['track'] ?? TrackData.getDefaultTrack();
       currentWeather = args['weather'] ?? WeatherCondition.clear;
       currentSpeed = args['speed'] ?? SimulationSpeed.normal;
+
+      // Check if this is pre-configured from career mode loading screen
+      bool isPreConfigured = args['preConfigured'] ?? false;
+
       List<Driver>? configDrivers = args['drivers'];
       if (configDrivers != null) {
         drivers = List.from(configDrivers);
       }
-    }
 
-    if (drivers.isEmpty) {
-      drivers = DriverData.createDefaultDrivers();
+      // NEW: Handle pre-configured career mode sessions
+      if (isPreConfigured) {
+        // Drivers and settings are already configured by loading screen
+        // Just initialize if drivers are empty (fallback)
+        if (drivers.isEmpty) {
+          drivers = DriverData.createDefaultDrivers();
+        }
+
+        // Show career mode indicators
+        if (args['careerMode'] == true) {
+          _showCareerModeWelcome(args);
+        }
+      } else {
+        // Original logic for manual race setup
+        if (drivers.isEmpty) {
+          drivers = DriverData.createDefaultDrivers();
+        }
+      }
+    } else {
+      // Fallback: No arguments provided
+      if (drivers.isEmpty) {
+        drivers = DriverData.createDefaultDrivers();
+      }
     }
   }
 
@@ -56,35 +84,59 @@ class _QualifyingPageState extends State<QualifyingPage> {
     // Show qualifying in progress for 1 second
     await Future.delayed(Duration(seconds: 1));
 
-    // FIXED: Properly handle null case when no "Rookie" driver exists
-    Driver? userDriver;
-    try {
-      userDriver = drivers.firstWhere((d) => d.name == "Rookie");
-    } catch (e) {
-      userDriver = null; // No "Rookie" driver found
-    }
+    // Get route arguments to check for career mode
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    bool isCareerMode = args?['careerMode'] ?? false;
 
-    List<QualifyingResult> qualifyingResults = [];
-
-    if (userDriver != null) {
-      // User driver exists - show minigame for them, simulate others
-      qualifyingResults = await _simulateQualifyingWithUserDriver(userDriver);
-    } else {
-      // No user driver - normal AI simulation for all drivers
-      qualifyingResults = QualifyingEngine.simulateQualifying(
-        drivers,
-        currentWeather,
-        currentTrack,
+    // Find player driver (career mode) or rookie driver (quick race)
+    Driver? playerDriver;
+    if (isCareerMode && args?['careerDriver'] != null) {
+      // In career mode, find the career driver
+      final careerDriver = args!['careerDriver'];
+      playerDriver = drivers.firstWhere(
+        (d) => d.name == careerDriver.name,
+        orElse: () => drivers.first,
       );
+    } else {
+      // In quick race, look for "Rookie" driver (original logic)
+      try {
+        playerDriver = drivers.firstWhere((d) => d.name.contains("Rookie"));
+      } catch (e) {
+        playerDriver = drivers.first; // Fallback to first driver
+      }
     }
+
+    if (playerDriver != null) {
+      // Show mini-game for player
+      final result = await Navigator.push<QualifyingTimingResult>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QualifyingTimingChallenge(
+            driver: playerDriver!,
+            track: currentTrack,
+            weather: currentWeather,
+          ),
+        ),
+      );
+
+      if (result != null && mounted) {
+        setState(() {
+          playerMinigameResult = result;
+        });
+      }
+    }
+
+    // Simulate qualifying for all drivers
+    results = QualifyingEngine.simulateQualifying(drivers, currentWeather, currentTrack);
 
     // Apply results to drivers
-    QualifyingEngine.applyQualifyingResults(drivers, qualifyingResults);
+    QualifyingEngine.applyQualifyingResults(drivers, results);
 
-    setState(() {
-      results = qualifyingResults;
-      status = QualifyingStatus.finished;
-    });
+    if (mounted) {
+      setState(() {
+        status = QualifyingStatus.finished;
+      });
+    }
   }
 
   // Handle qualifying with user driver minigame
@@ -241,18 +293,54 @@ class _QualifyingPageState extends State<QualifyingPage> {
     return driverAdjustedTime;
   }
 
+  // UPDATE: Modified proceedToRace method to pass all career data
   void _proceedToRace() {
-    Navigator.pushReplacementNamed(
-      context,
-      '/race',
-      arguments: {
-        'track': currentTrack,
-        'weather': currentWeather,
-        'speed': currentSpeed,
-        'drivers': drivers,
-        'qualifyingResults': results,
-      },
-    );
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+    Map<String, dynamic> raceArguments = {
+      'track': currentTrack,
+      'weather': currentWeather,
+      'speed': currentSpeed,
+      'drivers': drivers,
+      'qualifyingResults': results
+          .map((r) => {
+                'driver': r.driver,
+                'position': r.position,
+                'lapTime': r.bestLapTime,
+              })
+          .toList(),
+    };
+
+    // Pass through all career mode data
+    if (args != null) {
+      raceArguments['careerMode'] = args['careerMode'] ?? false;
+      raceArguments['careerDriver'] = args['careerDriver'];
+      raceArguments['raceWeekend'] = args['raceWeekend'];
+      raceArguments['isCalendarRace'] = args['isCalendarRace'] ?? false;
+    }
+
+    Navigator.pushNamed(context, '/race', arguments: raceArguments);
+  }
+
+  void _showCareerModeWelcome(Map<String, dynamic> args) {
+    // Optional: Show a brief welcome message for career mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final raceWeekend = args['raceWeekend'];
+        if (raceWeekend != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Welcome to ${raceWeekend.name}! Weather: ${currentWeather.name}',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: Colors.green[600],
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    });
   }
 
   @override

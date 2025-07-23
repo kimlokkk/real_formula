@@ -936,33 +936,28 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
   void _startRaceWeekend() {
     final currentRaceWeekend = CareerCalendar.instance.currentRaceWeekend;
 
-    if (currentRaceWeekend != null) {
-      // Navigate with current race weekend track
+    if (currentRaceWeekend != null && careerDriver != null) {
+      // NEW: Navigate directly to loading screen, skip race setup
       Navigator.pushNamed(
         context,
-        '/setup',
+        '/race_weekend_loading',
         arguments: {
-          'careerMode': true,
-          'careerDriver': careerDriver,
-          'track': currentRaceWeekend.track,
           'raceWeekend': currentRaceWeekend,
+          'careerDriver': careerDriver,
         },
       ).then((_) {
-        // When returning, mark race weekend as completed
-        CareerCalendar.instance.completeCurrentRaceWeekend();
+        // When returning from race weekend (after race completion)
         setState(() {
           showRaceWeekendAlert = false;
         });
       });
     } else {
-      // Fallback to regular race setup
-      Navigator.pushNamed(
-        context,
-        '/setup',
-        arguments: {
-          'careerMode': true,
-          'careerDriver': careerDriver,
-        },
+      // Fallback: Show error if no race weekend or career driver
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No active race weekend available'),
+          backgroundColor: Colors.red[600],
+        ),
       );
     }
   }
