@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'package:real_formula/ui/minigames/qualifying_timing_challenge.dart';
+
 import '../models/driver.dart';
 import '../models/track.dart';
 import '../models/enums.dart';
@@ -39,35 +41,70 @@ class QualifyingEngine {
     return baseTime + speedFactor + consistencyFactor + carFactor + weatherPenalty + random;
   }
 
+  /// Calculate player qualifying time using mini-game result
+  static double _calculatePlayerQualifyingTime(
+    Driver driver,
+    WeatherCondition weather,
+    Track track,
+    QualifyingTimingResult minigameResult,
+  ) {
+    // Use same calculation as mini-game
+    double baseTime = track.baseLapTime * 0.97; // Qualifying pace
+
+    // Apply driver skills
+    double speedFactor = (100 - driver.speed) * 0.015;
+    double consistencyFactor = (100 - driver.consistency) * 0.008;
+    double carFactor = (100 - driver.team.carPerformance) * 0.018;
+
+    double driverAdjustedTime = baseTime + speedFactor + consistencyFactor + carFactor;
+
+    // Apply weather penalty if any
+    if (weather == WeatherCondition.rain) {
+      double weatherPenalty = 2.5 + ((100 - driver.consistency) / 100.0 * 1.5);
+      driverAdjustedTime += weatherPenalty;
+    }
+
+    // Apply minigame result
+    driverAdjustedTime += minigameResult.timeModifier;
+
+    return driverAdjustedTime;
+  }
+
   /// Simulate complete qualifying session instantly
   static List<QualifyingResult> simulateQualifying(
     List<Driver> drivers,
     WeatherCondition weather,
-    Track track,
-  ) {
+    Track track, {
+    Driver? playerDriver,
+    QualifyingTimingResult? playerMinigameResult,
+  }) {
     List<QualifyingResult> results = [];
 
     // Calculate qualifying time for each driver
     for (Driver driver in drivers) {
-      // Each driver gets 3 attempts, we keep the best
       double bestTime = double.infinity;
       TireCompound bestTire = _selectBestTire(driver, weather);
 
-      for (int attempt = 1; attempt <= 3; attempt++) {
-        double lapTime = calculateQualifyingLapTime(driver, weather, track);
+      // Check if this is the player with a mini-game result
+      if (playerDriver != null && driver.name == playerDriver.name && playerMinigameResult != null) {
+        // Use mini-game calculation for player
+        bestTime = _calculatePlayerQualifyingTime(driver, weather, track, playerMinigameResult);
+      } else {
+        // Normal AI simulation for other drivers
+        for (int attempt = 1; attempt <= 3; attempt++) {
+          double lapTime = calculateQualifyingLapTime(driver, weather, track);
+          lapTime += bestTire.lapTimeDelta;
 
-        // Apply tire performance
-        lapTime += bestTire.lapTimeDelta;
-
-        if (lapTime < bestTime) {
-          bestTime = lapTime;
+          if (lapTime < bestTime) {
+            bestTime = lapTime;
+          }
         }
       }
 
       results.add(QualifyingResult(
         driver: driver,
         bestLapTime: bestTime,
-        position: 0, // Will be set after sorting
+        position: 0,
         session: QualifyingSession.QUALIFYING,
         bestTire: bestTire,
       ));

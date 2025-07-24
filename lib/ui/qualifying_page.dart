@@ -136,7 +136,7 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
       }
     }
 
-    if (isCareerMode && playerDriver != null && mounted) {
+    if (isCareerMode && mounted) {
       // PRESERVE: Show timing mini-game for career mode with proper parameters
       final result = await Navigator.push<QualifyingTimingResult>(
         context,
@@ -161,6 +161,8 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
       drivers,
       currentWeather,
       currentTrack,
+      playerDriver: playerDriver,
+      playerMinigameResult: playerMinigameResult,
     );
 
     // CRITICAL: Apply qualifying results to set starting grid positions
@@ -446,7 +448,11 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.play_arrow, size: 24),
+                  Icon(
+                    Icons.play_arrow,
+                    size: 24,
+                    color: Colors.white,
+                  ),
                   SizedBox(width: 12),
                   Text(
                     'START QUALIFYING',

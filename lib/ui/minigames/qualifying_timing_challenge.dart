@@ -44,14 +44,10 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
 
   bool _hasAttempted = false;
   QualifyingTimingResult? _result;
-  double _baseQualifyingTime = 0.0;
 
   @override
   void initState() {
     super.initState();
-
-    // Calculate base qualifying time for this track
-    _baseQualifyingTime = widget.track.baseLapTime * 0.97; // Qualifying pace
 
     // Get difficulty settings based on driver skill
     _settings = QualifyingDifficulty.getSettings(widget.driver);
@@ -151,7 +147,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       // Perfect zone (10% of bar, centered) - PURPLE
       return QualifyingTimingResult(
         quality: 'perfect',
-        timeModifier: -0.3,
+        timeModifier: -0.4,
         description: 'PERFECT!',
         color: Colors.purple,
       );
@@ -159,7 +155,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       // Good zone (28% of bar) - GREEN
       return QualifyingTimingResult(
         quality: 'good',
-        timeModifier: -0.1,
+        timeModifier: -0.3,
         description: 'Good',
         color: Colors.green,
       );
@@ -167,7 +163,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       // Okay zone (50% of bar) - ORANGE
       return QualifyingTimingResult(
         quality: 'okay',
-        timeModifier: 0.0,
+        timeModifier: -0.2,
         description: 'Okay',
         color: Colors.orange,
       );
@@ -175,7 +171,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       // Bad zone (rest of bar) - RED
       return QualifyingTimingResult(
         quality: 'bad',
-        timeModifier: 0.4,
+        timeModifier: -0.1,
         description: 'Missed',
         color: Colors.red,
       );
