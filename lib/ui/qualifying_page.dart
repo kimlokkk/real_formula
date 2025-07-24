@@ -733,7 +733,11 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.flag, size: 24),
+              Icon(
+                Icons.flag,
+                size: 24,
+                color: Colors.white,
+              ),
               SizedBox(width: 12),
               Text(
                 'PROCEED TO RACE',
@@ -745,7 +749,11 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
                 ),
               ),
               SizedBox(width: 12),
-              Icon(Icons.arrow_forward, size: 20),
+              Icon(
+                Icons.arrow_forward,
+                size: 20,
+                color: Colors.white,
+              ),
             ],
           ),
         ),

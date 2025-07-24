@@ -826,7 +826,7 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
                   'CONSTRUCTOR CHAMPIONSHIP',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     fontFamily: 'Formula1',
                     letterSpacing: 1,

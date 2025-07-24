@@ -701,15 +701,15 @@ class QualifyingDifficulty {
   static double _calculateAnimationSpeed(int skill) {
     // Inverse relationship: Higher skill = slower bar = easier
     if (skill >= 90) {
-      return 1.0; // Very slow bar (easiest)
+      return 0.8; // Very slow bar (easiest)
     } else if (skill >= 80) {
-      return 1.3; // Slow bar
+      return 0.6; // Slow bar
     } else if (skill >= 70) {
-      return 1.7; // Medium bar
+      return 0.5; // Medium bar
     } else if (skill >= 60) {
-      return 2.0; // Fast bar
+      return 0.4; // Fast bar
     } else {
-      return 1.5; // Very fast bar (hardest)
+      return 0.2; // Very fast bar (hardest)
     }
   }
 }
