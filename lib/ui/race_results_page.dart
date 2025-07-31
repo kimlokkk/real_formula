@@ -9,7 +9,6 @@ import '../models/track.dart';
 import '../models/enums.dart';
 import '../data/track_data.dart';
 import '../services/career/career_manager.dart';
-import '../services/career/championship_manager.dart'; // ONLY NEW IMPORT
 
 class RaceResultsPage extends StatefulWidget {
   const RaceResultsPage({Key? key}) : super(key: key);
@@ -183,40 +182,6 @@ class _RaceResultsPageState extends State<RaceResultsPage> with TickerProviderSt
     } catch (e) {
       debugPrint("❌ Error completing calendar race weekend: $e");
       // Don't show error to user, but log it for debugging
-    }
-  }
-
-  void _validateAndFixChampionship() {
-    if (!isCareerMode || careerDriver == null || drivers.isEmpty) {
-      return;
-    }
-
-    debugPrint("=== VALIDATING CHAMPIONSHIP DRIVERS ===");
-
-    // Get current championship standings
-    List<ChampionshipStanding> currentStandings = ChampionshipManager.getCurrentStandings();
-
-    // Get race driver names
-    Set<String> raceDriverNames = drivers.map((d) => d.name).toSet();
-
-    // Get championship driver names
-    Set<String> championshipDriverNames = currentStandings.map((s) => s.driverName).toSet();
-
-    // Check for mismatches
-    Set<String> driversInRaceButNotChampionship = raceDriverNames.difference(championshipDriverNames);
-    Set<String> driversInChampionshipButNotRace = championshipDriverNames.difference(raceDriverNames);
-
-    bool needsReset = driversInRaceButNotChampionship.isNotEmpty || driversInChampionshipButNotRace.isNotEmpty;
-
-    if (needsReset) {
-      debugPrint("🔧 FIXING CHAMPIONSHIP: Re-initializing with race drivers");
-      debugPrint("   Missing from championship: ${driversInRaceButNotChampionship.join(', ')}");
-      debugPrint("   Extra in championship: ${driversInChampionshipButNotRace.join(', ')}");
-
-      ChampionshipManager.resetChampionship();
-      ChampionshipManager.initializeChampionship(seasonDrivers: drivers);
-    } else {
-      debugPrint("✅ Championship drivers match race drivers");
     }
   }
 
@@ -505,7 +470,6 @@ class _RaceResultsPageState extends State<RaceResultsPage> with TickerProviderSt
         children: [
           _buildTabButton('PODIUM', 0, Icons.emoji_events),
           _buildTabButton('RESULTS', 1, Icons.list),
-          _buildTabButton('STANDINGS', 2, Icons.leaderboard), // ONLY CHANGE: STATS -> STANDINGS
         ],
       ),
     );
@@ -555,8 +519,6 @@ class _RaceResultsPageState extends State<RaceResultsPage> with TickerProviderSt
         return _buildPodiumTab();
       case 1:
         return _buildFullResultsTab();
-      case 2:
-        return _buildChampionshipStandingsTab(); // ONLY CHANGE: _buildStatisticsTab -> _buildChampionshipStandingsTab
       default:
         return _buildPodiumTab();
     }
@@ -1179,223 +1141,6 @@ class _RaceResultsPageState extends State<RaceResultsPage> with TickerProviderSt
     }
   }
 
-  Widget _buildChampionshipStandingsTab() {
-    if (!dataLoaded || drivers.isEmpty) {
-      return Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.red[400]!),
-        ),
-      );
-    }
-
-    // ✅ CRITICAL: Validate championship drivers match race drivers
-    _validateAndFixChampionship();
-
-    // Get current championship standings (now guaranteed to match race drivers)
-    List<ChampionshipStanding> standings = ChampionshipManager.getCurrentStandings(
-        careerDriverName: isCareerMode && careerDriver != null ? careerDriver!.name : null);
-
-    // If standings are empty or don't match race drivers, initialize with current race
-    if (standings.isEmpty || !_standingsMatchRaceDrivers(standings)) {
-      debugPrint("🔧 Championship empty or mismatched, initializing with current race");
-
-      List<Driver> sortedResults = List.from(drivers);
-      sortedResults.sort((a, b) => a.position.compareTo(b.position));
-
-      // Reset and initialize championship with race drivers
-      ChampionshipManager.resetChampionship();
-      ChampionshipManager.initializeChampionship(seasonDrivers: drivers);
-
-      // Update with current race results
-      ChampionshipManager.updateRaceResults(sortedResults);
-
-      // Get updated standings
-      standings = ChampionshipManager.getCurrentStandings(
-          careerDriverName: isCareerMode && careerDriver != null ? careerDriver!.name : null);
-    }
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatSection('DRIVERS\' CHAMPIONSHIP', [
-            Text(
-              '20 Drivers • ${_getCareerDriverTeamInfo()}',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                fontFamily: 'Formula1',
-              ),
-            ),
-          ]),
-          SizedBox(height: 16),
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: standings.asMap().entries.map((entry) {
-                int index = entry.key;
-                ChampionshipStanding standing = entry.value;
-                int position = index + 1;
-
-                return Container(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                  margin: EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: standing.isCareerDriver ? Colors.green[600]!.withValues(alpha: 0.2) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: standing.isCareerDriver ? Border.all(color: Colors.green[500]!, width: 1) : null,
-                  ),
-                  child: Row(
-                    children: [
-                      // Position
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: _getPositionColor(position),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$position',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              fontFamily: 'Formula1',
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-
-                      // Driver info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  standing.driverName,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    fontFamily: 'Formula1',
-                                  ),
-                                ),
-                                if (standing.isCareerDriver) ...[
-                                  SizedBox(width: 8),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green[600],
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'YOU',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 8,
-                                        fontFamily: 'Formula1',
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            Text(
-                              standing.teamName,
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 11,
-                                fontFamily: 'Formula1',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Stats
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${standing.points} PTS',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              fontFamily: 'Formula1',
-                            ),
-                          ),
-                          if (standing.wins > 0 || standing.podiums > 0)
-                            Text(
-                              '${standing.wins}W ${standing.podiums}P',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 10,
-                                fontFamily: 'Formula1',
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          // Debug info in development
-          if (isCareerMode && careerDriver != null) ...[
-            SizedBox(height: 16),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[900]!.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[600]!.withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                'Career Mode: ${careerDriver!.name} at ${careerDriver!.team.name} • ${standings.length} drivers in championship',
-                style: TextStyle(
-                  color: Colors.blue[300],
-                  fontSize: 10,
-                  fontFamily: 'Formula1',
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-// Helper methods
-  bool _standingsMatchRaceDrivers(List<ChampionshipStanding> standings) {
-    Set<String> standingsDrivers = standings.map((s) => s.driverName).toSet();
-    Set<String> raceDrivers = drivers.map((d) => d.name).toSet();
-    return standingsDrivers.difference(raceDrivers).isEmpty && raceDrivers.difference(standingsDrivers).isEmpty;
-  }
-
-  String _getCareerDriverTeamInfo() {
-    if (!isCareerMode || careerDriver == null) return '';
-    return 'Your team: ${careerDriver!.team.name}';
-  }
-
   // Enhanced bottom controls matching other pages
   Widget _buildBottomControls() {
     return Container(
@@ -1601,25 +1346,5 @@ class _RaceResultsPageState extends State<RaceResultsPage> with TickerProviderSt
       double seconds = gapSeconds % 60;
       return '${minutes}m ${seconds.toStringAsFixed(3)}s';
     }
-  }
-
-  Widget _buildStatSection(String title, List<Widget> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14, // Reduced from 18
-            fontWeight: FontWeight.w700,
-            fontFamily: 'Formula1',
-            letterSpacing: 1,
-          ),
-        ),
-        SizedBox(height: 16),
-        ...items,
-      ],
-    );
   }
 }
