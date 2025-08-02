@@ -17,8 +17,7 @@ class CareerHomePage extends StatefulWidget {
   _CareerHomePageState createState() => _CareerHomePageState();
 }
 
-class _CareerHomePageState extends State<CareerHomePage>
-    with TickerProviderStateMixin {
+class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStateMixin {
   CareerDriver? careerDriver;
   int selectedNavIndex = 0; // Navigation index
   bool showRaceWeekendAlert = false;
@@ -36,9 +35,12 @@ class _CareerHomePageState extends State<CareerHomePage>
 
     _initializeAnimations();
 
+    // 🔧 FIX: Force calendar refresh when page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       CareerCalendar.instance.initialize();
       _fadeController.forward();
+      // 🔧 FIX: Add refresh career data call
+      _refreshCareerData();
     });
   }
 
@@ -101,7 +103,19 @@ class _CareerHomePageState extends State<CareerHomePage>
         setState(() {
           careerDriver = updatedDriver;
         });
+
+        // 🔧 FIX: Force calendar widget to rebuild by explicitly calling notifyListeners
         CareerCalendar.instance.notifyListeners();
+
+        // 🔧 FIX: Add small delay to ensure state updates propagate
+        Future.delayed(Duration(milliseconds: 100), () {
+          // 🔧 FIX: Force another rebuild to ensure UI is current
+          if (mounted) {
+            setState(() {});
+          }
+
+          debugPrint("🔄 Career data refreshed - UI should now show updated calendar");
+        });
       }
     } catch (e) {
       debugPrint("Error refreshing career data: $e");
@@ -182,8 +196,7 @@ class _CareerHomePageState extends State<CareerHomePage>
             ),
             child: IconButton(
               icon: Icon(Icons.home, color: Colors.white),
-              onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                  context, '/', (route) => false),
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false),
             ),
           ),
 
@@ -478,8 +491,7 @@ class _CareerHomePageState extends State<CareerHomePage>
                 SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.emoji_events,
-                        color: Colors.orange[300], size: 16),
+                    Icon(Icons.emoji_events, color: Colors.orange[300], size: 16),
                     SizedBox(width: 4),
                     Text(
                       'Rating: ${careerDriver!.careerRating.toStringAsFixed(1)}',
@@ -497,12 +509,9 @@ class _CareerHomePageState extends State<CareerHomePage>
                         return Transform.scale(
                           scale: _pulseAnimation.value,
                           child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: careerDriver!.experiencePoints > 0
-                                  ? Colors.green[600]
-                                  : Colors.grey[600],
+                              color: careerDriver!.experiencePoints > 0 ? Colors.green[600] : Colors.grey[600],
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -564,8 +573,7 @@ class _CareerHomePageState extends State<CareerHomePage>
     );
   }
 
-  Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -671,8 +679,7 @@ class _CareerHomePageState extends State<CareerHomePage>
   Widget _buildDriverStandingsCard() {
     // Get all drivers including career driver (with 0 points to start)
     List<ChampionshipStanding> allDrivers =
-        ChampionshipManager.getCurrentStandings(
-            careerDriverName: careerDriver!.name);
+        ChampionshipManager.getCurrentStandings(careerDriverName: careerDriver!.name);
 
     // If championship is empty (season not started), initialize with all drivers at 0 points
     if (allDrivers.isEmpty) {
@@ -790,11 +797,8 @@ class _CareerHomePageState extends State<CareerHomePage>
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              children: allDrivers
-                  .asMap()
-                  .entries
-                  .map((entry) => _buildStandingRow(entry.value, entry.key + 1))
-                  .toList(),
+              children:
+                  allDrivers.asMap().entries.map((entry) => _buildStandingRow(entry.value, entry.key + 1)).toList(),
             ),
           ),
 
@@ -806,8 +810,7 @@ class _CareerHomePageState extends State<CareerHomePage>
 
   Widget _buildConstructorStandingsCard() {
     Map<String, int> constructorPoints = _calculateConstructorStandings();
-    List<MapEntry<String, int>> sortedConstructors = constructorPoints.entries
-        .toList()
+    List<MapEntry<String, int>> sortedConstructors = constructorPoints.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return Container(
@@ -857,8 +860,7 @@ class _CareerHomePageState extends State<CareerHomePage>
               children: sortedConstructors
                   .asMap()
                   .entries
-                  .map((entry) => _buildConstructorRow(
-                      entry.value.key, entry.value.value, entry.key + 1))
+                  .map((entry) => _buildConstructorRow(entry.value.key, entry.value.value, entry.key + 1))
                   .toList(),
             ),
           ),
@@ -870,21 +872,16 @@ class _CareerHomePageState extends State<CareerHomePage>
   }
 
   Widget _buildConstructorRow(String teamName, int points, int position) {
-    Team? team = TeamData.teams.firstWhere((t) => t.name == teamName,
-        orElse: () => TeamData.teams.first);
+    Team? team = TeamData.teams.firstWhere((t) => t.name == teamName, orElse: () => TeamData.teams.first);
     bool isCurrentTeam = teamName == careerDriver!.team.name;
 
     return Container(
       margin: EdgeInsets.only(bottom: 8),
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isCurrentTeam
-            ? team.primaryColor.withOpacity(0.2)
-            : Colors.transparent,
+        color: isCurrentTeam ? team.primaryColor.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isCurrentTeam
-            ? Border.all(color: team.primaryColor, width: 1)
-            : null,
+        border: isCurrentTeam ? Border.all(color: team.primaryColor, width: 1) : null,
       ),
       child: Row(
         children: [
@@ -971,11 +968,9 @@ class _CareerHomePageState extends State<CareerHomePage>
     }
 
     // Add points from current championship standings
-    List<ChampionshipStanding> driverStandings =
-        ChampionshipManager.getCurrentStandings();
+    List<ChampionshipStanding> driverStandings = ChampionshipManager.getCurrentStandings();
     for (ChampionshipStanding standing in driverStandings) {
-      constructorPoints[standing.teamName] =
-          (constructorPoints[standing.teamName] ?? 0) + standing.points;
+      constructorPoints[standing.teamName] = (constructorPoints[standing.teamName] ?? 0) + standing.points;
     }
 
     return constructorPoints;
@@ -988,13 +983,9 @@ class _CareerHomePageState extends State<CareerHomePage>
       margin: EdgeInsets.only(bottom: 8),
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isCareerDriver
-            ? Colors.green[600]!.withOpacity(0.2)
-            : Colors.transparent,
+        color: isCareerDriver ? Colors.green[600]!.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isCareerDriver
-            ? Border.all(color: Colors.green[600]!, width: 1)
-            : null,
+        border: isCareerDriver ? Border.all(color: Colors.green[600]!, width: 1) : null,
       ),
       child: Row(
         children: [
@@ -1096,20 +1087,13 @@ class _CareerHomePageState extends State<CareerHomePage>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: contract != null
-              ? [
-                  careerDriver!.team.primaryColor.withOpacity(0.15),
-                  careerDriver!.team.primaryColor.withOpacity(0.05)
-                ]
-              : [
-                  Colors.red[600]!.withOpacity(0.15),
-                  Colors.red[800]!.withOpacity(0.05)
-                ],
+              ? [careerDriver!.team.primaryColor.withOpacity(0.15), careerDriver!.team.primaryColor.withOpacity(0.05)]
+              : [Colors.red[600]!.withOpacity(0.15), Colors.red[800]!.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: contract != null
-              ? careerDriver!.team.primaryColor.withOpacity(0.3)
-              : Colors.red[600]!.withOpacity(0.3),
+          color:
+              contract != null ? careerDriver!.team.primaryColor.withOpacity(0.3) : Colors.red[600]!.withOpacity(0.3),
           width: 1,
         ),
       ),
@@ -1142,16 +1126,12 @@ class _CareerHomePageState extends State<CareerHomePage>
           SizedBox(height: 16),
           if (contract != null) ...[
             _buildContractDetailRow('Team', contract.team.name),
-            _buildContractDetailRow('Contract Length',
-                '${contract.lengthInYears} year${contract.lengthInYears > 1 ? 's' : ''}'),
-            _buildContractDetailRow('Annual Salary',
-                '€${contract.salaryPerYear.toStringAsFixed(1)}M'),
             _buildContractDetailRow(
-                'Total Value', '€${contract.totalValue.toStringAsFixed(1)}M'),
-            _buildContractDetailRow('Status',
-                contract.getContractDescription(CareerManager.currentSeason)),
-            _buildContractDetailRow('Remaining Years',
-                '${contract.getRemainingYears(CareerManager.currentSeason)}'),
+                'Contract Length', '${contract.lengthInYears} year${contract.lengthInYears > 1 ? 's' : ''}'),
+            _buildContractDetailRow('Annual Salary', '€${contract.salaryPerYear.toStringAsFixed(1)}M'),
+            _buildContractDetailRow('Total Value', '€${contract.totalValue.toStringAsFixed(1)}M'),
+            _buildContractDetailRow('Status', contract.getContractDescription(CareerManager.currentSeason)),
+            _buildContractDetailRow('Remaining Years', '${contract.getRemainingYears(CareerManager.currentSeason)}'),
           ] else ...[
             Container(
               padding: EdgeInsets.all(16),
@@ -1267,9 +1247,7 @@ class _CareerHomePageState extends State<CareerHomePage>
           SizedBox(height: 16),
 
           // Team reputation list
-          ...careerDriver!.teamReputation.entries
-              .map((entry) => _buildReputationRow(entry.key, entry.value))
-              .toList(),
+          ...careerDriver!.teamReputation.entries.map((entry) => _buildReputationRow(entry.key, entry.value)).toList(),
         ],
       ),
     );
@@ -1411,8 +1389,7 @@ class _CareerHomePageState extends State<CareerHomePage>
       decoration: BoxDecoration(
         color: Colors.grey[800],
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: offer.team.primaryColor.withOpacity(0.3), width: 1),
+        border: Border.all(color: offer.team.primaryColor.withOpacity(0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1486,10 +1463,7 @@ class _CareerHomePageState extends State<CareerHomePage>
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.green[600]!.withOpacity(0.15),
-            Colors.green[800]!.withOpacity(0.05)
-          ],
+          colors: [Colors.green[600]!.withOpacity(0.15), Colors.green[800]!.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
@@ -1621,12 +1595,9 @@ class _CareerHomePageState extends State<CareerHomePage>
           ),
           SizedBox(height: 20),
           _buildSkillRow('Speed', careerDriver!.speed, Icons.speed),
-          _buildSkillRow(
-              'Consistency', careerDriver!.consistency, Icons.track_changes),
-          _buildSkillRow('Tire Management', careerDriver!.tyreManagementSkill,
-              Icons.donut_small),
-          _buildSkillRow(
-              'Racecraft', careerDriver!.racecraft, Icons.sports_motorsports),
+          _buildSkillRow('Consistency', careerDriver!.consistency, Icons.track_changes),
+          _buildSkillRow('Tire Management', careerDriver!.tyreManagementSkill, Icons.donut_small),
+          _buildSkillRow('Racecraft', careerDriver!.racecraft, Icons.sports_motorsports),
           _buildSkillRow('Experience', careerDriver!.experience, Icons.star),
         ],
       ),
@@ -1689,12 +1660,9 @@ class _CareerHomePageState extends State<CareerHomePage>
                 width: 80,
                 height: 32,
                 child: ElevatedButton(
-                  onPressed: canUpgrade
-                      ? () => _upgradeSkill(label.toLowerCase())
-                      : null,
+                  onPressed: canUpgrade ? () => _upgradeSkill(label.toLowerCase()) : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        canUpgrade ? Colors.green[600] : Colors.grey[700],
+                    backgroundColor: canUpgrade ? Colors.green[600] : Colors.grey[700],
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -1839,8 +1807,7 @@ class _CareerHomePageState extends State<CareerHomePage>
             padding: EdgeInsets.all(20),
             child: CustomPaint(
               size: Size.infinite,
-              painter: HorizontalBarChartPainter(
-                  sortedTeams, careerDriver!.team.name),
+              painter: HorizontalBarChartPainter(sortedTeams, careerDriver!.team.name),
             ),
           ),
         ],
@@ -1893,11 +1860,7 @@ class _CareerHomePageState extends State<CareerHomePage>
           ),
 
           // Clean reliability list
-          ...sortedTeams
-              .asMap()
-              .entries
-              .map((entry) => _buildReliabilityRow(entry.value, entry.key + 1))
-              .toList(),
+          ...sortedTeams.asMap().entries.map((entry) => _buildReliabilityRow(entry.value, entry.key + 1)).toList(),
 
           SizedBox(height: 20),
         ],
@@ -1912,13 +1875,9 @@ class _CareerHomePageState extends State<CareerHomePage>
       margin: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isCurrentTeam
-            ? team.primaryColor.withOpacity(0.2)
-            : Colors.transparent,
+        color: isCurrentTeam ? team.primaryColor.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isCurrentTeam
-            ? Border.all(color: team.primaryColor, width: 1)
-            : null,
+        border: isCurrentTeam ? Border.all(color: team.primaryColor, width: 1) : null,
       ),
       child: Row(
         children: [
@@ -2075,12 +2034,7 @@ class _CareerHomePageState extends State<CareerHomePage>
             ),
 
             // Drivers list with expandable details
-            ...allDrivers
-                .asMap()
-                .entries
-                .map((entry) =>
-                    _buildExpandableDriverRow(entry.value, entry.key))
-                .toList(),
+            ...allDrivers.asMap().entries.map((entry) => _buildExpandableDriverRow(entry.value, entry.key)).toList(),
 
             SizedBox(height: 20),
           ],
@@ -2094,9 +2048,7 @@ class _CareerHomePageState extends State<CareerHomePage>
     List<Driver> allDrivers = DriverData.createDefaultDrivers();
 
     // Find drivers from the same team as career driver
-    List<Driver> teammateDrivers = allDrivers
-        .where((driver) => driver.team.name == careerDriver!.team.name)
-        .toList();
+    List<Driver> teammateDrivers = allDrivers.where((driver) => driver.team.name == careerDriver!.team.name).toList();
 
     if (teammateDrivers.isNotEmpty) {
       // Remove the first teammate to make room for career driver
@@ -2108,8 +2060,7 @@ class _CareerHomePageState extends State<CareerHomePage>
     }
 
     // Sort by car performance (highest to lowest)
-    allDrivers
-        .sort((a, b) => b.team.carPerformance.compareTo(a.team.carPerformance));
+    allDrivers.sort((a, b) => b.team.carPerformance.compareTo(a.team.carPerformance));
 
     return allDrivers;
   }
@@ -2121,13 +2072,9 @@ class _CareerHomePageState extends State<CareerHomePage>
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       decoration: BoxDecoration(
-        color: isCareerDriver
-            ? Colors.green[600]!.withOpacity(0.2)
-            : Colors.transparent,
+        color: isCareerDriver ? Colors.green[600]!.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isCareerDriver
-            ? Border.all(color: Colors.green[600]!, width: 1)
-            : null,
+        border: isCareerDriver ? Border.all(color: Colors.green[600]!, width: 1) : null,
       ),
       child: Column(
         children: [
@@ -2173,13 +2120,9 @@ class _CareerHomePageState extends State<CareerHomePage>
                         Text(
                           driver.name,
                           style: TextStyle(
-                            color: isCareerDriver
-                                ? Colors.green[400]
-                                : Colors.white,
+                            color: isCareerDriver ? Colors.green[400] : Colors.white,
                             fontSize: 14,
-                            fontWeight: isCareerDriver
-                                ? FontWeight.w700
-                                : FontWeight.w400,
+                            fontWeight: isCareerDriver ? FontWeight.w700 : FontWeight.w400,
                             fontFamily: 'Formula1',
                           ),
                         ),
@@ -2201,8 +2144,7 @@ class _CareerHomePageState extends State<CareerHomePage>
                     decoration: BoxDecoration(
                       color: _getDriverRatingColor(driver).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: _getDriverRatingColor(driver), width: 1),
+                      border: Border.all(color: _getDriverRatingColor(driver), width: 1),
                     ),
                     child: Text(
                       '${((driver.speed + driver.consistency + driver.tyreManagementSkill + driver.racecraft + driver.experience) / 5).round()}',
@@ -2219,9 +2161,7 @@ class _CareerHomePageState extends State<CareerHomePage>
 
                   // Expand/collapse icon
                   Icon(
-                    isExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: Colors.grey[400],
                     size: 20,
                   ),
@@ -2267,12 +2207,9 @@ class _CareerHomePageState extends State<CareerHomePage>
 
           // All detailed ratings
           _buildDetailedRatingRow('Speed', driver.speed, Icons.speed),
-          _buildDetailedRatingRow(
-              'Consistency', driver.consistency, Icons.track_changes),
-          _buildDetailedRatingRow(
-              'Tire Management', driver.tyreManagementSkill, Icons.donut_small),
-          _buildDetailedRatingRow(
-              'Racecraft', driver.racecraft, Icons.sports_motorsports),
+          _buildDetailedRatingRow('Consistency', driver.consistency, Icons.track_changes),
+          _buildDetailedRatingRow('Tire Management', driver.tyreManagementSkill, Icons.donut_small),
+          _buildDetailedRatingRow('Racecraft', driver.racecraft, Icons.sports_motorsports),
           _buildDetailedRatingRow('Experience', driver.experience, Icons.star),
 
           SizedBox(height: 8),
@@ -2288,9 +2225,7 @@ class _CareerHomePageState extends State<CareerHomePage>
                 ],
               ),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: _getDriverRatingColor(driver).withOpacity(0.3),
-                  width: 1),
+              border: Border.all(color: _getDriverRatingColor(driver).withOpacity(0.3), width: 1),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2384,12 +2319,8 @@ class _CareerHomePageState extends State<CareerHomePage>
   }
 
   Color _getDriverRatingColor(Driver driver) {
-    double rating = (driver.speed +
-            driver.consistency +
-            driver.tyreManagementSkill +
-            driver.racecraft +
-            driver.experience) /
-        5;
+    double rating =
+        (driver.speed + driver.consistency + driver.tyreManagementSkill + driver.racecraft + driver.experience) / 5;
     if (rating >= 90) return Colors.green[400]!;
     if (rating >= 80) return Colors.blue[400]!;
     if (rating >= 70) return Colors.orange[400]!;
@@ -2433,9 +2364,7 @@ class _CareerHomePageState extends State<CareerHomePage>
         },
         child: Container(
           decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.red[600]!.withOpacity(0.2)
-                : Colors.transparent,
+            color: isSelected ? Colors.red[600]!.withOpacity(0.2) : Colors.transparent,
             border: isSelected
                 ? Border(
                     top: BorderSide(color: Colors.red[600]!, width: 2),
@@ -2486,8 +2415,7 @@ class HorizontalBarChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double barHeight =
-        10; // ADJUST INI UNTUK KECILKAN BAR (default was 25)
+    final double barHeight = 10; // ADJUST INI UNTUK KECILKAN BAR (default was 25)
     final double spacing = 20; // BOLEH ADJUST SPACING JUGA (default was 10)
     final double totalHeight = (barHeight + spacing) * teams.length;
     final double startY = (size.height - totalHeight) / 2;
@@ -2498,10 +2426,7 @@ class HorizontalBarChartPainter extends CustomPainter {
     );
 
     // Find max performance for scaling
-    final double maxPerformance = teams
-        .map((t) => t.carPerformance)
-        .reduce((a, b) => a > b ? a : b)
-        .toDouble();
+    final double maxPerformance = teams.map((t) => t.carPerformance).reduce((a, b) => a > b ? a : b).toDouble();
     final double chartWidth = size.width * 0.6; // Leave space for labels
     final double labelWidth = size.width * 0.3;
 
@@ -2521,12 +2446,10 @@ class HorizontalBarChartPainter extends CustomPainter {
         ),
       );
       textPainter.layout(maxWidth: labelWidth);
-      textPainter.paint(
-          canvas, Offset(10, y + (barHeight - textPainter.height) / 2));
+      textPainter.paint(canvas, Offset(10, y + (barHeight - textPainter.height) / 2));
 
       // Calculate bar width based on performance
-      final double barWidth =
-          (team.carPerformance / maxPerformance) * chartWidth;
+      final double barWidth = (team.carPerformance / maxPerformance) * chartWidth;
       final double barStartX = labelWidth + 20;
 
       // Draw background bar
@@ -2566,10 +2489,7 @@ class HorizontalBarChartPainter extends CustomPainter {
         ),
       );
       textPainter.layout();
-      textPainter.paint(
-          canvas,
-          Offset(barStartX + barWidth + 8,
-              y + (barHeight - textPainter.height) / 2));
+      textPainter.paint(canvas, Offset(barStartX + barWidth + 8, y + (barHeight - textPainter.height) / 2));
     }
   }
 

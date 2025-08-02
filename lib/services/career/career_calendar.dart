@@ -123,24 +123,65 @@ class CareerCalendar extends ChangeNotifier {
 
   // Complete current race weekend
   void completeCurrentRaceWeekend() {
-    if (_currentRaceWeekend != null) {
-      _currentRaceWeekend!.isCompleted = true;
-      _currentRaceWeekend = null;
+    debugPrint("🏁 completeCurrentRaceWeekend called");
 
-      if (_currentRaceIndex < _raceWeekends.length) {
-        _currentDate = _raceWeekends[_currentRaceIndex].endDate.add(Duration(days: 1));
+    // Force a refresh of the next race detection
+    debugPrint("   Forcing calendar refresh...");
+    notifyListeners();
+  }
+
+// 🔧 ALSO ADD this new method to help with race completion:
+  void markRaceAsCompleted(String raceName) {
+    debugPrint("🏁 markRaceAsCompleted called for: $raceName");
+
+    for (int i = 0; i < _raceWeekends.length; i++) {
+      if (_raceWeekends[i].name == raceName) {
+        debugPrint("   Found race: ${_raceWeekends[i].name}");
+        debugPrint("   Before: completed = ${_raceWeekends[i].isCompleted}");
+
+        _raceWeekends[i].isCompleted = true;
+
+        debugPrint("   After: completed = ${_raceWeekends[i].isCompleted}");
+
+        // Update current race index to next incomplete race
+        for (int j = i + 1; j < _raceWeekends.length; j++) {
+          if (!_raceWeekends[j].isCompleted) {
+            _currentRaceIndex = j;
+            debugPrint("   Next race index: $j (${_raceWeekends[j].name})");
+            break;
+          }
+        }
+
+        // Clear current race weekend
+        _currentRaceWeekend = null;
+
+        // Update calendar date
+        _currentDate = _raceWeekends[i].endDate.add(Duration(days: 1));
+
+        debugPrint("✅ Race completion successful");
+        debugPrint("   Completed races: ${getCompletedRaces().length}");
+        debugPrint("   Next race: ${nextRaceWeekend?.name ?? 'None'}");
+
+        notifyListeners();
+        return;
       }
-
-      notifyListeners();
     }
+
+    debugPrint("❌ Race not found: $raceName");
   }
 
   RaceWeekend? _getNextRaceWeekend() {
-    for (int i = _currentRaceIndex; i < _raceWeekends.length; i++) {
+    debugPrint("🔍 Looking for next race weekend...");
+
+    // Find the first incomplete race from the beginning of the season
+    for (int i = 0; i < _raceWeekends.length; i++) {
+      debugPrint("   Checking ${_raceWeekends[i].name}: completed = ${_raceWeekends[i].isCompleted}");
       if (!_raceWeekends[i].isCompleted) {
+        debugPrint("🔍 Next race found: ${_raceWeekends[i].name} (Round ${_raceWeekends[i].round})");
         return _raceWeekends[i];
       }
     }
+    debugPrint("🏁 No more races - season complete!");
     return null;
   }
 
@@ -396,6 +437,7 @@ class CareerCalendar extends ChangeNotifier {
     try {
       return _raceWeekends.firstWhere((race) => race.name == name);
     } catch (e) {
+      debugPrint("❌ Could not find race weekend with name: $name");
       return null;
     }
   }

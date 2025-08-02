@@ -453,7 +453,7 @@ class CareerManager {
     required int points,
     bool polePosition = false,
     bool fastestLap = false,
-    List<Driver>? allRaceResults, // 🆕 NEW: Add this parameter
+    List<Driver>? allRaceResults,
   }) async {
     if (_currentCareerDriver == null) {
       debugPrint("❌ ERROR: No career driver found for race completion");
@@ -478,20 +478,18 @@ class CareerManager {
 
       debugPrint("✅ Career statistics updated");
 
-      // STEP 2: 🆕 NEW: Update championship standings with all race results
+      // STEP 2: Update championship standings with all race results
       if (allRaceResults != null && allRaceResults.isNotEmpty) {
         ChampionshipManager.updateRaceResults(allRaceResults);
-
-        // Get career driver's championship position
         int championshipPosition = ChampionshipManager.getCareerDriverPosition(_currentCareerDriver!.name);
         debugPrint("✅ Championship updated - Career driver now P$championshipPosition");
       } else {
         debugPrint("⚠️ No race results provided for championship update");
       }
 
-      // STEP 3: Mark race weekend as completed in the calendar
-      raceWeekend.completeRace();
-      CareerCalendar.instance.completeCurrentRaceWeekend();
+      // 🔧 FIX: Use the new markRaceAsCompleted method
+      debugPrint("🔍 Marking race '${raceWeekend.name}' as completed in calendar...");
+      CareerCalendar.instance.markRaceAsCompleted(raceWeekend.name);
 
       debugPrint("✅ Calendar advanced to next race");
 
@@ -501,19 +499,27 @@ class CareerManager {
       // STEP 5: Update any season-specific data
       _updateSeasonProgress();
 
+      // 🔧 FIX: Add explicit delay and notification to ensure UI updates
+      await Future.delayed(Duration(milliseconds: 100));
+      CareerCalendar.instance.notifyListeners();
+
       debugPrint("✅ Race weekend completion successful");
       debugPrint(
           "Updated totals: ${_currentCareerDriver!.careerWins} wins, ${_currentCareerDriver!.careerPoints} points");
+
+      // 🔧 FIX: Log calendar state for debugging
+      debugPrint("📅 Calendar state after completion:");
+      debugPrint("   Completed races: ${CareerCalendar.instance.getCompletedRaces().length}");
+      debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
     } catch (e) {
       debugPrint("❌ ERROR during race weekend completion: $e");
-      // Even if there's an error, try to save what we can
       try {
         await _autoSaveCareerProgress();
         debugPrint("⚠️ Emergency save completed despite error");
       } catch (saveError) {
         debugPrint("❌ CRITICAL: Failed to save career progress: $saveError");
       }
-      rethrow; // Re-throw the original error for upper layers to handle
+      rethrow;
     }
   }
 

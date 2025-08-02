@@ -1,4 +1,5 @@
-// 📁 Create this NEW file: lib/ui/career/career_calendar_widget.dart
+// 📁 lib/ui/career/career_calendar_widget.dart
+// 🔧 FIXED VERSION - Complete file with bug fixes
 
 import 'package:flutter/material.dart';
 import '../../services/career/career_calendar.dart';
@@ -41,20 +42,24 @@ class _CareerCalendarWidgetState extends State<CareerCalendarWidget> with Single
     CareerCalendar.instance.addListener(_onCalendarUpdate);
   }
 
+  // 🔧 FIX: Enhanced calendar update handler with proper state management
   void _onCalendarUpdate() {
-    setState(() {});
+    if (mounted) {
+      // 🔧 FIX: Add mounted check
+      setState(() {}); // 🔧 FIX: Force widget rebuild
 
-    if (CareerCalendar.instance.currentRaceWeekend != null && widget.onRaceWeekendReached != null) {
-      widget.onRaceWeekendReached!();
-    }
-
-    if (CareerCalendar.instance.isRunning && !CareerCalendar.instance.isPaused) {
-      if (!_pulseController.isAnimating) {
-        _pulseController.repeat(reverse: true);
+      if (CareerCalendar.instance.currentRaceWeekend != null && widget.onRaceWeekendReached != null) {
+        widget.onRaceWeekendReached!();
       }
-    } else {
-      _pulseController.stop();
-      _pulseController.reset();
+
+      if (CareerCalendar.instance.isRunning && !CareerCalendar.instance.isPaused) {
+        if (!_pulseController.isAnimating) {
+          _pulseController.repeat(reverse: true);
+        }
+      } else {
+        _pulseController.stop();
+        _pulseController.reset();
+      }
     }
   }
 
@@ -71,6 +76,12 @@ class _CareerCalendarWidgetState extends State<CareerCalendarWidget> with Single
       animation: CareerCalendar.instance,
       builder: (context, child) {
         final calendar = CareerCalendar.instance;
+        final nextRace = calendar.nextRaceWeekend; // 🔧 FIX: Get fresh next race
+
+        // 🔧 FIX: Add debug logging to track state
+        debugPrint("📅 Calendar Widget Rebuild:");
+        debugPrint("   Next race: ${nextRace?.name ?? 'None'}");
+        debugPrint("   Completed races: ${calendar.getCompletedRaces().length}");
 
         return Container(
           padding: EdgeInsets.all(16),
@@ -131,13 +142,7 @@ class _CareerCalendarWidgetState extends State<CareerCalendarWidget> with Single
                             color: _getStatusColor(calendar),
                             shape: BoxShape.circle,
                             boxShadow: calendar.isRunning && !calendar.isPaused
-                                ? [
-                                    BoxShadow(
-                                      color: _getStatusColor(calendar).withOpacity(0.6),
-                                      blurRadius: 8,
-                                      spreadRadius: 2,
-                                    ),
-                                  ]
+                                ? [BoxShadow(color: _getStatusColor(calendar).withOpacity(0.6), blurRadius: 4)]
                                 : null,
                           ),
                         ),
@@ -149,49 +154,36 @@ class _CareerCalendarWidgetState extends State<CareerCalendarWidget> with Single
 
               SizedBox(height: 16),
 
-              // Current date
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      calendar.currentDateFormatted,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (calendar.currentRaceWeekend != null)
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.orange[600],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+              // 🔧 FIX: Updated next race display with better state handling
+              if (nextRace != null) ...[
+                _buildNextRaceInfo(nextRace),
+                SizedBox(height: 12),
+              ] else ...[
+                // 🔧 FIX: Handle case when all races are completed
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.emoji_events, color: Colors.yellow, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
                         child: Text(
-                          'RACE WEEKEND',
+                          'SEASON COMPLETE! 🏆',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-
-              SizedBox(height: 12),
-
-              // Next race info
-              if (calendar.nextRaceWeekend != null) ...[
-                _buildNextRaceInfo(calendar.nextRaceWeekend!),
                 SizedBox(height: 12),
               ],
 
