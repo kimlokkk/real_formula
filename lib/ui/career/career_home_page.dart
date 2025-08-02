@@ -35,13 +35,31 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
 
     _initializeAnimations();
 
-    // 🔧 FIX: Force calendar refresh when page loads
+    // 🔧 FIX: Smart calendar initialization that preserves existing state
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      CareerCalendar.instance.initialize();
+      _initializeCalendarSafely();
       _fadeController.forward();
-      // 🔧 FIX: Add refresh career data call
       _refreshCareerData();
     });
+  }
+
+  void _initializeCalendarSafely() {
+    // Check if we have existing races with completion state
+    int existingRaces = CareerCalendar.instance.raceWeekends.length;
+    int completedRaces = CareerCalendar.instance.getCompletedRaces().length;
+
+    debugPrint("📅 Career home initializing calendar...");
+    debugPrint("   Existing races: $existingRaces");
+    debugPrint("   Completed races: $completedRaces");
+
+    if (existingRaces == 0) {
+      // Only initialize if we have no races at all (new career)
+      debugPrint("📅 No existing races found - initializing fresh calendar");
+      CareerCalendar.instance.initialize();
+    } else {
+      debugPrint("📅 Preserving existing calendar state");
+      debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
+    }
   }
 
   void _initializeAnimations() {

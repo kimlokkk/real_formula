@@ -73,6 +73,7 @@ class SaveManager {
       String? jsonString = prefs.getString(_currentCareerKey);
 
       if (jsonString == null) {
+        debugPrint("📅 No saved career found");
         return false;
       }
 
@@ -80,10 +81,22 @@ class SaveManager {
 
       // Validate save data
       if (!_isValidSaveData(saveData)) {
+        debugPrint("❌ Invalid save data");
         return false;
       }
 
-      // Load career data
+      debugPrint("📅 Loading saved career...");
+
+      // 🔧 FIX: Load calendar state FIRST to prevent it being overwritten
+      if (saveData.containsKey('calendarState')) {
+        debugPrint("📅 Loading calendar state from save data...");
+        await _loadCalendarState(saveData['calendarState']);
+      } else {
+        debugPrint("⚠️ No calendar state in save data - will use fresh calendar");
+        // Don't initialize here - let the career home page handle it if needed
+      }
+
+      // Then load career data
       await _loadCareerFromSaveData(saveData);
 
       return true;
@@ -330,7 +343,7 @@ class SaveManager {
         saveData['careerDriver'] is Map;
   }
 
-  // 🔧 ENHANCED: Load career data including calendar state
+  // 🔧 UPDATE your existing _loadCareerFromSaveData() method:
   static Future<void> _loadCareerFromSaveData(Map<String, dynamic> saveData) async {
     // Extract data
     int currentSeason = saveData['currentSeason'];
@@ -347,14 +360,8 @@ class SaveManager {
     CareerManager.resetCareer();
     CareerManager.loadCareerDriver(careerDriver, currentSeason);
 
-    // 🔧 NEW: Load calendar state if it exists
-    if (saveData.containsKey('calendarState')) {
-      debugPrint("📅 Loading calendar state from save data...");
-      await _loadCalendarState(saveData['calendarState']);
-    } else {
-      debugPrint("⚠️ No calendar state in save data - using fresh calendar");
-      CareerCalendar.instance.initialize();
-    }
+    debugPrint("✅ Career driver data loaded successfully");
+    // Note: Calendar state should already be loaded by now
   }
 
   // 🔧 NEW: Method to load calendar state

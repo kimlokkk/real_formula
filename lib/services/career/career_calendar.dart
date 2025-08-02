@@ -37,8 +37,16 @@ class CareerCalendar extends ChangeNotifier {
 
   // Initialize calendar
   void initialize() {
-    _generateF1Schedule();
-    _checkForRaceWeekend();
+    // 🔧 FIX: Only generate fresh schedule if we don't have races yet
+    if (_raceWeekends.isEmpty) {
+      debugPrint("📅 Initializing fresh calendar...");
+      _generateF1Schedule();
+      _checkForRaceWeekend();
+    } else {
+      debugPrint("📅 Calendar already has ${_raceWeekends.length} races, skipping reinitialization");
+      debugPrint("   Completed races: ${getCompletedRaces().length}");
+      debugPrint("   Next race: ${nextRaceWeekend?.name ?? 'None'}");
+    }
   }
 
   // Calendar control

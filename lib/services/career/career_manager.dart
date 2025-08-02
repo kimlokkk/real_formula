@@ -1,4 +1,6 @@
 // lib/services/career/career_manager.dart
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:real_formula/data/driver_data.dart';
@@ -143,17 +145,27 @@ class CareerManager {
     _currentCareerDriver!.updateTeamReputation(currentTeam, reputationChange);
   }
 
-  // 🆕 ENHANCED: Complete race weekend with comprehensive data updates and auto-save
-  // 🆕 ENHANCED: Complete race weekend with championship standings update
-// 🆕 NEW: Initialize championship when starting new career
   static void initializeNewCareer(CareerDriver careerDriver, int season) {
     _currentCareerDriver = careerDriver;
     _currentSeason = season;
 
+    // 🔧 FIX: Only initialize calendar for truly new careers
+    debugPrint("📅 Initializing new career - setting up fresh calendar");
+    CareerCalendar.instance.initialize();
+
     // Initialize championship standings
     ChampionshipManager.initializeChampionship();
 
-    debugPrint("✅ New career initialized with championship standings");
+    debugPrint("✅ New career initialized with fresh calendar and championship standings");
+  }
+
+// 🔧 ADD this method to load existing careers without resetting calendar:
+  static void loadCareerDriver(CareerDriver driver, int season) {
+    _currentCareerDriver = driver;
+    _currentSeason = season;
+
+    debugPrint("✅ Career driver loaded - preserving existing calendar state");
+    // Note: Don't call calendar.initialize() here as it would reset completed races
   }
 
 // 🆕 NEW: Auto-save career progress after race completion
@@ -501,6 +513,7 @@ class CareerManager {
 
       // 🔧 FIX: Add explicit delay and notification to ensure UI updates
       await Future.delayed(Duration(milliseconds: 100));
+      // ignore: invalid_use_of_protected_member
       CareerCalendar.instance.notifyListeners();
 
       debugPrint("✅ Race weekend completion successful");
@@ -557,12 +570,6 @@ class CareerManager {
     _currentCareerDriver = null;
     _currentSeason = 2025;
     _currentSeasonDrivers.clear();
-  }
-
-  // Add this public method to load career data
-  static void loadCareerDriver(CareerDriver driver, int season) {
-    _currentCareerDriver = driver;
-    _currentSeason = season;
   }
 
   // Add this public setter for current season
