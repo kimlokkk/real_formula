@@ -170,6 +170,38 @@ class CareerCalendar extends ChangeNotifier {
     debugPrint("❌ Race not found: $raceName");
   }
 
+  // Method to set current date (needed for loading saves)
+  void setCurrentDate(DateTime date) {
+    _currentDate = date;
+    notifyListeners();
+  }
+
+// Method to set current race index (needed for loading saves)
+  void setCurrentRaceIndex(int index) {
+    _currentRaceIndex = index;
+    notifyListeners();
+  }
+
+// Method to update a specific race weekend state
+  void updateRaceWeekendState(
+    String raceName, {
+    bool? isCompleted,
+    bool? hasQualifyingResults,
+    bool? hasRaceResults,
+  }) {
+    for (RaceWeekend weekend in _raceWeekends) {
+      if (weekend.name == raceName) {
+        if (isCompleted != null) weekend.isCompleted = isCompleted;
+        if (hasQualifyingResults != null) weekend.hasQualifyingResults = hasQualifyingResults;
+        if (hasRaceResults != null) weekend.hasRaceResults = hasRaceResults;
+
+        debugPrint("📅 Updated race state: ${raceName} (completed: ${weekend.isCompleted})");
+        break;
+      }
+    }
+    notifyListeners();
+  }
+
   RaceWeekend? _getNextRaceWeekend() {
     debugPrint("🔍 Looking for next race weekend...");
 

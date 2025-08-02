@@ -4,15 +4,17 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/career/career_driver.dart';
+import '../../models/career/race_weekend.dart';
 import '../../data/team_data.dart';
 import 'career_manager.dart';
+import 'career_calendar.dart';
 
 class SaveManager {
   static const String _currentCareerKey = 'current_career';
   static const String _careerSlotsKey = 'career_slots';
   static const int maxCareerSlots = 3;
 
-  /// Save current career progress
+  /// Save current career progress (ENHANCED with calendar state)
   static Future<bool> saveCurrentCareer() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -21,12 +23,33 @@ class SaveManager {
         return false;
       }
 
-      // Create save data
+      // 🔧 NEW: Include calendar state in save data
+      List<Map<String, dynamic>> raceWeekendData = [];
+      for (RaceWeekend weekend in CareerCalendar.instance.raceWeekends) {
+        raceWeekendData.add({
+          'name': weekend.name,
+          'isCompleted': weekend.isCompleted,
+          'hasQualifyingResults': weekend.hasQualifyingResults,
+          'hasRaceResults': weekend.hasRaceResults,
+          'round': weekend.round,
+        });
+      }
+
+      int completedRacesCount = raceWeekendData.where((r) => r['isCompleted'] == true).length;
+      debugPrint("💾 Saving calendar state with $completedRacesCount completed races");
+
+      // Create save data (enhanced with calendar state)
       Map<String, dynamic> saveData = {
         'version': '1.0',
         'savedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
         'careerDriver': CareerManager.currentCareerDriver!.toJson(),
+        // 🔧 NEW: Add calendar state
+        'calendarState': {
+          'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
+          'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
+          'raceWeekends': raceWeekendData,
+        },
       };
 
       // Save to shared preferences
@@ -43,7 +66,7 @@ class SaveManager {
     }
   }
 
-  /// Load current career progress
+  /// Load current career progress (ENHANCED with calendar state)
   static Future<bool> loadCurrentCareer() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -104,32 +127,14 @@ class SaveManager {
         'currentSeason': saveData['currentSeason'],
         'careerWins': driverData['careerWins'] ?? 0,
         'careerPoints': driverData['careerPoints'] ?? 0,
-        'seasonsCompleted': driverData['seasonsCompleted'] ?? 0,
         'savedAt': saveData['savedAt'],
       };
     } catch (e) {
-      debugPrint('Error getting career save info: $e');
       return null;
     }
   }
 
-  /// Delete current career save
-  static Future<bool> deleteCurrentCareer() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_currentCareerKey);
-
-      // Reset career manager
-      CareerManager.resetCareer();
-
-      return true;
-    } catch (e) {
-      debugPrint('Error deleting career: $e');
-      return false;
-    }
-  }
-
-  /// Get all career save slots
+  /// Get all career slots
   static Future<List<Map<String, dynamic>>> getCareerSlots() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -158,6 +163,18 @@ class SaveManager {
         return false;
       }
 
+      // 🔧 Enhanced: Include calendar state in slot saves too
+      List<Map<String, dynamic>> raceWeekendData = [];
+      for (RaceWeekend weekend in CareerCalendar.instance.raceWeekends) {
+        raceWeekendData.add({
+          'name': weekend.name,
+          'isCompleted': weekend.isCompleted,
+          'hasQualifyingResults': weekend.hasQualifyingResults,
+          'hasRaceResults': weekend.hasRaceResults,
+          'round': weekend.round,
+        });
+      }
+
       // Create save data
       Map<String, dynamic> saveData = {
         'version': '1.0',
@@ -166,6 +183,12 @@ class SaveManager {
         'savedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
         'careerDriver': CareerManager.currentCareerDriver!.toJson(),
+        // 🔧 NEW: Add calendar state to slot saves
+        'calendarState': {
+          'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
+          'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
+          'raceWeekends': raceWeekendData,
+        },
       };
 
       final prefs = await SharedPreferences.getInstance();
@@ -231,11 +254,29 @@ class SaveManager {
         return null;
       }
 
+      // 🔧 Enhanced: Include calendar state in exports
+      List<Map<String, dynamic>> raceWeekendData = [];
+      for (RaceWeekend weekend in CareerCalendar.instance.raceWeekends) {
+        raceWeekendData.add({
+          'name': weekend.name,
+          'isCompleted': weekend.isCompleted,
+          'hasQualifyingResults': weekend.hasQualifyingResults,
+          'hasRaceResults': weekend.hasRaceResults,
+          'round': weekend.round,
+        });
+      }
+
       Map<String, dynamic> exportData = {
         'version': '1.0',
         'exportedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
         'careerDriver': CareerManager.currentCareerDriver!.toJson(),
+        // 🔧 NEW: Add calendar state to exports
+        'calendarState': {
+          'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
+          'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
+          'raceWeekends': raceWeekendData,
+        },
       };
 
       return jsonEncode(exportData);
@@ -289,7 +330,7 @@ class SaveManager {
         saveData['careerDriver'] is Map;
   }
 
-  // In save_manager.dart, in the _loadCareerFromSaveData method:
+  // 🔧 ENHANCED: Load career data including calendar state
   static Future<void> _loadCareerFromSaveData(Map<String, dynamic> saveData) async {
     // Extract data
     int currentSeason = saveData['currentSeason'];
@@ -299,12 +340,69 @@ class SaveManager {
     String teamName = driverData['teamName'];
     var team = TeamData.getTeamByName(teamName);
 
-    // Create career driver from save data - FIX: Add the team parameter
+    // Create career driver from save data
     CareerDriver careerDriver = CareerDriver.fromJson(driverData, team);
 
-    // Update career manager - Use the proper method to set the data
+    // Update career manager
     CareerManager.resetCareer();
     CareerManager.loadCareerDriver(careerDriver, currentSeason);
+
+    // 🔧 NEW: Load calendar state if it exists
+    if (saveData.containsKey('calendarState')) {
+      debugPrint("📅 Loading calendar state from save data...");
+      await _loadCalendarState(saveData['calendarState']);
+    } else {
+      debugPrint("⚠️ No calendar state in save data - using fresh calendar");
+      CareerCalendar.instance.initialize();
+    }
+  }
+
+  // 🔧 NEW: Method to load calendar state
+  static Future<void> _loadCalendarState(Map<String, dynamic> calendarData) async {
+    try {
+      // Initialize calendar first
+      CareerCalendar.instance.initialize();
+
+      // Load basic calendar data
+      if (calendarData.containsKey('currentDate')) {
+        String currentDateStr = calendarData['currentDate'];
+        CareerCalendar.instance.setCurrentDate(DateTime.parse(currentDateStr));
+      }
+
+      if (calendarData.containsKey('currentRaceIndex')) {
+        int currentRaceIndex = calendarData['currentRaceIndex'] ?? 0;
+        CareerCalendar.instance.setCurrentRaceIndex(currentRaceIndex);
+      }
+
+      // Load race completion states
+      if (calendarData.containsKey('raceWeekends')) {
+        List<dynamic> raceWeekendData = calendarData['raceWeekends'];
+
+        for (Map<String, dynamic> raceData in raceWeekendData) {
+          String raceName = raceData['name'];
+          bool isCompleted = raceData['isCompleted'] ?? false;
+          bool hasQualifyingResults = raceData['hasQualifyingResults'] ?? false;
+          bool hasRaceResults = raceData['hasRaceResults'] ?? false;
+
+          // Update the race weekend state
+          CareerCalendar.instance.updateRaceWeekendState(
+            raceName,
+            isCompleted: isCompleted,
+            hasQualifyingResults: hasQualifyingResults,
+            hasRaceResults: hasRaceResults,
+          );
+        }
+      }
+
+      int completedCount = CareerCalendar.instance.getCompletedRaces().length;
+      debugPrint("✅ Calendar state loaded successfully");
+      debugPrint("   Completed races: $completedCount");
+      debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
+    } catch (e) {
+      debugPrint("❌ Error loading calendar state: $e");
+      // Fall back to fresh calendar
+      CareerCalendar.instance.initialize();
+    }
   }
 
   static Future<void> _updateCareerSlotsList(Map<String, dynamic> saveData) async {
