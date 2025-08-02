@@ -461,4 +461,36 @@ class SaveManager {
       };
     }
   }
+
+  // Delete specific career slot
+  static Future<bool> deleteCareerSlot(int slotIndex) async {
+    if (slotIndex < 0 || slotIndex >= maxCareerSlots) {
+      return false;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get existing slots
+      List<Map<String, dynamic>> slots = await getCareerSlots();
+
+      // Ensure we have enough slots
+      while (slots.length <= slotIndex) {
+        slots.add({});
+      }
+
+      // Clear the specific slot
+      slots[slotIndex] = {};
+
+      // Save updated slots
+      String jsonString = jsonEncode(slots);
+      await prefs.setString(_careerSlotsKey, jsonString);
+
+      debugPrint('✅ Career slot $slotIndex deleted successfully');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error deleting career slot $slotIndex: $e');
+      return false;
+    }
+  }
 }

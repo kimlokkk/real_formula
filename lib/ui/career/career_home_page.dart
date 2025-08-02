@@ -1,5 +1,7 @@
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
+import 'package:real_formula/services/career/save_manager.dart';
+
 import '../../models/team.dart'; // lib/ui/career/career_home_page.dart - Navigation-Based Career Hub with Real Data
 import 'package:flutter/material.dart';
 import 'package:real_formula/services/career/career_calendar.dart';
@@ -35,12 +37,30 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
 
     _initializeAnimations();
 
-    // 🔧 FIX: Smart calendar initialization that preserves existing state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeCalendarSafely();
       _fadeController.forward();
       _refreshCareerData();
+
+      // 🆕 NEW: Auto-save when entering career home (safety save)
+      _autoSaveCareer();
     });
+  }
+
+// 🆕 NEW: Add this method to career_home_page.dart
+  void _autoSaveCareer() async {
+    if (CareerManager.currentCareerDriver != null) {
+      try {
+        bool success = await SaveManager.saveCurrentCareer();
+        if (success) {
+          debugPrint("✅ Career auto-saved on home page entry");
+        } else {
+          debugPrint("⚠️ Auto-save failed on home page entry");
+        }
+      } catch (e) {
+        debugPrint("❌ Auto-save error: $e");
+      }
+    }
   }
 
   void _initializeCalendarSafely() {
@@ -2414,13 +2434,58 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     );
   }
 
-  void _saveCareer() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Career saved successfully!'),
-        backgroundColor: Colors.green[600],
-      ),
-    );
+  void _saveCareer() async {
+    try {
+      bool success = await SaveManager.saveCurrentCareer();
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check, color: Colors.white),
+                SizedBox(width: 8),
+                Text(
+                  'Career saved successfully!',
+                  style: TextStyle(fontFamily: 'Formula1'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Text(
+                  'Failed to save career!',
+                  style: TextStyle(fontFamily: 'Formula1'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving career: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving career: $e'),
+          backgroundColor: Colors.red[600],
+        ),
+      );
+    }
   }
 }
 

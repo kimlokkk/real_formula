@@ -1,6 +1,7 @@
 // lib/ui/career/driver_creation_page.dart - Enhanced F1 Theme
 import 'package:flutter/material.dart';
 import 'package:real_formula/services/career/career_manager.dart';
+import 'package:real_formula/services/career/save_manager.dart';
 import '../../models/team.dart';
 import '../../models/career/career_driver.dart';
 import '../../data/team_data.dart';
@@ -40,6 +41,260 @@ class _DriverCreationPageState extends State<DriverCreationPage> with TickerProv
   bool _teamSelected = false;
 
   final int maxSkillPoints = 50;
+
+  Future<String?> _showExistingCareerDialog() async {
+    Map<String, dynamic>? existingCareer = await SaveManager.getCareerSaveInfo();
+
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            'Existing Career Found',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Formula1',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You already have an active career:',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                ),
+              ),
+              SizedBox(height: 12),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[900]!.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[600]!, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${existingCareer?['driverName']} - ${existingCareer?['teamName']}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Formula1',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      'Wins: ${existingCareer?['careerWins']} | Points: ${existingCareer?['careerPoints']}',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontFamily: 'Formula1',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'What would you like to do?',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'cancel'),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, 'overwrite'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'OVERWRITE',
+                style: TextStyle(
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, 'backup'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'BACKUP & CREATE',
+                style: TextStyle(
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+// 🆕 NEW: Backup existing career to first available slot
+  Future<void> _backupExistingCareer() async {
+    try {
+      // Find first available slot
+      List<Map<String, dynamic>> slots = await SaveManager.getCareerSlots();
+      int? availableSlot;
+
+      for (int i = 0; i < SaveManager.maxCareerSlots; i++) {
+        bool hasData = i < slots.length && slots[i].isNotEmpty;
+        if (!hasData) {
+          availableSlot = i;
+          break;
+        }
+      }
+
+      if (availableSlot == null) {
+        // No available slots, ask user which to overwrite
+        availableSlot = await _showSlotOverwriteDialog(slots);
+        if (availableSlot == null) return; // User cancelled
+      }
+
+      // Get current career info for slot name
+      Map<String, dynamic>? currentCareer = await SaveManager.getCareerSaveInfo();
+      String slotName = currentCareer != null ? '${currentCareer['driverName']} Career' : 'Backup Career';
+
+      // Save current career to the slot
+      bool success = await SaveManager.saveCareerToSlot(availableSlot, slotName);
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.archive, color: Colors.white),
+                SizedBox(width: 8),
+                Text(
+                  'Previous career backed up to Slot ${availableSlot + 1}',
+                  style: TextStyle(fontFamily: 'Formula1'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.blue[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error backing up career: $e');
+    }
+  }
+
+// 🆕 NEW: Show dialog to choose which slot to overwrite
+  Future<int?> _showSlotOverwriteDialog(List<Map<String, dynamic>> slots) async {
+    return showDialog<int>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            'All Slots Full',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Formula1',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'All save slots are full. Choose which slot to overwrite:',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                ),
+              ),
+              SizedBox(height: 16),
+              ...List.generate(SaveManager.maxCareerSlots, (index) {
+                Map<String, dynamic>? slotData = index < slots.length ? slots[index] : null;
+                bool hasData = slotData != null && slotData.isNotEmpty;
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.orange[600],
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Formula1',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    hasData ? (slotData['slotName'] ?? 'Slot ${index + 1}') : 'Empty',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Formula1',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: hasData
+                      ? Text(
+                          '${slotData['careerDriver']['name']} - ${slotData['careerDriver']['teamName']}',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontFamily: 'Formula1',
+                            fontSize: 12,
+                          ),
+                        )
+                      : null,
+                  onTap: () => Navigator.pop(context, index),
+                );
+              }),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -985,20 +1240,283 @@ class _DriverCreationPageState extends State<DriverCreationPage> with TickerProv
     );
   }
 
-  void _createDriver() {
-    // Create the career driver
-    CareerDriver driver = CareerManager.startNewCareer(
-      driverName: _nameController.text.trim(),
-      abbreviation: _abbreviationController.text.trim().toUpperCase(),
-      startingTeam: selectedTeam!,
-      initialSkillDistribution: skillPoints,
-    );
+  // 🔧 SIMPLE FIX: Update driver_creation_page.dart _createDriver() method
 
-    // Navigate to career home
-    Navigator.pushReplacementNamed(
-      context,
-      '/career_home',
-      arguments: {'careerDriver': driver},
+  // 🔧 SUPER SIMPLE FIX: Update driver_creation_page.dart _createDriver() method
+
+  void _createDriver() async {
+    try {
+      // 🆕 NEW: Check if we can create a new career
+      bool canCreate = await _checkCanCreateNewCareer();
+      if (!canCreate) {
+        return; // Don't create if slots are full
+      }
+
+      // Create the new career driver
+      CareerDriver driver = CareerManager.startNewCareer(
+        driverName: _nameController.text.trim(),
+        abbreviation: _abbreviationController.text.trim().toUpperCase(),
+        startingTeam: selectedTeam!,
+        initialSkillDistribution: skillPoints,
+      );
+
+      // Save to next available slot and make it main
+      await _saveToNextSlotAndMakeMain(driver);
+
+      // Navigate to career home
+      Navigator.pushReplacementNamed(
+        context,
+        '/career_home',
+        arguments: {'careerDriver': driver},
+      );
+    } catch (e) {
+      debugPrint("❌ Error creating driver: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error creating career: $e'),
+          backgroundColor: Colors.red[600],
+        ),
+      );
+    }
+  }
+
+// 🆕 NEW: Save to next available slot and make it main
+  Future<void> _saveToNextSlotAndMakeMain(CareerDriver driver) async {
+    try {
+      // Find next available slot
+      List<Map<String, dynamic>> slots = await SaveManager.getCareerSlots();
+      int? nextSlot;
+
+      // Find first empty slot
+      for (int i = 0; i < SaveManager.maxCareerSlots; i++) {
+        bool hasData = i < slots.length && slots[i].isNotEmpty;
+        if (!hasData) {
+          nextSlot = i;
+          break;
+        }
+      }
+
+      if (nextSlot == null) {
+        throw Exception("No available slots found - this should not happen after slot check");
+      }
+
+      // Create slot name
+      String slotName = '${driver.name} Career';
+
+      // Save to the slot
+      bool slotSuccess = await SaveManager.saveCareerToSlot(nextSlot, slotName);
+
+      // Also save as main career
+      bool mainSuccess = await SaveManager.saveCurrentCareer();
+
+      if (slotSuccess && mainSuccess) {
+        debugPrint("✅ Career saved to Slot ${nextSlot + 1} and set as main");
+
+        // Show success notification
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Career saved to Slot ${nextSlot + 1} and set as active!',
+                  style: TextStyle(fontFamily: 'Formula1', fontSize: 12),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        debugPrint("❌ Failed to save career");
+        throw Exception("Failed to save career to slot or main");
+      }
+    } catch (e) {
+      debugPrint('❌ Error saving to slot: $e');
+      rethrow;
+    }
+  }
+
+  // 🆕 NEW: Check if we can create a new career
+  Future<bool> _checkCanCreateNewCareer() async {
+    try {
+      // Check if there's an existing main save
+      bool hasExistingCareer = await SaveManager.hasSavedCareer();
+
+      if (!hasExistingCareer) {
+        // No existing career, safe to create new one
+        return true;
+      }
+
+      // There's an existing career, check if there's an available slot to move it to
+      List<Map<String, dynamic>> slots = await SaveManager.getCareerSlots();
+
+      // Find if there's an available slot
+      bool hasAvailableSlot = false;
+      for (int i = 0; i < SaveManager.maxCareerSlots; i++) {
+        bool hasData = i < slots.length && slots[i].isNotEmpty;
+        if (!hasData) {
+          hasAvailableSlot = true;
+          break;
+        }
+      }
+
+      if (hasAvailableSlot) {
+        // There's an available slot, safe to create
+        return true;
+      }
+
+      // All slots are full - show warning dialog
+      await _showSlotsFullDialog();
+      return false;
+    } catch (e) {
+      debugPrint('Error checking slots: $e');
+      return true; // Allow creation if we can't check (fallback)
+    }
+  }
+
+// 🆕 NEW: Show dialog when all slots are full
+  Future<void> _showSlotsFullDialog() async {
+    Map<String, dynamic>? currentCareer = await SaveManager.getCareerSaveInfo();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.orange[400], size: 24),
+              SizedBox(width: 8),
+              Text(
+                'All Slots Full',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You already have a current career and all 3 save slots are full.',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                ),
+              ),
+              SizedBox(height: 16),
+              if (currentCareer != null) ...[
+                Text(
+                  'Current Career:',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Formula1',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[900]!.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[600]!, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${currentCareer['driverName']} - ${currentCareer['teamName']}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Formula1',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        'Wins: ${currentCareer['careerWins']} | Points: ${currentCareer['careerPoints']}',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontFamily: 'Formula1',
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 16),
+              ],
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[900]!.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[600]!, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.orange[400], size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'To create a new career, please delete one of your existing save slots first.',
+                        style: TextStyle(
+                          color: Colors.orange[400],
+                          fontFamily: 'Formula1',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Go back to main menu
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'MANAGE SLOTS',
+                style: TextStyle(
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
