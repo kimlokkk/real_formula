@@ -2,8 +2,12 @@
 import '../driver.dart';
 import '../team.dart';
 import 'contract.dart';
+import 'dart:math';
 
 class CareerDriver extends Driver {
+  // UNIQUE CAREER IDENTIFIER
+  final String careerId; // Unique identifier for this specific career
+
   // Career progression
   int experiencePoints;
   int totalCareerXP;
@@ -29,6 +33,7 @@ class CareerDriver extends Driver {
 
   // Constructor
   CareerDriver({
+    required this.careerId, // Now required
     required super.name,
     required super.abbreviation,
     required super.team,
@@ -62,6 +67,7 @@ class CareerDriver extends Driver {
     required Team startingTeam,
   }) {
     return CareerDriver(
+      careerId: _generateUniqueCareerID(), // Generate unique ID
       name: name,
       abbreviation: abbreviation,
       team: startingTeam,
@@ -74,6 +80,13 @@ class CareerDriver extends Driver {
       // Initialize team reputation (neutral with all teams)
       teamReputation: _initializeTeamReputation(),
     );
+  }
+
+  // Generate a unique career ID
+  static String _generateUniqueCareerID() {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = Random().nextInt(999999);
+    return 'career_${timestamp}_$random';
   }
 
   // Initialize neutral reputation with all teams
@@ -115,7 +128,7 @@ class CareerDriver extends Driver {
     return experiencePoints >= getUpgradeCost(currentSkillLevel);
   }
 
-  // Upgrade specific skills
+  // Upgrade methods (each skill has individual upgrade method)
   bool upgradeSpeed() {
     if (canUpgradeSkill(speed)) {
       int cost = getUpgradeCost(speed);
@@ -224,6 +237,34 @@ class CareerDriver extends Driver {
     return baseXP;
   }
 
+  // Update race stats
+  void updateAfterRace({
+    required int position,
+    required int points,
+    bool isWin = false,
+    bool isPodium = false,
+    bool isPole = false,
+  }) {
+    careerRaces++;
+    careerPoints += points;
+    currentSeasonPoints += points;
+
+    if (isWin) {
+      careerWins++;
+      currentSeasonWins++;
+    }
+
+    if (isPodium) {
+      careerPodiums++;
+      currentSeasonPodiums++;
+    }
+
+    if (isPole) {
+      careerPoles++;
+      currentSeasonPoles++;
+    }
+  }
+
   // Team reputation methods
   int getTeamReputation(String teamName) {
     return teamReputation[teamName] ?? 50;
@@ -275,6 +316,7 @@ class CareerDriver extends Driver {
   // Convert to/from JSON for save system
   Map<String, dynamic> toJson() {
     return {
+      'careerId': careerId, // Include career ID in save data
       'name': name,
       'abbreviation': abbreviation,
       'teamName': team.name,
@@ -304,6 +346,7 @@ class CareerDriver extends Driver {
   // Create CareerDriver from JSON
   static CareerDriver fromJson(Map<String, dynamic> json, Team team) {
     return CareerDriver(
+      careerId: json['careerId'] ?? _generateUniqueCareerID(), // Handle legacy saves without career ID
       name: json['name'],
       abbreviation: json['abbreviation'],
       team: team,
@@ -332,6 +375,6 @@ class CareerDriver extends Driver {
 
   @override
   String toString() {
-    return 'CareerDriver(name: $name, team: ${team.name}, rating: ${careerRating.toStringAsFixed(1)}, wins: $careerWins)';
+    return 'CareerDriver(id: $careerId, name: $name, team: ${team.name}, rating: ${careerRating.toStringAsFixed(1)}, wins: $careerWins)';
   }
 }

@@ -32,12 +32,14 @@ class CareerManager {
     required Team startingTeam,
     Map<String, int>? initialSkillDistribution,
   }) {
-    // Create new career driver
+    // Create new career driver (this now generates a unique career ID)
     _currentCareerDriver = CareerDriver.createNew(
       name: driverName,
       abbreviation: abbreviation,
       startingTeam: startingTeam,
     );
+
+    debugPrint("🆕 Created new career with ID: ${_currentCareerDriver!.careerId}");
 
     // Apply initial skill points (50 points to distribute)
     if (initialSkillDistribution != null) {
@@ -55,6 +57,8 @@ class CareerManager {
 
     // Initialize season drivers (replace one AI driver with player)
     _initializeSeasonDrivers();
+
+    debugPrint("✅ New career started - ${_currentCareerDriver!.name} (ID: ${_currentCareerDriver!.careerId})");
 
     return _currentCareerDriver!;
   }

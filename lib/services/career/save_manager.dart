@@ -22,6 +22,7 @@ class SaveSlot {
   final DateTime lastSaved;
   final String? nextRaceName;
   final bool isEmpty;
+  final String? careerId; // ADDED: Career ID for proper identification
 
   SaveSlot({
     required this.slotIndex,
@@ -35,6 +36,7 @@ class SaveSlot {
     required this.lastSaved,
     this.nextRaceName,
     this.isEmpty = false,
+    this.careerId, // ADDED: Career ID parameter
   });
 
   static SaveSlot empty(int slotIndex) {
@@ -49,6 +51,7 @@ class SaveSlot {
       careerPoints: 0,
       lastSaved: DateTime.now(),
       isEmpty: true,
+      careerId: null, // ADDED: No career ID for empty slots
     );
   }
 
@@ -85,6 +88,7 @@ class SaveSlot {
         lastSaved: DateTime.parse(saveData['savedAt']),
         nextRaceName: nextRaceName,
         isEmpty: false,
+        careerId: driverData['careerId'], // ADDED: Extract career ID from save data
       );
     } catch (e) {
       debugPrint('Error creating SaveSlot from data: $e');
@@ -121,7 +125,7 @@ class SaveManager {
   // ONLY the slots key - old system completely removed
   static const String _careerSlotsKey = 'career_slots';
   static const int maxCareerSlots = 5;
-  static const String _saveVersion = '2.0'; // New version
+  static const String _saveVersion = '2.1'; // Updated version for career ID support
 
   static Future<bool> autoLoadMostRecentCareer() async {
     try {
@@ -161,38 +165,43 @@ class SaveManager {
     }
   }
 
-  /// Save current career to slot 0 (auto-save)
+  /// Save current career to slot (FIXED: Now uses career ID for proper identification)
   static Future<bool> saveCurrentCareer() async {
     try {
       if (CareerManager.currentCareerDriver == null) {
         return false;
       }
 
+      String currentCareerID = CareerManager.currentCareerDriver!.careerId;
       String driverName = CareerManager.currentCareerDriver!.name;
 
-      // Check if driver already has a slot
+      // Check if this specific career (by ID) already has a slot
       List<SaveSlot> slots = await getAllSaveSlots();
       int existingSlot = -1;
 
       for (int i = 0; i < slots.length; i++) {
-        if (!slots[i].isEmpty && slots[i].driverName == driverName) {
+        if (!slots[i].isEmpty && slots[i].careerId == currentCareerID) {
           existingSlot = i;
+          debugPrint("🔄 Found existing slot $i for career ID: $currentCareerID");
           break;
         }
       }
 
       if (existingSlot >= 0) {
-        // Update existing slot
+        // Update existing slot for this specific career
+        debugPrint("💾 Updating existing career in slot $existingSlot");
         return await saveCareerToSlot(existingSlot, slots[existingSlot].saveName);
       } else {
-        // Find first empty slot
+        // Find first empty slot for new career
         for (int i = 0; i < maxCareerSlots; i++) {
-          if (slots[i].isEmpty) {
+          if (i >= slots.length || slots[i].isEmpty) {
+            debugPrint("🆕 Saving new career to empty slot $i");
             return await saveCareerToSlot(i, '$driverName Career');
           }
         }
 
-        // If no empty slots, overwrite slot 0
+        // If no empty slots, overwrite slot 0 (with warning)
+        debugPrint("⚠️ No empty slots! Overwriting slot 0");
         return await saveCareerToSlot(0, '$driverName Career');
       }
     } catch (e) {
@@ -201,24 +210,24 @@ class SaveManager {
     }
   }
 
-  /// Load career from any slot (finds current driver)
+  /// Load career from any slot (finds current driver by ID)
   static Future<bool> loadCurrentCareer() async {
     try {
       if (CareerManager.currentCareerDriver == null) {
         return false;
       }
 
-      String driverName = CareerManager.currentCareerDriver!.name;
+      String currentCareerID = CareerManager.currentCareerDriver!.careerId;
       List<SaveSlot> slots = await getAllSaveSlots();
 
-      // Find slot with this driver
+      // Find slot with this specific career ID
       for (int i = 0; i < slots.length; i++) {
-        if (!slots[i].isEmpty && slots[i].driverName == driverName) {
+        if (!slots[i].isEmpty && slots[i].careerId == currentCareerID) {
           return await loadCareerFromSlot(i);
         }
       }
 
-      debugPrint("📅 No saved career found for $driverName");
+      debugPrint("📅 No saved career found for career ID: $currentCareerID");
       return false;
     } catch (e) {
       debugPrint('❌ Error loading career: $e');
@@ -245,15 +254,15 @@ class SaveManager {
         return false;
       }
 
-      String currentDriverName = CareerManager.currentCareerDriver!.name;
+      String currentCareerID = CareerManager.currentCareerDriver!.careerId;
       List<SaveSlot> slots = await getAllSaveSlots();
 
-      bool existsInSlots = slots.any((slot) => !slot.isEmpty && slot.driverName == currentDriverName);
+      bool existsInSlots = slots.any((slot) => !slot.isEmpty && slot.careerId == currentCareerID);
 
       if (existsInSlots) {
-        debugPrint("✅ Continue career available for $currentDriverName");
+        debugPrint("✅ Continue career available for career ID: $currentCareerID");
       } else {
-        debugPrint("⚠️ Loaded career $currentDriverName not found in slots");
+        debugPrint("⚠️ Loaded career $currentCareerID not found in slots");
       }
 
       return existsInSlots;
@@ -342,7 +351,7 @@ class SaveManager {
         'slotName': slotName.isNotEmpty ? slotName : '${CareerManager.currentCareerDriver!.name} Career',
         'savedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
-        'careerDriver': CareerManager.currentCareerDriver!.toJson(),
+        'careerDriver': CareerManager.currentCareerDriver!.toJson(), // This now includes career ID
         'calendarState': {
           'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
           'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
@@ -372,7 +381,8 @@ class SaveManager {
       String jsonString = jsonEncode(slots);
       await prefs.setString(_careerSlotsKey, jsonString);
 
-      debugPrint("✅ Career saved to slot $slotIndex as '${saveData['slotName']}'");
+      debugPrint(
+          "✅ Career saved to slot $slotIndex as '${saveData['slotName']}' (ID: ${CareerManager.currentCareerDriver!.careerId})");
       return true;
     } catch (e) {
       debugPrint('❌ Error saving career to slot: $e');
@@ -445,15 +455,17 @@ class SaveManager {
       List<dynamic> slotsData = jsonDecode(jsonString);
 
       if (slotIndex < slotsData.length) {
-        // Get deleted driver name
+        // Get deleted career info
         Map<String, dynamic>? slotData = slotsData[slotIndex];
+        String? deletedCareerID;
         String? deletedDriverName;
 
         if (slotData != null && slotData.isNotEmpty) {
           try {
+            deletedCareerID = slotData['careerDriver']?['careerId'];
             deletedDriverName = slotData['careerDriver']?['name'];
           } catch (e) {
-            debugPrint('Could not get driver name from deleted slot');
+            debugPrint('Could not get career info from deleted slot');
           }
         }
 
@@ -467,8 +479,8 @@ class SaveManager {
 
         // If deleted career is currently loaded, reset career manager
         if (CareerManager.currentCareerDriver != null &&
-            deletedDriverName != null &&
-            CareerManager.currentCareerDriver!.name == deletedDriverName) {
+            deletedCareerID != null &&
+            CareerManager.currentCareerDriver!.careerId == deletedCareerID) {
           debugPrint("🔧 Resetting career manager (deleted current career)");
           CareerManager.resetCareer();
         }
@@ -537,7 +549,7 @@ class SaveManager {
       CareerManager.resetCareer();
       CareerManager.loadCareerDriver(careerDriver, currentSeason);
 
-      debugPrint("✅ Career driver data loaded successfully");
+      debugPrint("✅ Career driver data loaded successfully (Career ID: ${careerDriver.careerId})");
     } catch (e) {
       debugPrint("❌ Error loading career from save data: $e");
       throw e;
