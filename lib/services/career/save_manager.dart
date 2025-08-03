@@ -10,9 +10,9 @@ import 'career_manager.dart';
 import 'career_calendar.dart';
 
 class SaveManager {
-  static const String _currentCareerKey = 'current_career'; // Main save (dedicated)
-  static const String _careerSlotsKey = 'career_slots'; // Additional slots
-  static const int maxAdditionalSlots = 2; // Only 2 additional slots now
+  static const String _currentCareerKey = 'current_career';
+  static const String _careerSlotsKey = 'career_slots';
+  static const int maxCareerSlots = 3;
 
   /// Save current career progress (ENHANCED with calendar state)
   static Future<bool> saveCurrentCareer() async {
@@ -23,7 +23,7 @@ class SaveManager {
         return false;
       }
 
-      // Include calendar state in save data
+      // 🔧 NEW: Include calendar state in save data
       List<Map<String, dynamic>> raceWeekendData = [];
       for (RaceWeekend weekend in CareerCalendar.instance.raceWeekends) {
         raceWeekendData.add({
@@ -44,7 +44,7 @@ class SaveManager {
         'savedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
         'careerDriver': CareerManager.currentCareerDriver!.toJson(),
-        // Add calendar state
+        // 🔧 NEW: Add calendar state
         'calendarState': {
           'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
           'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
@@ -55,6 +55,9 @@ class SaveManager {
       // Save to shared preferences
       String jsonString = jsonEncode(saveData);
       await prefs.setString(_currentCareerKey, jsonString);
+
+      // Also update career slots list
+      await _updateCareerSlotsList(saveData);
 
       return true;
     } catch (e) {
@@ -84,12 +87,13 @@ class SaveManager {
 
       debugPrint("📅 Loading saved career...");
 
-      // Load calendar state FIRST to prevent it being overwritten
+      // 🔧 FIX: Load calendar state FIRST to prevent it being overwritten
       if (saveData.containsKey('calendarState')) {
         debugPrint("📅 Loading calendar state from save data...");
         await _loadCalendarState(saveData['calendarState']);
       } else {
         debugPrint("⚠️ No calendar state in save data - will use fresh calendar");
+        // Don't initialize here - let the career home page handle it if needed
       }
 
       // Then load career data
@@ -143,45 +147,36 @@ class SaveManager {
     }
   }
 
-  /// Get all additional career slots (not including main)
-  static Future<List<Map<String, dynamic>>> getAdditionalSlots() async {
+  /// Get all career slots
+  static Future<List<Map<String, dynamic>>> getCareerSlots() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       String? jsonString = prefs.getString(_careerSlotsKey);
 
       if (jsonString == null) {
-        return List.generate(maxAdditionalSlots, (index) => <String, dynamic>{});
+        return [];
       }
 
       List<dynamic> slotsData = jsonDecode(jsonString);
-      List<Map<String, dynamic>> slots = slotsData.cast<Map<String, dynamic>>();
-
-      // Ensure we always have exactly maxAdditionalSlots
-      while (slots.length < maxAdditionalSlots) {
-        slots.add(<String, dynamic>{});
-      }
-
-      return slots.take(maxAdditionalSlots).toList();
+      return slotsData.cast<Map<String, dynamic>>();
     } catch (e) {
-      debugPrint('Error getting additional slots: $e');
-      return List.generate(maxAdditionalSlots, (index) => <String, dynamic>{});
+      debugPrint('Error getting career slots: $e');
+      return [];
     }
   }
 
-  /// Save career to additional slot (not main)
-  static Future<bool> saveCareerToAdditionalSlot(int slotIndex, String slotName) async {
-    if (slotIndex < 0 || slotIndex >= maxAdditionalSlots) {
-      debugPrint('❌ Invalid slot index: $slotIndex');
+  /// Save career to specific slot
+  static Future<bool> saveCareerToSlot(int slotIndex, String slotName) async {
+    if (slotIndex < 0 || slotIndex >= maxCareerSlots) {
       return false;
     }
 
     try {
       if (CareerManager.currentCareerDriver == null) {
-        debugPrint('❌ No current career to save');
         return false;
       }
 
-      // Create save data (same as main save structure)
+      // 🔧 Enhanced: Include calendar state in slot saves too
       List<Map<String, dynamic>> raceWeekendData = [];
       for (RaceWeekend weekend in CareerCalendar.instance.raceWeekends) {
         raceWeekendData.add({
@@ -193,6 +188,7 @@ class SaveManager {
         });
       }
 
+      // Create save data
       Map<String, dynamic> saveData = {
         'version': '1.0',
         'slotIndex': slotIndex,
@@ -200,6 +196,7 @@ class SaveManager {
         'savedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
         'careerDriver': CareerManager.currentCareerDriver!.toJson(),
+        // 🔧 NEW: Add calendar state to slot saves
         'calendarState': {
           'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
           'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
@@ -209,8 +206,13 @@ class SaveManager {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // Get existing additional slots
-      List<Map<String, dynamic>> slots = await getAdditionalSlots();
+      // Get existing slots
+      List<Map<String, dynamic>> slots = await getCareerSlots();
+
+      // Ensure we have enough slots
+      while (slots.length <= slotIndex) {
+        slots.add({});
+      }
 
       // Update the specific slot
       slots[slotIndex] = saveData;
@@ -219,102 +221,42 @@ class SaveManager {
       String jsonString = jsonEncode(slots);
       await prefs.setString(_careerSlotsKey, jsonString);
 
-      debugPrint('✅ Career saved to additional slot ${slotIndex + 1}');
       return true;
     } catch (e) {
-      debugPrint('❌ Error saving career to additional slot: $e');
+      debugPrint('Error saving career to slot: $e');
       return false;
     }
   }
 
-  /// Load career from additional slot to main
-  static Future<bool> loadCareerFromAdditionalSlot(int slotIndex) async {
-    if (slotIndex < 0 || slotIndex >= maxAdditionalSlots) {
+  /// Load career from specific slot
+  static Future<bool> loadCareerFromSlot(int slotIndex) async {
+    if (slotIndex < 0 || slotIndex >= maxCareerSlots) {
       return false;
     }
 
     try {
-      List<Map<String, dynamic>> slots = await getAdditionalSlots();
+      List<Map<String, dynamic>> slots = await getCareerSlots();
 
-      if (slots[slotIndex].isEmpty) {
-        debugPrint('❌ Slot ${slotIndex + 1} is empty');
+      if (slotIndex >= slots.length || slots[slotIndex].isEmpty) {
         return false;
       }
 
       Map<String, dynamic> saveData = slots[slotIndex];
 
       if (!_isValidSaveData(saveData)) {
-        debugPrint('❌ Invalid save data in slot ${slotIndex + 1}');
         return false;
       }
 
       // Load career data
       await _loadCareerFromSaveData(saveData);
 
-      // Save as main career
+      // Also save as current career
       await saveCurrentCareer();
 
-      debugPrint('✅ Career loaded from additional slot ${slotIndex + 1} to main');
       return true;
     } catch (e) {
-      debugPrint('❌ Error loading from additional slot: $e');
+      debugPrint('Error loading career from slot: $e');
       return false;
-    }
-  }
-
-  /// Delete specific additional slot
-  static Future<bool> deleteAdditionalSlot(int slotIndex) async {
-    if (slotIndex < 0 || slotIndex >= maxAdditionalSlots) {
-      return false;
-    }
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Get existing slots
-      List<Map<String, dynamic>> slots = await getAdditionalSlots();
-
-      // Clear the specific slot
-      slots[slotIndex] = <String, dynamic>{};
-
-      // Save updated slots
-      String jsonString = jsonEncode(slots);
-      await prefs.setString(_careerSlotsKey, jsonString);
-
-      debugPrint('✅ Additional slot ${slotIndex + 1} deleted successfully');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Error deleting additional slot ${slotIndex + 1}: $e');
-      return false;
-    }
-  }
-
-  /// Delete main career save (no need to check slots since main is separate)
-  static Future<void> clearMainSave() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_currentCareerKey); // Only remove main save
-
-      CareerManager.resetCareer();
-      debugPrint('✅ Main career save deleted successfully');
-    } catch (e) {
-      debugPrint('❌ Error deleting main career save: $e');
-      rethrow;
-    }
-  }
-
-  /// Clear all save data (for debugging - clears main + all additional slots)
-  static Future<void> clearAllSaveData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_currentCareerKey); // Main save
-      await prefs.remove(_careerSlotsKey); // Additional slots
-
-      CareerManager.resetCareer();
-      debugPrint('✅ All save data cleared (main + additional slots)');
-    } catch (e) {
-      debugPrint('❌ Error clearing all save data: $e');
-      rethrow;
     }
   }
 
@@ -325,7 +267,7 @@ class SaveManager {
         return null;
       }
 
-      // Enhanced: Include calendar state in exports
+      // 🔧 Enhanced: Include calendar state in exports
       List<Map<String, dynamic>> raceWeekendData = [];
       for (RaceWeekend weekend in CareerCalendar.instance.raceWeekends) {
         raceWeekendData.add({
@@ -342,7 +284,7 @@ class SaveManager {
         'exportedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
         'careerDriver': CareerManager.currentCareerDriver!.toJson(),
-        // Add calendar state to exports
+        // 🔧 NEW: Add calendar state to exports
         'calendarState': {
           'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
           'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
@@ -376,6 +318,107 @@ class SaveManager {
     } catch (e) {
       debugPrint('Error importing career: $e');
       return false;
+    }
+  }
+
+  /// Clear all save data (for debugging)
+  static Future<void> clearAllSaveData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_currentCareerKey);
+      await prefs.remove(_careerSlotsKey);
+
+      CareerManager.resetCareer();
+    } catch (e) {
+      debugPrint('Error clearing save data: $e');
+    }
+  }
+
+  // Private helper methods
+
+  static bool _isValidSaveData(Map<String, dynamic> saveData) {
+    return saveData.containsKey('version') &&
+        saveData.containsKey('currentSeason') &&
+        saveData.containsKey('careerDriver') &&
+        saveData['careerDriver'] is Map;
+  }
+
+  // 🔧 UPDATE your existing _loadCareerFromSaveData() method:
+  static Future<void> _loadCareerFromSaveData(Map<String, dynamic> saveData) async {
+    // Extract data
+    int currentSeason = saveData['currentSeason'];
+    Map<String, dynamic> driverData = saveData['careerDriver'];
+
+    // Get team by name
+    String teamName = driverData['teamName'];
+    var team = TeamData.getTeamByName(teamName);
+
+    // Create career driver from save data
+    CareerDriver careerDriver = CareerDriver.fromJson(driverData, team);
+
+    // Update career manager
+    CareerManager.resetCareer();
+    CareerManager.loadCareerDriver(careerDriver, currentSeason);
+
+    debugPrint("✅ Career driver data loaded successfully");
+    // Note: Calendar state should already be loaded by now
+  }
+
+  // 🔧 NEW: Method to load calendar state
+  static Future<void> _loadCalendarState(Map<String, dynamic> calendarData) async {
+    try {
+      // Initialize calendar first
+      CareerCalendar.instance.initialize();
+
+      // Load basic calendar data
+      if (calendarData.containsKey('currentDate')) {
+        String currentDateStr = calendarData['currentDate'];
+        CareerCalendar.instance.setCurrentDate(DateTime.parse(currentDateStr));
+      }
+
+      if (calendarData.containsKey('currentRaceIndex')) {
+        int currentRaceIndex = calendarData['currentRaceIndex'] ?? 0;
+        CareerCalendar.instance.setCurrentRaceIndex(currentRaceIndex);
+      }
+
+      // Load race completion states
+      if (calendarData.containsKey('raceWeekends')) {
+        List<dynamic> raceWeekendData = calendarData['raceWeekends'];
+
+        for (Map<String, dynamic> raceData in raceWeekendData) {
+          String raceName = raceData['name'];
+          bool isCompleted = raceData['isCompleted'] ?? false;
+          bool hasQualifyingResults = raceData['hasQualifyingResults'] ?? false;
+          bool hasRaceResults = raceData['hasRaceResults'] ?? false;
+
+          // Update the race weekend state
+          CareerCalendar.instance.updateRaceWeekendState(
+            raceName,
+            isCompleted: isCompleted,
+            hasQualifyingResults: hasQualifyingResults,
+            hasRaceResults: hasRaceResults,
+          );
+        }
+      }
+
+      int completedCount = CareerCalendar.instance.getCompletedRaces().length;
+      debugPrint("✅ Calendar state loaded successfully");
+      debugPrint("   Completed races: $completedCount");
+      debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
+    } catch (e) {
+      debugPrint("❌ Error loading calendar state: $e");
+      // Fall back to fresh calendar
+      CareerCalendar.instance.initialize();
+    }
+  }
+
+  static Future<void> _updateCareerSlotsList(Map<String, dynamic> saveData) async {
+    try {
+      // This is for quick access to career saves
+      // Implementation would maintain a list of save summaries
+      // For now, we'll keep it simple and just use the main save
+    } catch (e) {
+      debugPrint('Error updating career slots list: $e');
     }
   }
 
@@ -419,69 +462,35 @@ class SaveManager {
     }
   }
 
-  // PRIVATE HELPER METHODS
-
-  /// Validate save data structure
-  static bool _isValidSaveData(Map<String, dynamic> saveData) {
-    try {
-      return saveData.containsKey('version') &&
-          saveData.containsKey('careerDriver') &&
-          saveData.containsKey('currentSeason') &&
-          saveData['careerDriver'] is Map<String, dynamic>;
-    } catch (e) {
+  // Delete specific career slot
+  static Future<bool> deleteCareerSlot(int slotIndex) async {
+    if (slotIndex < 0 || slotIndex >= maxCareerSlots) {
       return false;
     }
-  }
 
-  /// Load career from save data
-  static Future<void> _loadCareerFromSaveData(Map<String, dynamic> saveData) async {
     try {
-      // Load career manager data
-      CareerManager.loadCareer(saveData);
-      debugPrint("✅ Career data loaded successfully");
-    } catch (e) {
-      debugPrint("❌ Error loading career from save data: $e");
-      rethrow;
-    }
-  }
+      final prefs = await SharedPreferences.getInstance();
 
-  /// Load calendar state from save data
-  static Future<void> _loadCalendarState(Map<String, dynamic> calendarData) async {
-    try {
-      // Parse current date
-      DateTime currentDate = DateTime.parse(calendarData['currentDate']);
-      int currentRaceIndex = calendarData['currentRaceIndex'] ?? 0;
+      // Get existing slots
+      List<Map<String, dynamic>> slots = await getCareerSlots();
 
-      // Update calendar instance
-      CareerCalendar.instance.setCurrentDate(currentDate);
-      CareerCalendar.instance.setCurrentRaceIndex(currentRaceIndex);
-
-      // Load race weekend states
-      List<dynamic> raceWeekendData = calendarData['raceWeekends'] ?? [];
-
-      for (var raceData in raceWeekendData) {
-        String raceName = raceData['name'] ?? '';
-        bool isCompleted = raceData['isCompleted'] ?? false;
-        bool hasQualifyingResults = raceData['hasQualifyingResults'] ?? false;
-        bool hasRaceResults = raceData['hasRaceResults'] ?? false;
-
-        // Update the race weekend state
-        CareerCalendar.instance.updateRaceWeekendState(
-          raceName,
-          isCompleted: isCompleted,
-          hasQualifyingResults: hasQualifyingResults,
-          hasRaceResults: hasRaceResults,
-        );
+      // Ensure we have enough slots
+      while (slots.length <= slotIndex) {
+        slots.add({});
       }
 
-      int completedCount = CareerCalendar.instance.getCompletedRaces().length;
-      debugPrint("✅ Calendar state loaded successfully");
-      debugPrint("   Completed races: $completedCount");
-      debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
+      // Clear the specific slot
+      slots[slotIndex] = {};
+
+      // Save updated slots
+      String jsonString = jsonEncode(slots);
+      await prefs.setString(_careerSlotsKey, jsonString);
+
+      debugPrint('✅ Career slot $slotIndex deleted successfully');
+      return true;
     } catch (e) {
-      debugPrint("❌ Error loading calendar state: $e");
-      // Fall back to fresh calendar
-      CareerCalendar.instance.initialize();
+      debugPrint('❌ Error deleting career slot $slotIndex: $e');
+      return false;
     }
   }
 }

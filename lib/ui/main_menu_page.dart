@@ -1,4 +1,4 @@
-// lib/ui/main_menu_page.dart - Complete Main Menu with New Save System
+// lib/ui/main_menu_page.dart - Complete Main Menu with Save Slot Management
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -110,7 +110,6 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
       if (mounted) {
         setState(() {
           _hasSavedCareer = false;
-          _saveInfo = null;
           _isLoadingSaveInfo = false;
         });
       }
@@ -129,277 +128,31 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _backgroundShift,
-        builder: (context, child) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft + Alignment(_backgroundShift.value * 0.3, 0),
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0A0A0F),
-                  Color(0xFF1A1A2E),
-                  Color(0xFF16213E),
-                  Color(0xFF0F3460),
-                ],
-                stops: [0.0, 0.3, 0.7, 1.0],
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Animated grid pattern
-                AnimatedBuilder(
-                  animation: _gridAnimation,
-                  builder: (context, child) {
-                    return CustomPaint(
-                      painter: GridPatternPainter(_gridAnimation.value),
-                      size: Size.infinite,
-                    );
-                  },
-                ),
-
-                // Main content
-                SafeArea(
-                  child: Column(
-                    children: [
-                      // Top section with logo and title
-                      Expanded(
-                        flex: 3,
-                        child: AnimatedBuilder(
-                          animation: _logoAnimation,
-                          builder: (context, child) {
-                            return Transform.scale(
-                              scale: _logoAnimation.value,
-                              child: Transform.rotate(
-                                angle: (1 - _logoAnimation.value) * 0.1,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // F1 Logo/Icon
-                                    Container(
-                                      width: 120,
-                                      height: 120,
-                                      decoration: BoxDecoration(
-                                        gradient: RadialGradient(
-                                          colors: [
-                                            Colors.red[400]!,
-                                            Colors.red[600]!,
-                                            Colors.red[800]!,
-                                          ],
-                                        ),
-                                        borderRadius: BorderRadius.circular(60),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.red[600]!.withOpacity(0.4),
-                                            spreadRadius: 8,
-                                            blurRadius: 20,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        Icons.sports_motorsports,
-                                        size: 60,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-
-                                    SizedBox(height: 20),
-
-                                    // Main title
-                                    Text(
-                                      'REAL FORMULA',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.w900,
-                                        fontFamily: 'Formula1',
-                                        letterSpacing: 3,
-                                        shadows: [
-                                          Shadow(
-                                            offset: Offset(2, 2),
-                                            blurRadius: 8,
-                                            color: Colors.black.withOpacity(0.5),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    SizedBox(height: 8),
-
-                                    // Subtitle
-                                    Text(
-                                      'Racing Simulator',
-                                      style: TextStyle(
-                                        color: Colors.grey[300],
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w400,
-                                        fontFamily: 'Formula1',
-                                        letterSpacing: 2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      // Menu buttons section
-                      Expanded(
-                        flex: 4,
-                        child: AnimatedBuilder(
-                          animation: _buttonAnimation,
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: Offset(0, 50 * (1 - _buttonAnimation.value)),
-                              child: Opacity(
-                                opacity: _buttonAnimation.value,
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 40),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      // Career Mode section
-                                      if (_isLoadingSaveInfo)
-                                        _buildLoadingButton()
-                                      else if (_hasSavedCareer)
-                                        _buildContinueCareerSection()
-                                      else
-                                        _buildNewCareerButton(),
-
-                                      SizedBox(height: 20),
-
-                                      // Quick Race button
-                                      _buildMenuButton(
-                                        icon: Icons.flash_on,
-                                        title: 'QUICK RACE',
-                                        subtitle: 'Jump into action',
-                                        color: Colors.orange[600]!,
-                                        onPressed: () => Navigator.pushNamed(context, '/track_selection'),
-                                      ),
-
-                                      SizedBox(height: 20),
-
-                                      // Championships button
-                                      _buildMenuButton(
-                                        icon: Icons.emoji_events,
-                                        title: 'CHAMPIONSHIPS',
-                                        subtitle: 'View standings',
-                                        color: Colors.amber[600]!,
-                                        onPressed: () => Navigator.pushNamed(context, '/championships'),
-                                      ),
-
-                                      SizedBox(height: 20),
-
-                                      // Settings button
-                                      _buildMenuButton(
-                                        icon: Icons.settings,
-                                        title: 'SETTINGS',
-                                        subtitle: 'Configure game',
-                                        color: Colors.grey[600]!,
-                                        onPressed: () => Navigator.pushNamed(context, '/settings'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      // Bottom section with save management
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (_hasSavedCareer) ...[
-                              // Save management button
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 40),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton.icon(
-                                    onPressed: _showSaveSlotDialog,
-                                    icon: Icon(Icons.save, color: Colors.blue[400]),
-                                    label: Text(
-                                      'MANAGE SAVES',
-                                      style: TextStyle(
-                                        color: Colors.blue[400],
-                                        fontFamily: 'Formula1',
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    style: OutlinedButton.styleFrom(
-                                      side: BorderSide(color: Colors.blue[400]!, width: 2),
-                                      padding: EdgeInsets.symmetric(vertical: 16),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: 20),
-                            ],
-
-                            // Version info
-                            Text(
-                              'Version 1.0.0',
-                              style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 12,
-                                fontFamily: 'Formula1',
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // Loading button while checking saves
-  Widget _buildLoadingButton() {
-    return Container(
-      height: 80,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey[800]!.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[600]!, width: 2),
-      ),
-      child: Center(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1A1A2E), // Deep navy
+              Color(0xFF16213E), // Rich midnight blue
+              Color(0xFF0F3460), // F1 inspired dark blue
+              Color(0xFF0A1128), // Almost black
+            ],
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
+        ),
+        child: Stack(
           children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[400]!),
-                strokeWidth: 2,
-              ),
-            ),
-            SizedBox(width: 12),
-            Text(
-              'Checking saves...',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 16,
-                fontFamily: 'Formula1',
-              ),
+            // Animated background elements
+            _buildAnimatedBackground(),
+
+            // Racing grid pattern overlay
+            _buildGridPattern(),
+
+            // Main content
+            SafeArea(
+              child: _buildMainContent(),
             ),
           ],
         ),
@@ -407,156 +160,537 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     );
   }
 
-  // Continue career section (when save exists)
-  Widget _buildContinueCareerSection() {
+  Widget _buildAnimatedBackground() {
+    return AnimatedBuilder(
+      animation: _backgroundShift,
+      builder: (context, child) {
+        return Positioned.fill(
+          child: CustomPaint(
+            painter: F1BackgroundPainter(_backgroundShift.value),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridPattern() {
+    return AnimatedBuilder(
+      animation: _gridAnimation,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _gridAnimation.value * 0.15,
+          child: Container(),
+        );
+      },
+    );
+  }
+
+  Widget _buildMainContent() {
     return Column(
       children: [
-        // Continue career button
-        _buildMenuButton(
-          icon: Icons.play_arrow,
-          title: 'CONTINUE CAREER',
-          subtitle:
-              _saveInfo != null ? '${_saveInfo!['driverName']} - ${_saveInfo!['teamName']}' : 'Resume your journey',
-          color: Colors.green[600]!,
-          onPressed: _handleContinueCareer,
+        // Header with racing elements
+        _buildHeader(),
+
+        // Logo section
+        Expanded(
+          child: _buildLogoSection(),
         ),
 
-        SizedBox(height: 12),
-
-        // New career button (smaller)
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _handleNewCareer,
-            icon: Icon(Icons.add, color: Colors.blue[400]),
-            label: Text(
-              'START NEW CAREER',
-              style: TextStyle(
-                color: Colors.blue[400],
-                fontFamily: 'Formula1',
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.blue[400]!, width: 2),
-              padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        // Buttons section
+        Expanded(
+          child: _buildButtonsSection(),
         ),
+
+        // Footer
+        _buildFooter(),
       ],
     );
   }
 
-  // New career button (when no save exists)
-  Widget _buildNewCareerButton() {
-    return _buildMenuButton(
-      icon: Icons.person_add,
-      title: 'START CAREER',
-      subtitle: 'Begin your F1 journey',
-      color: Colors.blue[600]!,
-      onPressed: _handleNewCareer,
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        children: [
+          // Racing stripes indicator
+          Container(
+            width: 4,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.red[400]!, Colors.red[600]!],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'FORMULA 1',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 2,
+                ),
+              ),
+              Text(
+                'CAREER MODE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Formula1',
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          Spacer(),
+          // Season indicator (if career exists)
+          if (CareerManager.currentCareerDriver != null)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.red[600]?.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red[600]!, width: 1),
+              ),
+              child: Text(
+                'SEASON 2025',
+                style: TextStyle(
+                  color: Colors.red[300],
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  // Generic menu button builder
-  Widget _buildMenuButton({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 80,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+  Widget _buildLogoSection() {
+    return AnimatedBuilder(
+      animation: _logoAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _logoAnimation.value,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Main logo container
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.red[400]!,
+                      Colors.red[600]!,
+                      Colors.red[800]!,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red[600]!.withOpacity(0.4),
+                      spreadRadius: 8,
+                      blurRadius: 20,
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Motorsport icon
+                    Icon(
+                      Icons.sports_motorsports,
+                      size: 50,
+                      color: Colors.white,
+                    ),
+                    // Racing stripes
+                    Positioned(
+                      top: 20,
+                      child: Container(
+                        width: 80,
+                        height: 2,
+                        color: Colors.white.withOpacity(0.3),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 20,
+                      child: Container(
+                        width: 80,
+                        height: 2,
+                        color: Colors.white.withOpacity(0.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 32),
+
+              // Title
+              Text(
+                'F1 CAREER',
+                style: TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Formula1',
+                  color: Colors.white,
+                  letterSpacing: 6,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(0, 4),
+                      blurRadius: 8,
+                      color: Colors.black.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ),
+
+              Text(
+                'SIMULATOR',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  fontFamily: 'Formula1',
+                  color: Colors.grey[400],
+                  letterSpacing: 3,
+                ),
+              ),
+            ],
           ),
-          elevation: 8,
-          shadowColor: color.withOpacity(0.4),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Icon(
-                icon,
-                size: 28,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(width: 20),
-            Expanded(
+        );
+      },
+    );
+  }
+
+  Widget _buildButtonsSection() {
+    return AnimatedBuilder(
+      animation: _buttonAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 50 * (1 - _buttonAnimation.value)),
+          child: Opacity(
+            opacity: _buttonAnimation.value,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Formula1',
-                      letterSpacing: 1,
+                  // Continue Career button (if save exists)
+                  if (_isLoadingSaveInfo)
+                    _buildEnhancedButton(
+                      label: 'CHECKING SAVES...',
+                      subtitle: 'Please wait',
+                      icon: Icons.hourglass_empty,
+                      onPressed: null,
+                      isPrimary: false,
+                      gradientColors: [Colors.grey[700]!, Colors.grey[800]!],
+                      isEnabled: false,
+                    )
+                  else if (_hasSavedCareer)
+                    _buildEnhancedButton(
+                      label: 'CONTINUE CAREER',
+                      subtitle: _saveInfo != null
+                          ? '${_saveInfo!['driverName']} - ${_saveInfo!['teamName']}'
+                          : 'Resume your championship',
+                      icon: Icons.play_arrow,
+                      onPressed: _handleContinueCareer,
+                      isPrimary: true,
+                      gradientColors: [Colors.blue[600]!, Colors.blue[800]!],
+                      isEnabled: true,
                     ),
+
+                  if (_hasSavedCareer) SizedBox(height: 20),
+
+                  // Start/New Career button
+                  _buildEnhancedButton(
+                    label: _hasSavedCareer ? 'NEW CAREER' : 'START CAREER',
+                    subtitle: _hasSavedCareer ? 'Begin a fresh journey' : 'Begin your F1 journey',
+                    icon: Icons.flag,
+                    onPressed: _handleNewCareer, // 🔧 FIXED: Always create new career
+                    isPrimary: !_hasSavedCareer,
+                    gradientColors: [Colors.red[500]!, Colors.red[700]!],
+                    isEnabled: true,
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12,
-                      fontFamily: 'Formula1',
+
+                  SizedBox(height: 20),
+
+                  // Slot Manager button
+                  Container(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _showSaveSlotDialog,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.orange[600]!, Colors.orange[800]!],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange[600]!.withOpacity(0.3),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          children: [
+                            // Racing stripe accent
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: 4,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.3),
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                    bottomLeft: Radius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Button content
+                            Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.folder,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'MANAGE SAVE SLOTS',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 1,
+                                      fontFamily: 'Formula1',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white.withOpacity(0.6),
-              size: 20,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEnhancedButton({
+    required String label,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback? onPressed,
+    required bool isPrimary,
+    required List<Color> gradientColors,
+    bool isEnabled = true,
+  }) {
+    return Container(
+      width: double.infinity,
+      height: 70,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Opacity(
+          opacity: isEnabled ? 1.0 : 0.5,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: isEnabled
+                  ? [
+                      BoxShadow(
+                        color: gradientColors[1].withOpacity(0.3),
+                        spreadRadius: 2,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ]
+                  : [],
             ),
-          ],
+            child: Stack(
+              children: [
+                // Racing stripe accent
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 6,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(isEnabled ? 0.3 : 0.1),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Button content
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 28,
+                        color: isEnabled ? Colors.white : Colors.white.withOpacity(0.6),
+                      ),
+                      SizedBox(width: 16),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isEnabled ? Colors.white : Colors.white.withOpacity(0.6),
+                              letterSpacing: 1.2,
+                              fontFamily: 'Formula1',
+                            ),
+                          ),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isEnabled ? Colors.white.withOpacity(0.8) : Colors.white.withOpacity(0.4),
+                              fontWeight: FontWeight.w300,
+                              fontFamily: 'Formula1',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Disabled overlay
+                if (!isEnabled)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.lock_outline,
+                          color: Colors.white.withOpacity(0.3),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  // Load existing career
-  void _loadExistingCareer() async {
-    _showLoadingDialog('Loading career...');
+  Widget _buildFooter() {
+    return Container(
+      padding: EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 30,
+                height: 1,
+                color: Colors.grey[600],
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Build your F1 legend',
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Formula1',
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              Container(
+                width: 30,
+                height: 1,
+                color: Colors.grey[600],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
+  // Handle continuing existing career
+  void _handleContinueCareer() async {
     try {
       bool success = await SaveManager.loadCurrentCareer();
-
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        if (success) {
-          Navigator.pushNamed(context, '/career_home');
-        } else {
-          _showErrorDialog('Failed to load career. The save file may be corrupted.');
-        }
+      if (success && mounted) {
+        Navigator.pushNamed(context, '/career_home');
+      } else if (mounted) {
+        _showErrorDialog('Failed to load saved career. The save file may be corrupted.');
       }
     } catch (e) {
       debugPrint('Error loading career: $e');
       if (mounted) {
-        Navigator.pop(context); // Close loading dialog
         _showErrorDialog('Error loading career: $e');
       }
     }
@@ -569,18 +703,18 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
   }
 
   // Handle continuing existing career
-  void _handleContinueCareer() {
+  void _handleCareerMode() {
     if (CareerManager.currentCareerDriver != null) {
       Navigator.pushNamed(context, '/career_home');
     } else {
-      _loadExistingCareer();
+      Navigator.pushNamed(context, '/driver_creation');
     }
   }
 
   // Show save slot management dialog
   void _showSaveSlotDialog() async {
     try {
-      List<Map<String, dynamic>> additionalSlots = await SaveManager.getAdditionalSlots();
+      List<Map<String, dynamic>> slots = await SaveManager.getCareerSlots();
       Map<String, dynamic>? currentSave = await SaveManager.getCareerSaveInfo();
 
       if (!mounted) return;
@@ -629,17 +763,18 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                       children: [
                         Icon(Icons.save, color: Colors.white, size: 24),
                         SizedBox(width: 12),
-                        Text(
-                          'CAREER SAVES',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'Formula1',
-                            letterSpacing: 2,
+                        Expanded(
+                          child: Text(
+                            'SAVE SLOT MANAGER',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Formula1',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ),
-                        Spacer(),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
                           icon: Icon(Icons.close, color: Colors.white),
@@ -648,112 +783,43 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                     ),
                   ),
 
+                  // Slot List
                   Expanded(
-                    child: SingleChildScrollView(
+                    child: ListView(
                       padding: EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          // Main Save Section (read-only display)
-                          Container(
-                            margin: EdgeInsets.symmetric(vertical: 8),
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[900]!.withOpacity(0.3),
-                              border: Border.all(color: Colors.blue[400]!, width: 2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.star, color: Colors.blue[400], size: 20),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'MAIN CAREER',
-                                      style: TextStyle(
-                                        color: Colors.blue[400],
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        fontFamily: 'Formula1',
-                                      ),
-                                    ),
-                                    Spacer(),
-                                    if (currentSave != null)
-                                      IconButton(
-                                        onPressed: _deleteMainSave,
-                                        icon: Icon(Icons.delete, color: Colors.red[400], size: 20),
-                                        tooltip: 'Delete Main Career',
-                                      ),
-                                  ],
-                                ),
-                                if (currentSave != null) ...[
-                                  SizedBox(height: 8),
-                                  Text(
-                                    '${currentSave['driverName']} - ${currentSave['teamName']}',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Formula1',
-                                    ),
-                                  ),
-                                  Text(
-                                    'Wins: ${currentSave['careerWins']} | Points: ${currentSave['careerPoints']}',
-                                    style: TextStyle(
-                                      color: Colors.grey[400],
-                                      fontSize: 12,
-                                      fontFamily: 'Formula1',
-                                    ),
-                                  ),
-                                ] else ...[
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'No main career',
-                                    style: TextStyle(
-                                      color: Colors.grey[400],
-                                      fontSize: 12,
-                                      fontFamily: 'Formula1',
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-
-                          SizedBox(height: 16),
-
-                          // Additional Slots Header
-                          Row(
-                            children: [
-                              Container(
-                                width: 3,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: Colors.orange[400],
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Text(
-                                'ADDITIONAL SAVE SLOTS',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'Formula1',
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          SizedBox(height: 12),
-
-                          // Show 2 additional slots
-                          ...List.generate(SaveManager.maxAdditionalSlots, (index) {
-                            return _buildAdditionalSlotCard(index, additionalSlots[index]);
-                          }),
+                      children: [
+                        // 🆕 Current Save (Main Save)
+                        if (currentSave != null) ...[
+                          _buildMainSaveCard(currentSave),
+                          SizedBox(height: 8),
+                          Divider(color: Colors.grey[600], thickness: 1),
+                          SizedBox(height: 8),
                         ],
+
+                        // Regular Slots
+                        ...List.generate(SaveManager.maxCareerSlots, (index) {
+                          bool hasData = index < slots.length && slots[index].isNotEmpty;
+                          Map<String, dynamic>? slotData = hasData ? slots[index] : null;
+
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: _buildSlotCard(index, slotData, hasData),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+
+                  // Footer
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Manage your F1 career saves',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontFamily: 'Formula1',
+                        fontSize: 12,
+                        letterSpacing: 1,
                       ),
                     ),
                   ),
@@ -768,116 +834,449 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     }
   }
 
-  // Build additional slot card
-  Widget _buildAdditionalSlotCard(int index, Map<String, dynamic> slotData) {
-    bool hasData = slotData.isNotEmpty;
-
+  // Build main save card (current career)
+  Widget _buildMainSaveCard(Map<String, dynamic> saveInfo) {
     return Container(
-      margin: EdgeInsets.symmetric(vertical: 8),
-      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: hasData ? Colors.orange[900]!.withOpacity(0.3) : Colors.grey[800]!.withOpacity(0.3),
-        border: Border.all(
-          color: hasData ? Colors.orange[600]! : Colors.grey[600]!,
-          width: 1,
+        gradient: LinearGradient(
+          colors: [Colors.green[900]!.withOpacity(0.4), Colors.green[700]!.withOpacity(0.4)],
         ),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.green[600]!.withOpacity(0.6),
+          width: 2,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: hasData ? Colors.orange[600] : Colors.grey[600],
-                child: Text(
-                  '${index + 1}',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Formula1',
-                  ),
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  hasData ? (slotData['slotName'] ?? 'Slot ${index + 1}') : 'Empty Slot',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Formula1',
-                  ),
-                ),
-              ),
-              if (hasData) ...[
-                IconButton(
-                  onPressed: () => _loadFromAdditionalSlot(index),
-                  icon: Icon(Icons.upload, color: Colors.blue[400], size: 20),
-                  tooltip: 'Load to Main',
-                ),
-                IconButton(
-                  onPressed: () => _deleteAdditionalSlot(index),
-                  icon: Icon(Icons.delete, color: Colors.red[400], size: 20),
-                  tooltip: 'Delete Slot',
-                ),
-              ],
-            ],
-          ),
-          if (hasData) ...[
-            SizedBox(height: 8),
-            if (slotData['careerDriver'] != null) ...[
-              Text(
-                '${slotData['careerDriver']['name']} - ${slotData['careerDriver']['teamName']}',
-                style: TextStyle(
-                  color: Colors.grey[300],
-                  fontSize: 12,
-                  fontFamily: 'Formula1',
-                ),
-              ),
-              Text(
-                'Wins: ${slotData['careerDriver']['careerWins'] ?? 0} | Points: ${slotData['careerDriver']['careerPoints'] ?? 0}',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 11,
-                  fontFamily: 'Formula1',
-                ),
-              ),
-            ],
-          ] else ...[
-            SizedBox(height: 8),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // 🔧 FIXED: Same layout as slot cards - Top row with indicator and info
             Row(
               children: [
-                if (CareerManager.currentCareerDriver != null)
-                  ElevatedButton.icon(
-                    onPressed: () => _saveToAdditionalSlot(index),
-                    icon: Icon(Icons.save, size: 16),
-                    label: Text(
-                      'SAVE HERE',
-                      style: TextStyle(
-                        fontFamily: 'Formula1',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange[600],
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                // Main save indicator (same style as slot number)
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.green[600],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.star,
+                      color: Colors.white,
+                      size: 20,
                     ),
                   ),
+                ),
+
+                SizedBox(width: 16),
+
+                // Save info (same style as slot cards)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'CURRENT CAREER',
+                            style: TextStyle(
+                              color: Colors.green[400],
+                              fontFamily: 'Formula1',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green[600],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'ACTIVE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Formula1',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '${saveInfo['driverName']} - ${saveInfo['teamName']}',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontFamily: 'Formula1',
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        'Season ${saveInfo['currentSeason']} | Wins: ${saveInfo['careerWins']} | Points: ${saveInfo['careerPoints']}',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontFamily: 'Formula1',
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // 🔧 FIXED: Action buttons below content (same as slot cards)
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Copy to slot button
+                Expanded(
+                  child: _buildSlotActionButton(
+                    icon: Icons.content_copy,
+                    color: Colors.blue[600]!,
+                    onPressed: () => _copyMainSaveToSlot(),
+                    label: 'COPY', // 🔧 CHANGED: Shortened from "COPY TO SLOT"
+                  ),
+                ),
+                SizedBox(width: 12),
+                // Delete main save button
+                Expanded(
+                  child: _buildSlotActionButton(
+                    icon: Icons.delete,
+                    color: Colors.red[600]!,
+                    onPressed: () => _deleteMainSave(),
+                    label: 'DELETE',
+                  ),
+                ),
               ],
             ),
           ],
-        ],
+        ),
       ),
     );
+  }
+
+  Widget _buildSlotCard(int index, Map<String, dynamic>? slotData, bool hasData) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: hasData
+              ? [Colors.blue[900]!.withOpacity(0.3), Colors.blue[700]!.withOpacity(0.3)]
+              : [Colors.grey[900]!.withOpacity(0.3), Colors.grey[800]!.withOpacity(0.3)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasData ? Colors.blue[600]!.withOpacity(0.5) : Colors.grey[600]!.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // Slot number indicator
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: hasData ? Colors.blue[600] : Colors.grey[700],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Formula1',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(width: 16),
+
+                // Slot info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasData ? (slotData!['slotName'] ?? 'Career ${index + 1}') : 'Empty Slot',
+                        style: TextStyle(
+                          color: hasData ? Colors.white : Colors.grey[500],
+                          fontFamily: 'Formula1',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (hasData) ...[
+                        SizedBox(height: 4),
+                        Text(
+                          '${slotData!['careerDriver']['name']} - ${slotData['careerDriver']['teamName']}',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontFamily: 'Formula1',
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          'Wins: ${slotData['careerDriver']['careerWins'] ?? 0} | Points: ${slotData['careerDriver']['careerPoints'] ?? 0}',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontFamily: 'Formula1',
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                if (hasData) ...[
+                  // Load button
+                  Expanded(
+                    child: _buildSlotActionButton(
+                      icon: Icons.play_arrow,
+                      color: Colors.green[600]!,
+                      onPressed: () => _loadFromSlot(index),
+                      label: 'LOAD',
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  // Delete button
+                  Expanded(
+                    child: _buildSlotActionButton(
+                      icon: Icons.delete,
+                      color: Colors.red[600]!,
+                      onPressed: () => _deleteSlot(index),
+                      label: 'DELETE',
+                    ),
+                  ),
+                ] else ...[
+                  // Save to slot button (only if current career exists)
+                  if (CareerManager.currentCareerDriver != null)
+                    Expanded(
+                      child: _buildSlotActionButton(
+                        icon: Icons.save,
+                        color: Colors.blue[600]!,
+                        onPressed: () => _saveToSlot(index),
+                        label: 'COPY',
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Build action button for slots with labels
+  Widget _buildSlotActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    required String label,
+  }) {
+    return Container(
+      height: 40,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          elevation: 4,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: Colors.white,
+            ),
+            SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Formula1',
+                fontWeight: FontWeight.w700,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Load career from specific slot
+  void _loadFromSlot(int slotIndex) async {
+    Navigator.pop(context); // Close slot dialog
+    _showLoadingDialog('Loading Slot ${slotIndex + 1}...');
+
+    try {
+      bool success = await SaveManager.loadCareerFromSlot(slotIndex);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (success) {
+          // Refresh save info
+          await _checkForSavedCareer();
+
+          // Navigate to career home
+          Navigator.pushNamed(context, '/career_home');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    'Career loaded from Slot ${slotIndex + 1}!',
+                    style: TextStyle(fontFamily: 'Formula1'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green[600],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        } else {
+          _showErrorDialog('Failed to load career from Slot ${slotIndex + 1}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        _showErrorDialog('Error loading from slot: $e');
+      }
+    }
+  }
+
+  // Save current career to specific slot
+  void _saveToSlot(int slotIndex) async {
+    Navigator.pop(context); // Close slot dialog
+
+    // Show name input dialog
+    String? slotName = await _showSlotNameDialog(slotIndex);
+    if (slotName == null || slotName.isEmpty) return;
+
+    _showLoadingDialog('Saving to Slot ${slotIndex + 1}...');
+
+    try {
+      bool success = await SaveManager.saveCareerToSlot(slotIndex, slotName);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.save, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    'Career saved to Slot ${slotIndex + 1}!',
+                    style: TextStyle(fontFamily: 'Formula1'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.blue[600],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        } else {
+          _showErrorDialog('Failed to save to Slot ${slotIndex + 1}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        _showErrorDialog('Error saving to slot: $e');
+      }
+    }
+  }
+
+  // Copy main save to a slot
+  void _copyMainSaveToSlot() async {
+    Navigator.pop(context); // Close slot dialog
+
+    // Show slot selection dialog
+    int? selectedSlot = await _showSlotSelectionDialog();
+    if (selectedSlot == null) return;
+
+    // Get slot name
+    String? slotName = await _showSlotNameDialog(selectedSlot);
+    if (slotName == null || slotName.isEmpty) return;
+
+    _showLoadingDialog('Copying to Slot ${selectedSlot + 1}...');
+
+    try {
+      bool success = await SaveManager.saveCareerToSlot(selectedSlot, slotName);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.content_copy, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    'Career copied to Slot ${selectedSlot + 1}!',
+                    style: TextStyle(fontFamily: 'Formula1'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.blue[600],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        } else {
+          _showErrorDialog('Failed to copy to Slot ${selectedSlot + 1}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        _showErrorDialog('Error copying to slot: $e');
+      }
+    }
   }
 
   // Delete main save
@@ -891,8 +1290,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     _showLoadingDialog('Deleting main save...');
 
     try {
-      // FIX: Use clearMainSave (main save is separate from additional slots)
-      await SaveManager.clearMainSave();
+      await SaveManager.clearAllSaveData();
 
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
@@ -910,12 +1308,12 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                 Icon(Icons.delete, color: Colors.white),
                 SizedBox(width: 8),
                 Text(
-                  'Main career deleted! (Additional slots preserved)',
+                  'Main career deleted!',
                   style: TextStyle(fontFamily: 'Formula1'),
                 ),
               ],
             ),
-            backgroundColor: Colors.green[600],
+            backgroundColor: Colors.red[600],
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
@@ -927,6 +1325,74 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
         _showErrorDialog('Error deleting main save: $e');
       }
     }
+  }
+
+  // Show slot selection dialog
+  Future<int?> _showSlotSelectionDialog() async {
+    List<Map<String, dynamic>> slots = await SaveManager.getCareerSlots();
+
+    return showDialog<int>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            'Select Slot',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Formula1',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Container(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(SaveManager.maxCareerSlots, (index) {
+                bool hasData = index < slots.length && slots[index].isNotEmpty;
+                return ListTile(
+                  leading: Icon(
+                    hasData ? Icons.warning : Icons.save,
+                    color: hasData ? Colors.orange[400] : Colors.blue[400],
+                  ),
+                  title: Text(
+                    'Slot ${index + 1}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Formula1',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    hasData ? 'Will overwrite existing save' : 'Empty slot',
+                    style: TextStyle(
+                      color: hasData ? Colors.orange[400] : Colors.grey[400],
+                      fontFamily: 'Formula1',
+                      fontSize: 10,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(context, index),
+                );
+              }),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Show delete main save confirmation dialog
@@ -970,7 +1436,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Additional save slots will be preserved!',
+                        'Make sure to copy to a slot first if you want to keep this career!',
                         style: TextStyle(
                           color: Colors.orange[400],
                           fontFamily: 'Formula1',
@@ -1015,105 +1481,133 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     );
   }
 
-  // Load from additional slot
-  void _loadFromAdditionalSlot(int slotIndex) async {
-    Navigator.pop(context); // Close slot dialog
-    _showLoadingDialog('Loading from Slot ${slotIndex + 1}...');
-
-    try {
-      bool success = await SaveManager.loadCareerFromAdditionalSlot(slotIndex);
-
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        if (success) {
-          // Refresh save info
-          await _checkForSavedCareer();
-
-          // Navigate to career home
-          Navigator.pushNamed(context, '/career_home');
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.upload, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text(
-                    'Career loaded from Slot ${slotIndex + 1}!',
-                    style: TextStyle(fontFamily: 'Formula1'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green[600],
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          );
-        } else {
-          _showErrorDialog('Failed to load career from Slot ${slotIndex + 1}');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        _showErrorDialog('Error loading from slot: $e');
-      }
-    }
-  }
-
-  // Save to additional slot
-  void _saveToAdditionalSlot(int slotIndex) async {
-    Navigator.pop(context); // Close slot dialog
-
-    // Show name input dialog
-    String? slotName = await _showSlotNameDialog(slotIndex);
-    if (slotName == null || slotName.isEmpty) return;
-
-    _showLoadingDialog('Saving to Slot ${slotIndex + 1}...');
-
-    try {
-      bool success = await SaveManager.saveCareerToAdditionalSlot(slotIndex, slotName);
-
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.save, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text(
-                    'Career saved to Slot ${slotIndex + 1}!',
-                    style: TextStyle(fontFamily: 'Formula1'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.blue[600],
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          );
-        } else {
-          _showErrorDialog('Failed to save to Slot ${slotIndex + 1}');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        _showErrorDialog('Error saving to slot: $e');
-      }
-    }
-  }
-
-  // Delete additional slot
-  void _deleteAdditionalSlot(int slotIndex) async {
+  void _deleteSlot(int slotIndex) async {
     Navigator.pop(context); // Close slot dialog
 
     // Show confirmation dialog
-    bool? confirmed = await showDialog<bool>(
+    bool? confirmed = await _showDeleteConfirmDialog(slotIndex);
+    if (confirmed != true) return;
+
+    _showLoadingDialog('Deleting Slot ${slotIndex + 1}...');
+
+    try {
+      bool success = await SaveManager.deleteCareerSlot(slotIndex);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    'Slot ${slotIndex + 1} deleted!',
+                    style: TextStyle(fontFamily: 'Formula1'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red[600],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        } else {
+          _showErrorDialog('Failed to delete Slot ${slotIndex + 1}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        _showErrorDialog('Error deleting slot: $e');
+      }
+    }
+  }
+
+  // Show slot name input dialog
+  Future<String?> _showSlotNameDialog(int slotIndex) async {
+    TextEditingController controller = TextEditingController();
+    controller.text = 'Career ${slotIndex + 1}';
+
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            'Name Your Save',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Formula1',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Enter a name for Slot ${slotIndex + 1}:',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                ),
+              ),
+              SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                style: TextStyle(color: Colors.white, fontFamily: 'Formula1'),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.grey[800],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Career Name',
+                  hintStyle: TextStyle(color: Colors.grey[500]),
+                ),
+                maxLength: 20,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'SAVE',
+                style: TextStyle(
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show delete confirmation dialog
+  Future<bool?> _showDeleteConfirmDialog(int slotIndex) async {
+    return showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -1128,7 +1622,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
             ),
           ),
           content: Text(
-            'This will permanently delete the career saved in this slot.',
+            'This action cannot be undone. Your career progress in this slot will be permanently lost.',
             style: TextStyle(
               color: Colors.grey[400],
               fontFamily: 'Formula1',
@@ -1164,118 +1658,9 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
         );
       },
     );
-
-    if (confirmed != true) return;
-
-    _showLoadingDialog('Deleting Slot ${slotIndex + 1}...');
-
-    try {
-      bool success = await SaveManager.deleteAdditionalSlot(slotIndex);
-
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text(
-                    'Slot ${slotIndex + 1} deleted!',
-                    style: TextStyle(fontFamily: 'Formula1'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.red[600],
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          );
-        } else {
-          _showErrorDialog('Failed to delete Slot ${slotIndex + 1}');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        _showErrorDialog('Error deleting slot: $e');
-      }
-    }
   }
 
-  // Helper method for slot naming
-  Future<String?> _showSlotNameDialog(int slotIndex) async {
-    TextEditingController controller = TextEditingController();
-
-    // Get current career info for default name
-    Map<String, dynamic>? currentCareer = await SaveManager.getCareerSaveInfo();
-    if (currentCareer != null) {
-      controller.text = '${currentCareer['driverName']} Career';
-    }
-
-    return showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Color(0xFF1A1A2E),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(
-            'Name for Slot ${slotIndex + 1}',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Formula1',
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          content: TextField(
-            controller: controller,
-            style: TextStyle(color: Colors.white, fontFamily: 'Formula1'),
-            decoration: InputDecoration(
-              hintText: 'Enter save name...',
-              hintStyle: TextStyle(color: Colors.grey[400]),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey[600]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.blue[400]!),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              child: Text(
-                'CANCEL',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontFamily: 'Formula1',
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[600],
-                foregroundColor: Colors.white,
-              ),
-              child: Text(
-                'SAVE',
-                style: TextStyle(
-                  fontFamily: 'Formula1',
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Show loading dialog
+  // Loading dialog
   void _showLoadingDialog(String message) {
     showDialog(
       context: context,
@@ -1286,17 +1671,13 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           content: Row(
             children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[400]!),
-              ),
+              CircularProgressIndicator(color: Colors.red[600]),
               SizedBox(width: 20),
-              Expanded(
-                child: Text(
-                  message,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Formula1',
-                  ),
+              Text(
+                message,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Formula1',
                 ),
               ),
             ],
@@ -1306,7 +1687,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     );
   }
 
-  // Show error dialog
+  // Error dialog
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -1314,19 +1695,13 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
         return AlertDialog(
           backgroundColor: Color(0xFF1A1A2E),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Row(
-            children: [
-              Icon(Icons.error, color: Colors.red[400]),
-              SizedBox(width: 8),
-              Text(
-                'Error',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Formula1',
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          title: Text(
+            'Error',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Formula1',
+              fontWeight: FontWeight.w700,
+            ),
           ),
           content: Text(
             message,
@@ -1357,34 +1732,26 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
   }
 }
 
-// Custom painter for animated grid pattern
-class GridPatternPainter extends CustomPainter {
+// Custom painter for animated F1-themed background elements
+class F1BackgroundPainter extends CustomPainter {
   final double animationValue;
 
-  GridPatternPainter(this.animationValue);
+  F1BackgroundPainter(this.animationValue);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = Colors.white.withOpacity(0.03 * animationValue)
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.02)
       ..strokeWidth = 1;
 
-    const double spacing = 30;
+    // Draw subtle racing lines that move across the screen
+    for (int i = 0; i < 5; i++) {
+      final double yPos = (size.height / 6) * (i + 1);
+      final double xOffset = (animationValue * size.width * 2) - size.width;
 
-    // Draw vertical lines
-    for (double x = 0; x <= size.width; x += spacing) {
       canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
-    }
-
-    // Draw horizontal lines
-    for (double y = 0; y <= size.height; y += spacing) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
+        Offset(xOffset + (i * 50), yPos),
+        Offset(xOffset + (i * 50) + 100, yPos),
         paint,
       );
     }
