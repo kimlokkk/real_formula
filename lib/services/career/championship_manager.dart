@@ -141,7 +141,6 @@ class ChampionshipManager {
     bool isValid = true;
     List<String> issues = [];
 
-    // Check if all maps have the same keys
     Set<String> pointsKeys = _driverPoints.keys.toSet();
     Set<String> winsKeys = _driverWins.keys.toSet();
     Set<String> podiumsKeys = _driverPodiums.keys.toSet();
@@ -152,7 +151,6 @@ class ChampionshipManager {
       isValid = false;
     }
 
-    // Check for negative values
     for (String driver in pointsKeys) {
       if ((_driverPoints[driver] ?? 0) < 0) {
         issues.add("Negative points for $driver");
@@ -173,8 +171,6 @@ class ChampionshipManager {
       for (String issue in issues) {
         debugPrint("   - $issue");
       }
-    } else {
-      debugPrint("✅ Championship data validation passed");
     }
 
     return isValid;

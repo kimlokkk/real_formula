@@ -587,14 +587,15 @@ class StrategyEngine {
   static double _getCompoundHistoryMultiplier(Driver driver, TireCompound compound) {
     double multiplier = 1.0;
 
-    // AVOID REPEATING RECENT COMPOUND (but this is now handled by _getAvailableCompounds)
-    if (driver.usedCompounds.isNotEmpty && driver.usedCompounds.last == compound) {
-      multiplier *= 0.8;
-    }
+    // Check if driver has used this compound before
+    int timesUsed = driver.usedCompounds.where((c) => c == compound).length;
 
-    // PREFER COMPOUNDS NOT YET USED
-    if (!driver.usedCompounds.contains(compound)) {
-      multiplier *= 1.1;
+    if (timesUsed > 1) {
+      // Slight preference for familiar compounds
+      multiplier *= 1.02;
+    } else if (timesUsed == 0) {
+      // Slight hesitation for new compounds
+      multiplier *= 0.98;
     }
 
     return multiplier;
