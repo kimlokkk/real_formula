@@ -56,14 +56,6 @@ class CareerManager {
     // Initialize season drivers (replace one AI driver with player)
     _initializeSeasonDrivers();
 
-    // 🆕 NEW: Initialize calendar and championship
-    initializeNewCareer(_currentCareerDriver!, _currentSeason);
-
-// 🆕 NEW: Auto-save immediately after career creation
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await autoSaveCareer();
-    });
-
     return _currentCareerDriver!;
   }
 
@@ -588,26 +580,5 @@ class CareerManager {
   // Add this public setter for career driver
   static void setCurrentCareerDriver(CareerDriver? driver) {
     _currentCareerDriver = driver;
-  }
-
-  // Enhanced auto-save that always works
-  static Future<bool> autoSaveCareer() async {
-    if (_currentCareerDriver == null) {
-      debugPrint("⚠️ No career to save");
-      return false;
-    }
-
-    try {
-      bool success = await SaveManager.saveCurrentCareer();
-      if (success) {
-        debugPrint("✅ Career auto-saved successfully");
-      } else {
-        debugPrint("❌ Auto-save failed");
-      }
-      return success;
-    } catch (e) {
-      debugPrint("❌ Auto-save error: $e");
-      return false;
-    }
   }
 }
