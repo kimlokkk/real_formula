@@ -1,6 +1,7 @@
 // lib/main.dart - Career Mode Only with Formula 1 Fonts and Fixed Colors
 import 'package:flutter/material.dart';
 import 'package:real_formula/ui/career/race_weekend_loading.dart';
+import 'package:real_formula/ui/career/save_load_menu.dart';
 import 'ui/main_menu_page.dart';
 import 'ui/qualifying_page.dart';
 import 'ui/race_simulator_page.dart';
@@ -227,10 +228,13 @@ class MyApp extends StatelessWidget {
         '/driver_creation': (context) => DriverCreationPage(),
         '/career_home': (context) => CareerHomePage(),
 
+        // NEW: Save/Load system routes
+        '/save_career': (context) => SaveLoadMenu(isLoadMode: false),
+        '/load_career': (context) => SaveLoadMenu(isLoadMode: true),
+
         // Race weekend flow (career only)
         '/race_weekend_loading': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return RaceWeekendLoadingScreen(
             raceWeekend: args['raceWeekend'],
             careerDriver: args['careerDriver'],

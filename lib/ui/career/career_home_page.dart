@@ -1,5 +1,8 @@
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
+import 'package:real_formula/services/career/save_manager.dart';
+import 'package:real_formula/ui/career/save_load_menu.dart';
+
 import '../../models/team.dart'; // lib/ui/career/career_home_page.dart - Navigation-Based Career Hub with Real Data
 import 'package:flutter/material.dart';
 import 'package:real_formula/services/career/career_calendar.dart';
@@ -35,12 +38,30 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
 
     _initializeAnimations();
 
-    // 🔧 FIX: Smart calendar initialization that preserves existing state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeCalendarSafely();
       _fadeController.forward();
       _refreshCareerData();
+
+      // 🆕 NEW: Auto-save when entering career home (safety save)
+      _autoSaveCareer();
     });
+  }
+
+// 🆕 NEW: Add this method to career_home_page.dart
+  void _autoSaveCareer() async {
+    if (CareerManager.currentCareerDriver != null) {
+      try {
+        bool success = await SaveManager.saveCurrentCareer();
+        if (success) {
+          debugPrint("✅ Career auto-saved on home page entry");
+        } else {
+          debugPrint("⚠️ Auto-save failed on home page entry");
+        }
+      } catch (e) {
+        debugPrint("❌ Auto-save error: $e");
+      }
+    }
   }
 
   void _initializeCalendarSafely() {
@@ -2414,11 +2435,167 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
     );
   }
 
-  void _saveCareer() {
+  void _saveCareer() async {
+    // Show save options dialog instead of dropdown
+    String? action = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Save Career',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Formula1',
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'How would you like to save your career?',
+          style: TextStyle(
+            color: Colors.grey[300],
+            fontFamily: 'Formula1',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop('quick_save'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.yellow[600],
+              foregroundColor: Colors.black,
+            ),
+            child: Text('Quick Save'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop('save_to_slot'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[600],
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Save to Slot'),
+          ),
+        ],
+      ),
+    );
+
+    if (action != null) {
+      switch (action) {
+        case 'quick_save':
+          _performQuickSave();
+          break;
+        case 'save_to_slot':
+          _openSaveMenu();
+          break;
+      }
+    }
+  }
+
+// ADD this new method for quick saving:
+  void _performQuickSave() async {
+    try {
+      // Show saving indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Saving career...',
+                style: TextStyle(
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.blue[600],
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      bool success = await SaveManager.saveCurrentCareer();
+
+      // Remove the saving indicator
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Career saved successfully!',
+                  style: TextStyle(
+                    fontFamily: 'Formula1',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        _showSaveError('Failed to save career progress');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _showSaveError('Error saving career: $e');
+    }
+  }
+
+// ADD this new method for opening save menu:
+  void _openSaveMenu() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SaveLoadMenu(isLoadMode: false),
+      ),
+    );
+  }
+
+// ADD this new method for showing save errors:
+  void _showSaveError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Career saved successfully!'),
-        backgroundColor: Colors.green[600],
+        content: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontFamily: 'Formula1',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red[600],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        duration: Duration(seconds: 3),
       ),
     );
   }

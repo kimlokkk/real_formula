@@ -1,6 +1,8 @@
 // lib/ui/main_menu_page.dart - Enhanced F1 Theme
 import 'package:flutter/material.dart';
 import 'package:real_formula/services/career/career_manager.dart';
+import 'package:real_formula/services/career/save_manager.dart';
+import 'package:real_formula/ui/career/save_load_menu.dart';
 
 class MainMenuPage extends StatefulWidget {
   @override
@@ -22,7 +24,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
   void initState() {
     super.initState();
 
-    // Logo entrance animation
+    // Original animation setup
     _logoController = AnimationController(
       duration: Duration(milliseconds: 2000),
       vsync: this,
@@ -35,7 +37,6 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
       curve: Curves.elasticOut,
     ));
 
-    // Button slide-in animation
     _buttonController = AnimationController(
       duration: Duration(milliseconds: 1500),
       vsync: this,
@@ -48,7 +49,6 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
       curve: Curves.easeOutCubic,
     ));
 
-    // Subtle background animation
     _backgroundController = AnimationController(
       duration: Duration(seconds: 8),
       vsync: this,
@@ -58,9 +58,8 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
       end: 1.0,
     ).animate(_backgroundController);
 
-    // Grid pattern animation
     _gridController = AnimationController(
-      duration: Duration(seconds: 3),
+      duration: Duration(milliseconds: 3000),
       vsync: this,
     );
     _gridAnimation = Tween<double>(
@@ -71,13 +70,18 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
       curve: Curves.easeInOut,
     ));
 
-    // Start animations sequence
-    _logoController.forward();
-    Future.delayed(Duration(milliseconds: 800), () {
-      _buttonController.forward();
-    });
-    Future.delayed(Duration(milliseconds: 1200), () {
-      _gridController.forward();
+    // NEW: Check for existing career and auto-load if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForExistingCareer();
+
+      // Start animations
+      _logoController.forward();
+      Future.delayed(Duration(milliseconds: 500), () {
+        _buttonController.forward();
+      });
+      Future.delayed(Duration(milliseconds: 1000), () {
+        _gridController.forward();
+      });
     });
   }
 
@@ -88,6 +92,23 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     _backgroundController.dispose();
     _gridController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkForExistingCareer() async {
+    try {
+      // Check if there's a saved career to load
+      bool hasSave = await SaveManager.hasSavedCareer();
+      if (hasSave && CareerManager.currentCareerDriver == null) {
+        // Try to load the current career
+        bool loaded = await SaveManager.loadCurrentCareer();
+        if (loaded) {
+          setState(() {}); // Refresh UI to show Continue Career button
+          debugPrint("✅ Auto-loaded existing career on startup");
+        }
+      }
+    } catch (e) {
+      debugPrint("⚠️ Could not auto-load career: $e");
+    }
   }
 
   @override
@@ -352,35 +373,65 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Primary action button
+                  // Primary action button - New Career
                   _buildEnhancedButton(
-                    label: 'START CAREER',
-                    subtitle: 'Begin your F1 journey',
-                    icon: Icons.flag,
-                    onPressed: _handleCareerMode,
+                    label: 'NEW CAREER',
+                    subtitle: 'Start your F1 journey',
+                    icon: Icons.add_circle_outline,
+                    onPressed: _handleNewCareer,
                     isPrimary: true,
                     gradientColors: [Colors.red[500]!, Colors.red[700]!],
                     isEnabled: true,
                   ),
 
-                  SizedBox(height: 20),
+                  SizedBox(height: 16),
 
-                  // Continue career (always visible, disabled if no career)
+                  // Load Career - Always visible
                   _buildEnhancedButton(
-                    label: 'CONTINUE CAREER',
-                    subtitle:
-                        CareerManager.currentCareerDriver != null ? 'Resume your championship' : 'No career found',
-                    icon: Icons.play_arrow,
-                    onPressed: CareerManager.currentCareerDriver != null
-                        ? () {
-                            Navigator.pushNamed(context, '/career_home');
-                          }
-                        : null, // null makes button disabled
+                    label: 'LOAD CAREER',
+                    subtitle: 'Continue saved careers',
+                    icon: Icons.folder_open,
+                    onPressed: _handleLoadCareer,
                     isPrimary: false,
-                    gradientColors: CareerManager.currentCareerDriver != null
-                        ? [Colors.blue[600]!, Colors.blue[800]!]
-                        : [Colors.grey[700]!, Colors.grey[800]!],
-                    isEnabled: CareerManager.currentCareerDriver != null,
+                    gradientColors: [Colors.blue[600]!, Colors.blue[800]!],
+                    isEnabled: true,
+                  ),
+
+                  // Show Continue Career button only if there's an active career
+                  if (CareerManager.currentCareerDriver != null) ...[
+                    SizedBox(height: 16),
+                    _buildEnhancedButton(
+                      label: 'CONTINUE CAREER',
+                      subtitle: 'Resume ${CareerManager.currentCareerDriver!.name}',
+                      icon: Icons.play_arrow,
+                      onPressed: _handleContinueCareer,
+                      isPrimary: false,
+                      gradientColors: [Colors.green[600]!, Colors.green[800]!],
+                      isEnabled: true,
+                    ),
+                  ],
+
+                  SizedBox(height: 32),
+
+                  // Secondary options
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSecondaryButton(
+                          label: 'SETTINGS',
+                          icon: Icons.settings,
+                          onPressed: _handleSettings,
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: _buildSecondaryButton(
+                          label: 'ABOUT',
+                          icon: Icons.info_outline,
+                          onPressed: _handleAbout,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -554,12 +605,174 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     );
   }
 
-  void _handleCareerMode() {
+  void _handleNewCareer() async {
+    // Check if there's an active career and warn user
+    if (CareerManager.currentCareerDriver != null) {
+      bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(
+            'Start New Career',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Formula1',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Text(
+            'Starting a new career will replace your current progress.\n\nWould you like to save your current career first?',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontFamily: 'Formula1',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+                // Navigate to save menu first
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SaveLoadMenu(isLoadMode: false),
+                  ),
+                );
+              },
+              child: Text('Save First'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text('Start New'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+    }
+
+    // Navigate to driver creation
+    Navigator.pushNamed(context, '/driver_creation');
+  }
+
+  void _handleLoadCareer() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SaveLoadMenu(isLoadMode: true),
+      ),
+    );
+  }
+
+// ADD this new method for continuing current career:
+  void _handleContinueCareer() {
     if (CareerManager.currentCareerDriver != null) {
       Navigator.pushNamed(context, '/career_home');
-    } else {
-      Navigator.pushNamed(context, '/driver_creation');
     }
+  }
+
+// ADD this new method for building secondary buttons:
+  Widget _buildSecondaryButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      height: 50,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Formula1',
+            letterSpacing: 1,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white.withOpacity(0.1),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+// ADD these placeholder methods for settings and about:
+  void _handleSettings() {
+    // Placeholder for settings functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Settings coming soon'),
+        backgroundColor: Colors.grey[700],
+      ),
+    );
+  }
+
+  void _handleAbout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: Text(
+          'F1 Career Simulator',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Formula1',
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Version 1.0',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontFamily: 'Formula1',
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Experience the thrill of Formula 1 career mode with realistic progression, championship battles, and career management.',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Formula1',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[600],
+              foregroundColor: Colors.white,
+            ),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
