@@ -96,18 +96,26 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
 
   Future<void> _checkForExistingCareer() async {
     try {
-      // Check if there's a saved career to load
-      bool hasSave = await SaveManager.hasSavedCareer();
-      if (hasSave && CareerManager.currentCareerDriver == null) {
-        // Try to load the current career
-        bool loaded = await SaveManager.loadCurrentCareer();
-        if (loaded) {
-          setState(() {}); // Refresh UI to show Continue Career button
-          debugPrint("✅ Auto-loaded existing career on startup");
-        }
+      debugPrint("🔄 Checking for existing career on startup...");
+
+      // Initialize save system (this will auto-load most recent career)
+      await SaveManager.initializeSaveSystem();
+
+      // Check if continue career should be shown (after auto-load)
+      bool shouldShow = await SaveManager.shouldShowContinueCareer();
+
+      if (shouldShow) {
+        debugPrint("✅ Continue career will be shown");
+      } else {
+        debugPrint("ℹ️ No continue career to show");
+      }
+
+      // Refresh UI to show/hide Continue Career button
+      if (mounted) {
+        setState(() {});
       }
     } catch (e) {
-      debugPrint("⚠️ Could not auto-load career: $e");
+      debugPrint("⚠️ Error during startup career check: $e");
     }
   }
 
@@ -397,7 +405,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                     isEnabled: true,
                   ),
 
-                  // Show Continue Career button only if there's an active career
+                  // 🔧 SIMPLE: Continue Career button
                   if (CareerManager.currentCareerDriver != null) ...[
                     SizedBox(height: 16),
                     _buildEnhancedButton(
