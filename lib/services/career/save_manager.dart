@@ -458,12 +458,10 @@ class SaveManager {
         // Get deleted career info
         Map<String, dynamic>? slotData = slotsData[slotIndex];
         String? deletedCareerID;
-        String? deletedDriverName;
 
         if (slotData != null && slotData.isNotEmpty) {
           try {
             deletedCareerID = slotData['careerDriver']?['careerId'];
-            deletedDriverName = slotData['careerDriver']?['name'];
           } catch (e) {
             debugPrint('Could not get career info from deleted slot');
           }
@@ -552,7 +550,7 @@ class SaveManager {
       debugPrint("✅ Career driver data loaded successfully (Career ID: ${careerDriver.careerId})");
     } catch (e) {
       debugPrint("❌ Error loading career from save data: $e");
-      throw e;
+      rethrow;
     }
   }
 

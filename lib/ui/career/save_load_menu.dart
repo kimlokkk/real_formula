@@ -24,7 +24,6 @@ class _SaveLoadMenuState extends State<SaveLoadMenu> with TickerProviderStateMix
   late AnimationController _backgroundController;
   late AnimationController _cardController;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _backgroundShift;
   late Animation<double> _cardAnimation;
 
   @override
@@ -49,7 +48,6 @@ class _SaveLoadMenuState extends State<SaveLoadMenu> with TickerProviderStateMix
       duration: Duration(seconds: 8),
       vsync: this,
     )..repeat();
-    _backgroundShift = Tween<double>(begin: 0.0, end: 1.0).animate(_backgroundController);
 
     // Card stagger animation
     _cardController = AnimationController(

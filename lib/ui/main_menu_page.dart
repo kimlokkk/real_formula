@@ -334,13 +334,15 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
 
               // Title
               Text(
-                'F1 CAREER',
+                'REAL FORMULA',
+                textAlign: TextAlign.center,
                 style: TextStyle(
+                  height: 1.3,
                   fontSize: 42,
                   fontWeight: FontWeight.w900, // Uses Formula1-Wide
                   fontFamily: 'Formula1',
                   color: Colors.white,
-                  letterSpacing: 6,
+                  letterSpacing: 5,
                   shadows: [
                     Shadow(
                       offset: Offset(0, 4),
@@ -351,8 +353,12 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                 ),
               ),
 
+              SizedBox(
+                height: 10,
+              ),
+
               Text(
-                'SIMULATOR',
+                'F1 CAREER SIMULATOR',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w400, // Uses Formula1-Regular
