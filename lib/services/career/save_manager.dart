@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:real_formula/services/career/championship_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/career/career_driver.dart';
 import '../../models/career/race_weekend.dart';
@@ -345,18 +346,23 @@ class SaveManager {
         });
       }
 
+      // 🔧 FIX: Include championship standings in save data
       Map<String, dynamic> saveData = {
         'version': _saveVersion,
         'slotIndex': slotIndex,
         'slotName': slotName.isNotEmpty ? slotName : '${CareerManager.currentCareerDriver!.name} Career',
         'savedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
-        'careerDriver': CareerManager.currentCareerDriver!.toJson(), // This now includes career ID
+        'careerDriver': CareerManager.currentCareerDriver!.toJson(),
         'calendarState': {
           'currentDate': CareerCalendar.instance.currentDate.toIso8601String(),
           'currentRaceIndex': CareerCalendar.instance.currentRaceIndex,
           'raceWeekends': raceWeekendData,
         },
+        // 🔧 FIX: Add championship standings to save data
+        'championshipStandings': ChampionshipManager.toJson(),
+        // 🔧 FIX: Include current season drivers for proper championship loading
+        'currentSeasonDrivers': CareerManager.currentSeasonDrivers.map((d) => d.name).toList(),
       };
 
       // Get existing slots
@@ -382,7 +388,7 @@ class SaveManager {
       await prefs.setString(_careerSlotsKey, jsonString);
 
       debugPrint(
-          "✅ Career saved to slot $slotIndex as '${saveData['slotName']}' (ID: ${CareerManager.currentCareerDriver!.careerId})");
+          "✅ Career saved to slot $slotIndex with championship standings (ID: ${CareerManager.currentCareerDriver!.careerId})");
       return true;
     } catch (e) {
       debugPrint('❌ Error saving career to slot: $e');
@@ -475,6 +481,11 @@ class SaveManager {
 
         debugPrint("✅ Deleted career from slot $slotIndex");
 
+        // 🔧 FIX: Clear both championship and calendar when deleting ANY career
+        debugPrint("🔧 Clearing championship and calendar data after career deletion");
+        ChampionshipManager.resetChampionship();
+        CareerCalendar.instance.forceReset();
+
         // If deleted career is currently loaded, reset career manager
         if (CareerManager.currentCareerDriver != null &&
             deletedCareerID != null &&
@@ -544,10 +555,15 @@ class SaveManager {
 
       CareerDriver careerDriver = CareerDriver.fromJson(driverData, team);
 
+      // Reset and load career driver first
       CareerManager.resetCareer();
       CareerManager.loadCareerDriver(careerDriver, currentSeason);
 
+      // 🔧 FIX: Load championship standings using the new safe method
+      CareerManager.loadCareerWithChampionshipFix(saveData);
+
       debugPrint("✅ Career driver data loaded successfully (Career ID: ${careerDriver.careerId})");
+      debugPrint("✅ Championship standings loaded and synchronized with current season drivers");
     } catch (e) {
       debugPrint("❌ Error loading career from save data: $e");
       rethrow;

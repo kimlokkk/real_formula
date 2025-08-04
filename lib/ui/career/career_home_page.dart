@@ -65,21 +65,31 @@ class _CareerHomePageState extends State<CareerHomePage> with TickerProviderStat
   }
 
   void _initializeCalendarSafely() {
+    // 🔧 FIX: For new careers, always start fresh
+    if (CareerManager.currentCareerDriver == null) {
+      debugPrint("📅 No career driver - skipping calendar initialization");
+      return;
+    }
+
     // Check if we have existing races with completion state
     int existingRaces = CareerCalendar.instance.raceWeekends.length;
     int completedRaces = CareerCalendar.instance.getCompletedRaces().length;
 
     debugPrint("📅 Career home initializing calendar...");
+    debugPrint("   Career driver: ${CareerManager.currentCareerDriver!.name}");
     debugPrint("   Existing races: $existingRaces");
     debugPrint("   Completed races: $completedRaces");
 
     if (existingRaces == 0) {
-      // Only initialize if we have no races at all (new career)
-      debugPrint("📅 No existing races found - initializing fresh calendar");
-      CareerCalendar.instance.initialize();
+      // No races at all - this should only happen for truly new careers
+      debugPrint("📅 No existing races found - this should be a fresh calendar");
+      CareerCalendar.instance.initializeForNewCareer();
     } else {
       debugPrint("📅 Preserving existing calendar state");
       debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
+
+      // 🔧 FIX: Add validation to ensure calendar matches current career
+      CareerCalendar.instance.debugCalendarState();
     }
   }
 

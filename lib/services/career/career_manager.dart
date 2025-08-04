@@ -56,7 +56,7 @@ class CareerManager {
     );
 
     // Initialize season drivers (replace one AI driver with player)
-    _initializeSeasonDrivers();
+    initializeNewCareer(_currentCareerDriver!, _currentSeason);
 
     debugPrint("✅ New career started - ${_currentCareerDriver!.name} (ID: ${_currentCareerDriver!.careerId})");
 
@@ -150,17 +150,29 @@ class CareerManager {
   }
 
   static void initializeNewCareer(CareerDriver careerDriver, int season) {
+    debugPrint("=== INITIALIZING NEW CAREER ===");
+
+    // 🔧 FIX: Force complete reset before starting new career
+    resetCareer(); // This now clears championship too
+
     _currentCareerDriver = careerDriver;
     _currentSeason = season;
 
-    // 🔧 FIX: Only initialize calendar for truly new careers
-    debugPrint("📅 Initializing new career - setting up fresh calendar");
+    // Initialize season drivers (replace one AI driver with player)
+    _initializeSeasonDrivers();
+
+    // 🔧 FIX: Initialize calendar for new careers
+    debugPrint("📅 Initializing fresh calendar for new career");
     CareerCalendar.instance.initialize();
 
-    // Initialize championship standings
-    ChampionshipManager.initializeChampionship();
+    // 🔧 FIX: Initialize fresh championship standings with season drivers
+    debugPrint("🏆 Initializing fresh championship for new career");
+    ChampionshipManager.initializeChampionship(seasonDrivers: _currentSeasonDrivers);
 
-    debugPrint("✅ New career initialized with fresh calendar and championship standings");
+    debugPrint("✅ New career initialized completely fresh");
+    debugPrint("   Driver: ${careerDriver.name} (ID: ${careerDriver.careerId})");
+    debugPrint("   Season drivers: ${_currentSeasonDrivers.length}");
+    debugPrint("   Championship drivers: ${ChampionshipManager.isInitialized()}");
   }
 
 // 🔧 ADD this method to load existing careers without resetting calendar:
@@ -571,9 +583,19 @@ class CareerManager {
 
   // Reset career (for starting new career)
   static void resetCareer() {
+    debugPrint("=== RESETTING CAREER MANAGER ===");
+
     _currentCareerDriver = null;
     _currentSeason = 2025;
     _currentSeasonDrivers.clear();
+
+    // 🔧 FIX: Reset championship data
+    ChampionshipManager.resetChampionship();
+
+    // 🔧 FIX: Reset calendar data too
+    CareerCalendar.instance.forceReset();
+
+    debugPrint("✅ Career manager reset - driver, season, championship, and calendar cleared");
   }
 
   // Add this public setter for current season
@@ -584,5 +606,60 @@ class CareerManager {
   // Add this public setter for career driver
   static void setCurrentCareerDriver(CareerDriver? driver) {
     _currentCareerDriver = driver;
+  }
+
+  static void loadCareerWithChampionshipFix(Map<String, dynamic> saveData) {
+    _currentSeason = saveData['currentSeason'] ?? 2025;
+
+    // First ensure we have current season drivers (including career driver)
+    if (_currentSeasonDrivers.isEmpty) {
+      _initializeSeasonDrivers();
+    }
+
+    // Load championship standings if available
+    if (saveData.containsKey('championshipStandings')) {
+      Map<String, dynamic> championshipData = saveData['championshipStandings'];
+
+      // 🔧 FIX: Re-initialize championship with current season drivers first
+      ChampionshipManager.initializeChampionship(seasonDrivers: _currentSeasonDrivers);
+
+      // 🔧 FIX: Then apply saved points only for drivers that exist in current season
+      _applySavedChampionshipPoints(championshipData);
+
+      debugPrint("✅ Championship standings loaded and synchronized with current season drivers");
+    } else {
+      // Initialize fresh championship if no saved data
+      ChampionshipManager.initializeChampionship(seasonDrivers: _currentSeasonDrivers);
+      debugPrint("✅ Fresh championship standings initialized with season drivers");
+    }
+  }
+
+  static void _applySavedChampionshipPoints(Map<String, dynamic> savedChampionshipData) {
+    try {
+      Map<String, int> savedPoints = Map<String, int>.from(savedChampionshipData['driverPoints'] ?? {});
+      Map<String, int> savedWins = Map<String, int>.from(savedChampionshipData['driverWins'] ?? {});
+      Map<String, int> savedPodiums = Map<String, int>.from(savedChampionshipData['driverPodiums'] ?? {});
+
+      debugPrint("🔧 Applying saved championship points...");
+
+      // Get list of current season driver names
+      Set<String> currentDriverNames = _currentSeasonDrivers.map((d) => d.name).toSet();
+
+      // Apply saved points only for drivers that exist in current season
+      for (String driverName in currentDriverNames) {
+        if (savedPoints.containsKey(driverName)) {
+          ChampionshipManager.setDriverPoints(driverName, savedPoints[driverName]!);
+          ChampionshipManager.setDriverWins(driverName, savedWins[driverName] ?? 0);
+          ChampionshipManager.setDriverPodiums(driverName, savedPodiums[driverName] ?? 0);
+
+          debugPrint("   Applied for $driverName: ${savedPoints[driverName]} pts, ${savedWins[driverName] ?? 0} wins");
+        }
+      }
+
+      debugPrint("✅ Championship points applied successfully");
+    } catch (e) {
+      debugPrint("❌ Error applying saved championship points: $e");
+      // If error, championship is already initialized with 0 points for all drivers
+    }
   }
 }

@@ -313,4 +313,25 @@ class ChampionshipManager {
     _driverPodiums = Map<String, int>.from(json['driverPodiums'] ?? {});
     _driverTeams = Map<String, String>.from(json['driverTeams'] ?? {});
   }
+
+  /// 🔧 NEW: Set driver points directly (for loading from save)
+  static void setDriverPoints(String driverName, int points) {
+    if (_driverPoints.containsKey(driverName)) {
+      _driverPoints[driverName] = points;
+    }
+  }
+
+  /// 🔧 NEW: Set driver wins directly (for loading from save)
+  static void setDriverWins(String driverName, int wins) {
+    if (_driverWins.containsKey(driverName)) {
+      _driverWins[driverName] = wins;
+    }
+  }
+
+  /// 🔧 NEW: Set driver podiums directly (for loading from save)
+  static void setDriverPodiums(String driverName, int podiums) {
+    if (_driverPodiums.containsKey(driverName)) {
+      _driverPodiums[driverName] = podiums;
+    }
+  }
 }

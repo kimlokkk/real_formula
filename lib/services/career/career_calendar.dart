@@ -35,6 +35,32 @@ class CareerCalendar extends ChangeNotifier {
   RaceWeekend? get nextRaceWeekend => _getNextRaceWeekend();
   int get currentRaceIndex => _currentRaceIndex;
 
+  void initializeForNewCareer() {
+    debugPrint("=== INITIALIZING CALENDAR FOR NEW CAREER ===");
+
+    // Always force reset for new careers
+    forceReset();
+
+    // Generate fresh F1 schedule
+    _generateF1Schedule();
+    _checkForRaceWeekend();
+
+    debugPrint("✅ Fresh calendar initialized for new career");
+    debugPrint("   Total races: ${_raceWeekends.length}");
+    debugPrint("   First race: ${_raceWeekends.isNotEmpty ? _raceWeekends.first.name : 'None'}");
+    debugPrint("   Current date: $_currentDate");
+  }
+
+  void debugCalendarState() {
+    debugPrint("📅 CALENDAR STATE DEBUG:");
+    debugPrint("   Total races: ${_raceWeekends.length}");
+    debugPrint("   Completed races: ${getCompletedRaces().length}");
+    debugPrint("   Current race index: $_currentRaceIndex");
+    debugPrint("   Current date: $_currentDate");
+    debugPrint("   Next race: ${nextRaceWeekend?.name ?? 'None'}");
+    debugPrint("   Current race weekend: ${_currentRaceWeekend?.name ?? 'None'}");
+  }
+
   // Initialize calendar
   void initialize() {
     // 🔧 FIX: Only generate fresh schedule if we don't have races yet
@@ -539,6 +565,24 @@ class CareerCalendar extends ChangeNotifier {
     if (_isRunning && !_isPaused) {
       _startProgressTimer();
     }
+  }
+
+  void forceReset() {
+    debugPrint("=== FORCING CALENDAR RESET ===");
+
+    // Stop any running timers
+    _stopProgressTimer();
+
+    // Clear all calendar state
+    _currentDate = DateTime(2025, 3, 1); // Reset to season start
+    _isRunning = false;
+    _isPaused = false;
+    _raceWeekends.clear(); // Clear all races
+    _currentRaceWeekend = null;
+    _currentRaceIndex = 0;
+
+    debugPrint("✅ Calendar completely reset - all state cleared");
+    notifyListeners();
   }
 
   @override
