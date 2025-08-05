@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:real_formula/services/weather_generator.dart';
 import 'package:real_formula/ui/minigames/qualifying_timing_challenge.dart';
 
 import '../models/driver.dart';
@@ -7,6 +8,8 @@ import '../models/enums.dart';
 import '../models/qualifying.dart';
 
 class QualifyingEngine {
+  static RainIntensity? _currentSessionRainIntensity;
+
   /// Simple qualifying lap time calculation
   static double calculateQualifyingLapTime(
     Driver driver,
@@ -77,6 +80,7 @@ class QualifyingEngine {
   }
 
   /// Simulate complete qualifying session instantly
+  /// Simulate complete qualifying session instantly
   static List<QualifyingResult> simulateQualifying(
     List<Driver> drivers,
     WeatherCondition weather,
@@ -86,10 +90,21 @@ class QualifyingEngine {
   }) {
     List<QualifyingResult> results = [];
 
+    // 🔧 FIX: Generate and store rain intensity ONCE for the entire session
+    if (weather == WeatherCondition.rain) {
+      _currentSessionRainIntensity =
+          WeatherGenerator.generateRainIntensity(track.name);
+      print(
+          '🌧️ QUALIFYING SESSION: ${_currentSessionRainIntensity!.name} rain at ${track.name}');
+    } else {
+      _currentSessionRainIntensity = null;
+    }
+
     // Calculate qualifying time for each driver
     for (Driver driver in drivers) {
       double bestTime = double.infinity;
-      TireCompound bestTire = _selectBestTire(driver, weather);
+      TireCompound bestTire = _selectBestTire(
+          driver, weather, track.name, _currentSessionRainIntensity);
 
       // Check if this is the player with a mini-game result
       if (playerDriver != null &&
@@ -139,21 +154,65 @@ class QualifyingEngine {
     return results;
   }
 
-  /// Select best tire for qualifying
-  static TireCompound _selectBestTire(Driver driver, WeatherCondition weather) {
-    if (weather == WeatherCondition.rain) {
-      return Random().nextDouble() < 0.7
-          ? TireCompound.intermediate
-          : TireCompound.wet;
+  /// Select best tire for qualifying based on rain intensity and driver/team factors
+  static TireCompound _selectBestTire(Driver driver, WeatherCondition weather,
+      String trackName, RainIntensity? sessionRainIntensity) {
+    if (weather != WeatherCondition.rain) {
+      // In dry conditions, everyone uses softs for qualifying
+      return TireCompound.soft;
     }
 
-    // In dry conditions, everyone uses softs for qualifying
-    return TireCompound.soft;
+    // Rain conditions - use the session's rain intensity
+    return _selectRainTyre(driver, sessionRainIntensity!);
+  }
+
+  static TireCompound _selectRainTyre(Driver driver, RainIntensity intensity) {
+    double random = Random().nextDouble();
+
+    // Base probability of using wet tyres based on intensity
+    double wetTyreChance = intensity.wetTyrePreference;
+
+    // Adjust based on team strategy
+    String teamStrategy = driver.getTeamStrategyTendency();
+    if (teamStrategy.toLowerCase().contains('aggressive')) {
+      wetTyreChance -= 0.10; // Aggressive teams stay on inters longer
+    } else if (teamStrategy.toLowerCase().contains('conservative')) {
+      wetTyreChance += 0.10; // Conservative teams switch to wets earlier
+    }
+
+    // Adjust based on driver skills
+    if (driver.consistency > 85) {
+      wetTyreChance -= 0.08; // High consistency drivers confident on inters
+    } else if (driver.consistency < 70) {
+      wetTyreChance += 0.08; // Low consistency drivers prefer safer wets
+    }
+
+    // Adjust based on grid position strategy
+    if (driver.startingPosition <= 3) {
+      wetTyreChance += 0.05; // Front runners can afford conservative choice
+    } else if (driver.startingPosition >= 15) {
+      wetTyreChance -= 0.10; // Back markers gamble on inters for pace
+    }
+
+    // Extreme conditions override - safety first
+    if (intensity == RainIntensity.extreme) {
+      return TireCompound.wet; // Mandatory in extreme conditions
+    }
+
+    // Light rain special case - some brave souls try softs
+    if (intensity == RainIntensity.light && random < 0.05) {
+      return TireCompound.soft; // 5% chance of gambling on softs
+    }
+
+    // Final decision
+    return random < wetTyreChance
+        ? TireCompound.wet
+        : TireCompound.intermediate;
   }
 
   /// Apply qualifying results to set starting grid
   static void applyQualifyingResults(
-      List<Driver> drivers, List<QualifyingResult> results,
+      List<Driver> drivers, List<QualifyingResult> results, String trackName,
       {WeatherCondition? raceWeather}) {
     // Set starting positions based on qualifying
     for (int i = 0; i < results.length; i++) {
@@ -162,8 +221,8 @@ class QualifyingEngine {
       driver.startingPosition = i + 1;
       driver.positionChangeFromStart = 0;
 
-      // 🔧 FIX: Set weather-appropriate starting tires
-      _setRaceStartTire(driver, raceWeather: raceWeather);
+      // 🔧 FIX: Set weather-appropriate starting tires with track name
+      _setRaceStartTire(driver, trackName, raceWeather: raceWeather);
 
       // Record qualifying result
       String qualifyingInfo =
@@ -174,24 +233,25 @@ class QualifyingEngine {
   }
 
   /// Set tire choice for race start (strategic choice)
-  static void _setRaceStartTire(Driver driver,
+  /// Set tire choice for race start (strategic choice)
+  /// Set tire choice for race start (strategic choice)
+  static void _setRaceStartTire(Driver driver, String trackName,
       {WeatherCondition? raceWeather}) {
     print(
         '🔧 DEBUG: _setRaceStartTire called for ${driver.name} with weather ${raceWeather?.name ?? "null"}');
 
-    // 🔧 FIX: In wet conditions, everyone starts on wet tires
+    // 🔧 FIX: In wet conditions, use the same session intensity as qualifying
     if (raceWeather == WeatherCondition.rain) {
-      // 80% intermediate, 20% wet (like real F1)
-      driver.currentCompound = Random().nextDouble() < 0.8
-          ? TireCompound.intermediate
-          : TireCompound.wet;
+      RainIntensity intensity = _currentSessionRainIntensity ??
+          WeatherGenerator.generateRainIntensity(trackName);
+      driver.currentCompound = _selectRainTyre(driver, intensity);
       driver.hasFreeTireChoice = true;
       print(
-          '🔧 DEBUG: ${driver.name} assigned ${driver.currentCompound.name} for wet race');
+          '🔧 DEBUG: ${driver.name} assigned ${driver.currentCompound.name} for ${intensity.name} race');
       return;
     }
 
-    // DRY WEATHER: Strategic tire choice based on grid position
+    // DRY WEATHER: Strategic tire choice based on grid position (unchanged)
     if (driver.startingPosition <= 3) {
       // Front runners: 50/50 soft vs medium
       driver.currentCompound =

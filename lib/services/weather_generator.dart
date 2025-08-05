@@ -17,6 +17,77 @@ class WeatherGenerator {
     }
   }
 
+  static RainIntensity generateRainIntensity(String trackName) {
+    double random = _random.nextDouble();
+
+    // Track-specific intensity tendencies
+    double heavyRainChance = _getHeavyRainChance(trackName);
+    double extremeRainChance = _getExtremeRainChance(trackName);
+
+    // Determine intensity based on weighted probabilities
+    if (random < extremeRainChance) {
+      return RainIntensity.extreme;
+    } else if (random < extremeRainChance + heavyRainChance) {
+      return RainIntensity.heavy;
+    } else if (random < 0.60) {
+      // 60% chance for moderate when it rains
+      return RainIntensity.moderate;
+    } else {
+      return RainIntensity.light;
+    }
+  }
+
+  static double _getHeavyRainChance(String trackName) {
+    switch (trackName.toLowerCase()) {
+      // Tracks famous for heavy downpours
+      case 'silverstone':
+        return 0.25; // British weather can be extreme
+      case 'spa-francorchamps':
+        return 0.30; // Famous for sudden heavy rain
+      case 'brazil':
+        return 0.35; // Tropical storms
+      case 'singapore':
+        return 0.40; // Monsoon conditions
+      case 'japan':
+      case 'suzuka':
+        return 0.25; // Typhoon season
+
+      // Moderate rain tendency
+      case 'netherlands':
+      case 'austria':
+      case 'canada':
+        return 0.15;
+
+      // Usually light rain when it happens
+      default:
+        return 0.10;
+    }
+  }
+
+  /// Get extreme rain probability for track (0.0 to 1.0)
+  static double _getExtremeRainChance(String trackName) {
+    switch (trackName.toLowerCase()) {
+      // Tracks that can get monsoon-like conditions
+      case 'singapore':
+        return 0.15; // Tropical storms
+      case 'brazil':
+        return 0.12; // Interlagos legends
+      case 'spa-francorchamps':
+        return 0.10; // Spa magic
+      case 'japan':
+      case 'suzuka':
+        return 0.08; // Typhoons
+
+      // Very rare extreme conditions
+      case 'silverstone':
+        return 0.05;
+
+      // Almost never extreme
+      default:
+        return 0.02;
+    }
+  }
+
   /// Get rain probability for each track (0.0 to 1.0)
   static double getTrackWeatherProbability(String trackName) {
     switch (trackName.toLowerCase()) {
@@ -85,7 +156,8 @@ class WeatherGenerator {
   }
 
   /// Get weather description for UI display
-  static String getWeatherDescription(String trackName, WeatherCondition weather) {
+  static String getWeatherDescription(
+      String trackName, WeatherCondition weather) {
     String location = _getTrackLocation(trackName);
 
     switch (weather) {

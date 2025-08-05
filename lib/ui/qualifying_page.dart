@@ -170,7 +170,7 @@ class _QualifyingPageState extends State<QualifyingPage>
     );
 
     // 🔧 FIX: Apply qualifying results with race weather for proper tire selection
-    QualifyingEngine.applyQualifyingResults(drivers, results,
+    QualifyingEngine.applyQualifyingResults(drivers, results, currentTrack.name,
         raceWeather: currentWeather);
 
     if (mounted) {

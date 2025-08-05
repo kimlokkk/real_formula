@@ -153,7 +153,7 @@ class TrackData {
 
     // Jeddah Corniche Circuit (Saudi Arabia)
     Track(
-      name: "Saudi Arabia",
+      name: "Jeddah",
       country: "Saudi Arabia",
       baseLapTime: 91.0,
       type: TrackType.street,
