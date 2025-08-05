@@ -31,24 +31,19 @@ enum WeatherCondition {
 // FIXED: Much more realistic tire compound differences
 enum TireCompound {
   // REALISTIC F1 compound differences (0.1-0.3s per step, not 0.8s!)
-  soft("Soft", "🔴", -0.25, 4.0,
-      Colors.red), // Was -0.8s, now -0.25s (still fastest)
+  soft("Soft", "🔴", -0.25, 4.0, Colors.red), // Was -0.8s, now -0.25s (still fastest)
   medium("Medium", "🟡", 0.0, 1.0, Colors.amber), // Baseline unchanged
-  hard("Hard", "⚪", 0.15, 0.3,
-      Colors.white), // Was +0.6s, now +0.15s (more realistic)
+  hard("Hard", "⚪", 0.15, 0.3, Colors.white), // Was +0.6s, now +0.15s (more realistic)
   intermediate("Inter", "🟢", 2.0, 1.5, Colors.green), // Wet conditions only
   wet("Wet", "🔵", 4.0, 1.0, Colors.blue); // Heavy wet only
 
   // Now total gap between soft and hard is 0.4s instead of 1.4s - much more realistic!
 
-  const TireCompound(this.name, this.icon, this.lapTimeDelta,
-      this.degradationMultiplier, this.color);
+  const TireCompound(this.name, this.icon, this.lapTimeDelta, this.degradationMultiplier, this.color);
   final String name;
   final String icon;
-  final double
-      lapTimeDelta; // FIXED: Realistic differences (0.25s max advantage)
-  final double
-      degradationMultiplier; // Degradation rate vs medium - still extreme for strategy
+  final double lapTimeDelta; // FIXED: Realistic differences (0.25s max advantage)
+  final double degradationMultiplier; // Degradation rate vs medium - still extreme for strategy
   final Color color;
 }
 
@@ -84,16 +79,26 @@ enum QualifyingStatus {
 }
 
 enum RainIntensity {
-  light("Light Rain", "🌦️", "Drizzle with some dry patches", 0.15),
-  moderate("Moderate Rain", "🌧️", "Steady rain, fully wet track", 0.35),
-  heavy("Heavy Rain", "⛈️", "Downpour with standing water", 0.65),
-  extreme("Extreme Rain", "🌊", "Monsoon conditions, very dangerous", 0.90);
+  light("Light Rain", "🌦️", "Drizzle with some dry patches"),
+  moderate("Moderate Rain", "🌧️", "Steady rain, fully wet track"),
+  heavy("Heavy Rain", "⛈️", "Downpour with standing water"),
+  extreme("Extreme Rain", "🌊", "Monsoon conditions, very dangerous");
 
-  const RainIntensity(
-      this.name, this.icon, this.description, this.wetTyrePreference);
+  const RainIntensity(this.name, this.icon, this.description);
 
   final String name;
   final String icon;
   final String description;
-  final double wetTyrePreference; // 0.0 = all inters, 1.0 = all wets
+
+  // Helper method to get optimal tire choice
+  TireCompound get optimalTire {
+    switch (this) {
+      case RainIntensity.light:
+      case RainIntensity.moderate:
+        return TireCompound.intermediate;
+      case RainIntensity.heavy:
+      case RainIntensity.extreme:
+        return TireCompound.wet;
+    }
+  }
 }

@@ -244,6 +244,7 @@ class PerformanceCalculator {
 
     // WEATHER EFFECTS
     double weatherPenalty = calculateWeatherLapTimePenalty(driver, weather);
+    double slickRainPenalty = calculateSlickTireRainPenalty(driver.currentCompound, weather);
 
     // CONTEXTUAL TIRE COMPOUND ADVANTAGE (reduced in traffic/early race)
     double compoundDelta = calculateContextualCompoundDelta(driver, currentLap, driverPosition, driversForContext);
@@ -274,6 +275,7 @@ class PerformanceCalculator {
         compoundDelta +
         mechanicalPenalty +
         contextEffects +
+        slickRainPenalty + // ADD this line
         random;
   }
 
@@ -323,5 +325,24 @@ class PerformanceCalculator {
 
     // Don't include random variation, mechanical issues, or context effects in prediction
     return baseTime + skillsImpact + futureTyreDeg + weatherPenalty + compoundDelta;
+  }
+
+  /// Calculate penalty for using wrong tire type in rain
+  static double calculateSlickTireRainPenalty(TireCompound compound, WeatherCondition weather) {
+    if (weather != WeatherCondition.rain) {
+      return 0.0; // No penalty in dry conditions
+    }
+
+    // Massive penalty for slick tires on wet track (no grip!)
+    switch (compound) {
+      case TireCompound.soft:
+      case TireCompound.medium:
+      case TireCompound.hard:
+        return 8.0; // +8 seconds per lap (slicks have no grip in rain)
+
+      case TireCompound.intermediate:
+      case TireCompound.wet:
+        return 0.0; // Wet tires are designed for rain
+    }
   }
 }
