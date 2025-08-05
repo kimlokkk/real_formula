@@ -389,10 +389,20 @@ class DriverData {
   }
 
   /// Resets all drivers for a new race
-  static void resetAllDriversForNewRace(List<Driver> drivers, WeatherCondition weather) {
+  /// Resets all drivers for a new race
+  static void resetAllDriversForNewRace(
+      List<Driver> drivers, WeatherCondition weather) {
+    print(
+        '🔧 DEBUG: resetAllDriversForNewRace called with weather ${weather.name}');
+
     for (Driver driver in drivers) {
+      print(
+          '🔧 DEBUG: ${driver.name} had ${driver.currentCompound.name} before reset');
       driver.resetForNewRace();
-      driver.currentCompound = driver.getWeatherAppropriateStartingCompound(weather);
+      driver.currentCompound =
+          driver.getWeatherAppropriateStartingCompound(weather);
+      print(
+          '🔧 DEBUG: ${driver.name} now has ${driver.currentCompound.name} after reset');
     }
     initializeStartingGrid(drivers);
   }
@@ -409,7 +419,8 @@ class DriverData {
         driver.racecraft <= 100 && // NEW
         driver.experience >= 50 && // NEW
         driver.experience <= 100 && // NEW
-        driver.team.carPerformance >= 70 && // CHANGED: Now uses team.carPerformance
+        driver.team.carPerformance >=
+            70 && // CHANGED: Now uses team.carPerformance
         driver.team.carPerformance <= 100 && // CHANGED
         driver.team.reliability >= 70 && // CHANGED: Now uses team.reliability
         driver.team.reliability <= 100; // CHANGED
@@ -418,8 +429,12 @@ class DriverData {
   /// Gets performance tier for a driver based on overall stats
   /// Gets performance tier for a driver based on overall stats
   static String getDriverPerformanceTier(Driver driver) {
-    double overallRating =
-        (driver.speed + driver.consistency + driver.tyreManagementSkill + driver.racecraft + driver.experience) / 5.0;
+    double overallRating = (driver.speed +
+            driver.consistency +
+            driver.tyreManagementSkill +
+            driver.racecraft +
+            driver.experience) /
+        5.0;
 
     if (overallRating >= 95) return "GOAT";
     if (overallRating >= 90) return "Elite";

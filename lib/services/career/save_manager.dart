@@ -67,7 +67,8 @@ class SaveSlot {
 
       if (calendarData != null && calendarData.containsKey('raceWeekends')) {
         List<dynamic> raceWeekends = calendarData['raceWeekends'];
-        completedRaces = raceWeekends.where((race) => race['isCompleted'] == true).length;
+        completedRaces =
+            raceWeekends.where((race) => race['isCompleted'] == true).length;
 
         // Find next race
         var nextRace = raceWeekends.firstWhere(
@@ -89,7 +90,8 @@ class SaveSlot {
         lastSaved: DateTime.parse(saveData['savedAt']),
         nextRaceName: nextRaceName,
         isEmpty: false,
-        careerId: driverData['careerId'], // ADDED: Extract career ID from save data
+        careerId:
+            driverData['careerId'], // ADDED: Extract career ID from save data
       );
     } catch (e) {
       debugPrint('Error creating SaveSlot from data: $e');
@@ -126,7 +128,8 @@ class SaveManager {
   // ONLY the slots key - old system completely removed
   static const String _careerSlotsKey = 'career_slots';
   static const int maxCareerSlots = 5;
-  static const String _saveVersion = '2.1'; // Updated version for career ID support
+  static const String _saveVersion =
+      '2.1'; // Updated version for career ID support
 
   static Future<bool> autoLoadMostRecentCareer() async {
     try {
@@ -137,7 +140,8 @@ class SaveManager {
       }
 
       List<SaveSlot> slots = await getAllSaveSlots();
-      List<SaveSlot> nonEmptySlots = slots.where((slot) => !slot.isEmpty).toList();
+      List<SaveSlot> nonEmptySlots =
+          slots.where((slot) => !slot.isEmpty).toList();
 
       if (nonEmptySlots.isEmpty) {
         debugPrint("ℹ️ No saves to auto-load");
@@ -154,7 +158,8 @@ class SaveManager {
       bool loaded = await loadCareerFromSlot(mostRecent.slotIndex);
 
       if (loaded) {
-        debugPrint("✅ Auto-loaded ${mostRecent.driverName} from slot ${mostRecent.slotIndex + 1}");
+        debugPrint(
+            "✅ Auto-loaded ${mostRecent.driverName} from slot ${mostRecent.slotIndex + 1}");
         return true;
       } else {
         debugPrint("❌ Failed to auto-load career");
@@ -183,7 +188,8 @@ class SaveManager {
       for (int i = 0; i < slots.length; i++) {
         if (!slots[i].isEmpty && slots[i].careerId == currentCareerID) {
           existingSlot = i;
-          debugPrint("🔄 Found existing slot $i for career ID: $currentCareerID");
+          debugPrint(
+              "🔄 Found existing slot $i for career ID: $currentCareerID");
           break;
         }
       }
@@ -191,7 +197,8 @@ class SaveManager {
       if (existingSlot >= 0) {
         // Update existing slot for this specific career
         debugPrint("💾 Updating existing career in slot $existingSlot");
-        return await saveCareerToSlot(existingSlot, slots[existingSlot].saveName);
+        return await saveCareerToSlot(
+            existingSlot, slots[existingSlot].saveName);
       } else {
         // Find first empty slot for new career
         for (int i = 0; i < maxCareerSlots; i++) {
@@ -258,10 +265,12 @@ class SaveManager {
       String currentCareerID = CareerManager.currentCareerDriver!.careerId;
       List<SaveSlot> slots = await getAllSaveSlots();
 
-      bool existsInSlots = slots.any((slot) => !slot.isEmpty && slot.careerId == currentCareerID);
+      bool existsInSlots = slots
+          .any((slot) => !slot.isEmpty && slot.careerId == currentCareerID);
 
       if (existsInSlots) {
-        debugPrint("✅ Continue career available for career ID: $currentCareerID");
+        debugPrint(
+            "✅ Continue career available for career ID: $currentCareerID");
       } else {
         debugPrint("⚠️ Loaded career $currentCareerID not found in slots");
       }
@@ -285,9 +294,12 @@ class SaveManager {
         List<dynamic> slotsData = jsonDecode(jsonString);
 
         for (int i = 0; i < maxCareerSlots; i++) {
-          if (i < slotsData.length && slotsData[i] != null && slotsData[i].isNotEmpty) {
+          if (i < slotsData.length &&
+              slotsData[i] != null &&
+              slotsData[i].isNotEmpty) {
             try {
-              Map<String, dynamic> slotData = Map<String, dynamic>.from(slotsData[i]);
+              Map<String, dynamic> slotData =
+                  Map<String, dynamic>.from(slotsData[i]);
               if (_isValidSaveData(slotData)) {
                 slots.add(SaveSlot.fromSaveData(i, slotData));
               } else {
@@ -350,7 +362,9 @@ class SaveManager {
       Map<String, dynamic> saveData = {
         'version': _saveVersion,
         'slotIndex': slotIndex,
-        'slotName': slotName.isNotEmpty ? slotName : '${CareerManager.currentCareerDriver!.name} Career',
+        'slotName': slotName.isNotEmpty
+            ? slotName
+            : '${CareerManager.currentCareerDriver!.name} Career',
         'savedAt': DateTime.now().toIso8601String(),
         'currentSeason': CareerManager.currentSeason,
         'careerDriver': CareerManager.currentCareerDriver!.toJson(),
@@ -362,7 +376,8 @@ class SaveManager {
         // 🔧 FIX: Add championship standings to save data
         'championshipStandings': ChampionshipManager.toJson(),
         // 🔧 FIX: Include current season drivers for proper championship loading
-        'currentSeasonDrivers': CareerManager.currentSeasonDrivers.map((d) => d.name).toList(),
+        'currentSeasonDrivers':
+            CareerManager.currentSeasonDrivers.map((d) => d.name).toList(),
       };
 
       // Get existing slots
@@ -372,7 +387,9 @@ class SaveManager {
       String? existingData = prefs.getString(_careerSlotsKey);
       if (existingData != null) {
         List<dynamic> existingSlots = jsonDecode(existingData);
-        slots = existingSlots.map((slot) => Map<String, dynamic>.from(slot ?? {})).toList();
+        slots = existingSlots
+            .map((slot) => Map<String, dynamic>.from(slot ?? {}))
+            .toList();
       }
 
       // Ensure we have enough slots
@@ -408,38 +425,44 @@ class SaveManager {
       String? jsonString = prefs.getString(_careerSlotsKey);
 
       if (jsonString == null) {
-        debugPrint('❌ No save slots found');
+        debugPrint('❌ No save data found');
         return false;
       }
 
       List<dynamic> slotsData = jsonDecode(jsonString);
 
-      if (slotIndex >= slotsData.length || slotsData[slotIndex] == null || slotsData[slotIndex].isEmpty) {
-        debugPrint('❌ Slot $slotIndex is empty');
+      if (slotIndex >= slotsData.length) {
+        debugPrint('❌ Slot index out of range');
         return false;
       }
 
-      Map<String, dynamic> saveData = Map<String, dynamic>.from(slotsData[slotIndex]);
+      Map<String, dynamic> saveData =
+          Map<String, dynamic>.from(slotsData[slotIndex] ?? {});
 
-      if (!_isValidSaveData(saveData)) {
+      if (saveData.isEmpty || !_isValidSaveData(saveData)) {
         debugPrint('❌ Invalid save data in slot $slotIndex');
         return false;
       }
 
-      debugPrint("📥 Loading career from slot $slotIndex...");
-
-      // Load calendar state first
-      if (saveData.containsKey('calendarState')) {
-        await _loadCalendarState(saveData['calendarState']);
-      }
-
-      // Load career data
+      // 🔧 FIX: Load career data without resetting calendar
       await _loadCareerFromSaveData(saveData);
 
-      debugPrint("✅ Career loaded successfully from slot $slotIndex");
+      // 🔧 FIX: Explicitly load calendar state if it exists
+      if (saveData.containsKey('calendarState')) {
+        debugPrint("🔧 Loading calendar state from slot $slotIndex...");
+        await _loadCalendarState(saveData['calendarState']);
+
+        // 🔧 FIX: Verify calendar was loaded correctly
+        int completedRaces = CareerCalendar.instance.getCompletedRaces().length;
+        debugPrint("✅ Calendar loaded: $completedRaces races completed");
+        debugPrint(
+            "   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'Season Complete'}");
+      }
+
+      debugPrint('✅ Career loaded successfully from slot $slotIndex');
       return true;
     } catch (e) {
-      debugPrint('❌ Error loading career from slot: $e');
+      debugPrint('❌ Error loading career from slot $slotIndex: $e');
       return false;
     }
   }
@@ -482,7 +505,8 @@ class SaveManager {
         debugPrint("✅ Deleted career from slot $slotIndex");
 
         // 🔧 FIX: Clear both championship and calendar when deleting ANY career
-        debugPrint("🔧 Clearing championship and calendar data after career deletion");
+        debugPrint(
+            "🔧 Clearing championship and calendar data after career deletion");
         ChampionshipManager.resetChampionship();
         CareerCalendar.instance.forceReset();
 
@@ -527,7 +551,8 @@ class SaveManager {
     try {
       // Initialize slots
       List<SaveSlot> slots = await getAllSaveSlots();
-      debugPrint("✅ Save system initialized - ${slots.where((s) => !s.isEmpty).length} saves found");
+      debugPrint(
+          "✅ Save system initialized - ${slots.where((s) => !s.isEmpty).length} saves found");
 
       // Auto-load most recent career if none is loaded
       await autoLoadMostRecentCareer();
@@ -545,7 +570,8 @@ class SaveManager {
         saveData['careerDriver']['name'] != null;
   }
 
-  static Future<void> _loadCareerFromSaveData(Map<String, dynamic> saveData) async {
+  static Future<void> _loadCareerFromSaveData(
+      Map<String, dynamic> saveData) async {
     try {
       int currentSeason = saveData['currentSeason'];
       Map<String, dynamic> driverData = saveData['careerDriver'];
@@ -555,23 +581,33 @@ class SaveManager {
 
       CareerDriver careerDriver = CareerDriver.fromJson(driverData, team);
 
-      // Reset and load career driver first
-      CareerManager.resetCareer();
+      // 🔧 FIX: Reset career but DON'T reset calendar yet
+      CareerManager.resetCareerButKeepCalendar();
       CareerManager.loadCareerDriver(careerDriver, currentSeason);
 
-      // 🔧 FIX: Load championship standings using the new safe method
+      // 🔧 FIX: Load calendar state BEFORE initializing anything else
+      if (saveData.containsKey('calendarState')) {
+        await _loadCalendarState(saveData['calendarState']);
+        debugPrint("✅ Calendar state loaded from save data");
+      }
+
+      // Now load championship standings
       CareerManager.loadCareerWithChampionshipFix(saveData);
 
-      debugPrint("✅ Career driver data loaded successfully (Career ID: ${careerDriver.careerId})");
-      debugPrint("✅ Championship standings loaded and synchronized with current season drivers");
+      debugPrint(
+          "✅ Career driver data loaded successfully (Career ID: ${careerDriver.careerId})");
+      debugPrint(
+          "✅ Championship standings loaded and synchronized with current season drivers");
     } catch (e) {
       debugPrint("❌ Error loading career from save data: $e");
       rethrow;
     }
   }
 
-  static Future<void> _loadCalendarState(Map<String, dynamic> calendarData) async {
+  static Future<void> _loadCalendarState(
+      Map<String, dynamic> calendarData) async {
     try {
+      // 🔧 FIX: Initialize calendar first, then load state
       CareerCalendar.instance.initialize();
 
       if (calendarData.containsKey('currentDate')) {
@@ -605,9 +641,11 @@ class SaveManager {
       int completedCount = CareerCalendar.instance.getCompletedRaces().length;
       debugPrint("✅ Calendar state loaded successfully");
       debugPrint("   Completed races: $completedCount");
-      debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
+      debugPrint(
+          "   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
     } catch (e) {
       debugPrint("❌ Error loading calendar state: $e");
+      // Fallback: initialize fresh calendar
       CareerCalendar.instance.initialize();
     }
   }

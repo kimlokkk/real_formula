@@ -17,7 +17,8 @@ class QualifyingPage extends StatefulWidget {
   _QualifyingPageState createState() => _QualifyingPageState();
 }
 
-class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStateMixin {
+class _QualifyingPageState extends State<QualifyingPage>
+    with TickerProviderStateMixin {
   // Configuration
   List<Driver> drivers = [];
   Track currentTrack = TrackData.getDefaultTrack();
@@ -62,7 +63,8 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final Map<String, dynamic>? args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
     if (args != null) {
       // Get configuration from arguments
@@ -116,7 +118,8 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
     if (!mounted) return;
 
     // Get route arguments to check for career mode
-    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final Map<String, dynamic>? args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     bool isCareerMode = args?['careerMode'] ?? false;
 
     // PRESERVE: Find player driver properly
@@ -124,9 +127,10 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
     if (isCareerMode && args?['careerDriver'] != null) {
       // In career mode, find the career driver
       final careerDriver = args!['careerDriver'];
-      playerDriver = drivers.where((d) => d.name == careerDriver.name).isNotEmpty
-          ? drivers.firstWhere((d) => d.name == careerDriver.name)
-          : drivers.first;
+      playerDriver =
+          drivers.where((d) => d.name == careerDriver.name).isNotEmpty
+              ? drivers.firstWhere((d) => d.name == careerDriver.name)
+              : drivers.first;
     } else {
       // In quick race, look for "Rookie" driver (original logic)
       try {
@@ -165,8 +169,9 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
       playerMinigameResult: playerMinigameResult,
     );
 
-    // CRITICAL: Apply qualifying results to set starting grid positions
-    QualifyingEngine.applyQualifyingResults(drivers, results);
+    // 🔧 FIX: Apply qualifying results with race weather for proper tire selection
+    QualifyingEngine.applyQualifyingResults(drivers, results,
+        raceWeather: currentWeather);
 
     if (mounted) {
       setState(() {
@@ -181,11 +186,13 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
       'track': currentTrack,
       'weather': currentWeather,
       'speed': currentSpeed,
-      'drivers': drivers, // Drivers now have correct positions from applyQualifyingResults
+      'drivers':
+          drivers, // Drivers now have correct positions from applyQualifyingResults
       'hasQualifyingResults': true, // Flag to use qualifying grid setup
     };
 
-    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final Map<String, dynamic>? args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       raceArguments['careerMode'] = args['careerMode'] ?? false;
       raceArguments['careerDriver'] = args['careerDriver'];
@@ -490,7 +497,8 @@ class _QualifyingPageState extends State<QualifyingPage> with TickerProviderStat
                   height: 120,
                   child: CircularProgressIndicator(
                     strokeWidth: 8,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green[400]!),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.green[400]!),
                   ),
                 ),
                 Container(

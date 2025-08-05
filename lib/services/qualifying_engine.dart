@@ -38,7 +38,12 @@ class QualifyingEngine {
       random -= 0.2; // Exceptional lap bonus
     }
 
-    return baseTime + speedFactor + consistencyFactor + carFactor + weatherPenalty + random;
+    return baseTime +
+        speedFactor +
+        consistencyFactor +
+        carFactor +
+        weatherPenalty +
+        random;
   }
 
   /// Calculate player qualifying time using mini-game result
@@ -56,7 +61,8 @@ class QualifyingEngine {
     double consistencyFactor = (100 - driver.consistency) * 0.008;
     double carFactor = (100 - driver.team.carPerformance) * 0.018;
 
-    double driverAdjustedTime = baseTime + speedFactor + consistencyFactor + carFactor;
+    double driverAdjustedTime =
+        baseTime + speedFactor + consistencyFactor + carFactor;
 
     // Apply weather penalty if any
     if (weather == WeatherCondition.rain) {
@@ -86,9 +92,14 @@ class QualifyingEngine {
       TireCompound bestTire = _selectBestTire(driver, weather);
 
       // Check if this is the player with a mini-game result
-      if (playerDriver != null && driver.name == playerDriver.name && playerMinigameResult != null) {
+      if (playerDriver != null &&
+          driver.name == playerDriver.name &&
+          playerMinigameResult != null) {
         // Use mini-game calculation for player
-        bestTime = _calculatePlayerQualifyingTime(driver, weather, track, playerMinigameResult);
+        bestTime = _calculatePlayerQualifyingTime(
+            driver, weather, track, playerMinigameResult);
+        // 🔧 FIX: Add tire penalty to player too!
+        bestTime += bestTire.lapTimeDelta;
       } else {
         // Normal AI simulation for other drivers
         for (int attempt = 1; attempt <= 3; attempt++) {
@@ -131,7 +142,9 @@ class QualifyingEngine {
   /// Select best tire for qualifying
   static TireCompound _selectBestTire(Driver driver, WeatherCondition weather) {
     if (weather == WeatherCondition.rain) {
-      return Random().nextDouble() < 0.7 ? TireCompound.intermediate : TireCompound.wet;
+      return Random().nextDouble() < 0.7
+          ? TireCompound.intermediate
+          : TireCompound.wet;
     }
 
     // In dry conditions, everyone uses softs for qualifying
@@ -139,7 +152,9 @@ class QualifyingEngine {
   }
 
   /// Apply qualifying results to set starting grid
-  static void applyQualifyingResults(List<Driver> drivers, List<QualifyingResult> results) {
+  static void applyQualifyingResults(
+      List<Driver> drivers, List<QualifyingResult> results,
+      {WeatherCondition? raceWeather}) {
     // Set starting positions based on qualifying
     for (int i = 0; i < results.length; i++) {
       Driver driver = results[i].driver;
@@ -147,35 +162,57 @@ class QualifyingEngine {
       driver.startingPosition = i + 1;
       driver.positionChangeFromStart = 0;
 
-      // Set free tire choice for race
-      _setRaceStartTire(driver);
+      // 🔧 FIX: Set weather-appropriate starting tires
+      _setRaceStartTire(driver, raceWeather: raceWeather);
 
       // Record qualifying result
-      String qualifyingInfo = "Qualified P${i + 1} • Time: ${results[i].formattedLapTime}";
+      String qualifyingInfo =
+          "Qualified P${i + 1} • Time: ${results[i].formattedLapTime}";
       qualifyingInfo += " • Starting tire: ${driver.currentCompound.name}";
       driver.recordIncident("QUALIFYING: $qualifyingInfo");
     }
   }
 
   /// Set tire choice for race start (strategic choice)
-  static void _setRaceStartTire(Driver driver) {
-    // Strategic tire choice based on grid position and car performance
+  static void _setRaceStartTire(Driver driver,
+      {WeatherCondition? raceWeather}) {
+    print(
+        '🔧 DEBUG: _setRaceStartTire called for ${driver.name} with weather ${raceWeather?.name ?? "null"}');
+
+    // 🔧 FIX: In wet conditions, everyone starts on wet tires
+    if (raceWeather == WeatherCondition.rain) {
+      // 80% intermediate, 20% wet (like real F1)
+      driver.currentCompound = Random().nextDouble() < 0.8
+          ? TireCompound.intermediate
+          : TireCompound.wet;
+      driver.hasFreeTireChoice = true;
+      print(
+          '🔧 DEBUG: ${driver.name} assigned ${driver.currentCompound.name} for wet race');
+      return;
+    }
+
+    // DRY WEATHER: Strategic tire choice based on grid position
     if (driver.startingPosition <= 3) {
       // Front runners: 50/50 soft vs medium
-      driver.currentCompound = Random().nextDouble() < 0.5 ? TireCompound.soft : TireCompound.medium;
+      driver.currentCompound =
+          Random().nextDouble() < 0.5 ? TireCompound.soft : TireCompound.medium;
     } else if (driver.startingPosition <= 6) {
       // Midfield: mostly softs for early pace
-      driver.currentCompound = Random().nextDouble() < 0.7 ? TireCompound.soft : TireCompound.medium;
+      driver.currentCompound =
+          Random().nextDouble() < 0.7 ? TireCompound.soft : TireCompound.medium;
     } else {
       // Back of grid: softs for overtaking opportunities
       driver.currentCompound = TireCompound.soft;
     }
 
     driver.hasFreeTireChoice = true;
+    print(
+        '🔧 DEBUG: ${driver.name} assigned ${driver.currentCompound.name} for dry race');
   }
 
   /// Get qualifying summary for display
-  static Map<String, dynamic> getQualifyingSummary(List<QualifyingResult> results) {
+  static Map<String, dynamic> getQualifyingSummary(
+      List<QualifyingResult> results) {
     if (results.isEmpty) return {};
 
     QualifyingResult polePosition = results.first;

@@ -39,7 +39,8 @@ class CareerManager {
       startingTeam: startingTeam,
     );
 
-    debugPrint("🆕 Created new career with ID: ${_currentCareerDriver!.careerId}");
+    debugPrint(
+        "🆕 Created new career with ID: ${_currentCareerDriver!.careerId}");
 
     // Apply initial skill points (50 points to distribute)
     if (initialSkillDistribution != null) {
@@ -58,7 +59,8 @@ class CareerManager {
     // Initialize season drivers (replace one AI driver with player)
     initializeNewCareer(_currentCareerDriver!, _currentSeason);
 
-    debugPrint("✅ New career started - ${_currentCareerDriver!.name} (ID: ${_currentCareerDriver!.careerId})");
+    debugPrint(
+        "✅ New career started - ${_currentCareerDriver!.name} (ID: ${_currentCareerDriver!.careerId})");
 
     return _currentCareerDriver!;
   }
@@ -67,7 +69,8 @@ class CareerManager {
   static void _applyInitialSkillPoints(Map<String, int> distribution) {
     if (_currentCareerDriver == null) return;
 
-    int totalPoints = distribution.values.fold(0, (sum, points) => sum + points);
+    int totalPoints =
+        distribution.values.fold(0, (sum, points) => sum + points);
     if (totalPoints > 50) {
       throw Exception('Cannot distribute more than 50 initial skill points');
     }
@@ -75,16 +78,21 @@ class CareerManager {
     // Apply the points
     _currentCareerDriver!.speed += distribution['speed'] ?? 0;
     _currentCareerDriver!.consistency += distribution['consistency'] ?? 0;
-    _currentCareerDriver!.tyreManagementSkill += distribution['tyreManagement'] ?? 0;
+    _currentCareerDriver!.tyreManagementSkill +=
+        distribution['tyreManagement'] ?? 0;
     _currentCareerDriver!.racecraft += distribution['racecraft'] ?? 0;
     _currentCareerDriver!.experience += distribution['experience'] ?? 0;
 
     // Ensure no stat goes above 99 or below 50
     _currentCareerDriver!.speed = _currentCareerDriver!.speed.clamp(50, 99);
-    _currentCareerDriver!.consistency = _currentCareerDriver!.consistency.clamp(50, 99);
-    _currentCareerDriver!.tyreManagementSkill = _currentCareerDriver!.tyreManagementSkill.clamp(50, 99);
-    _currentCareerDriver!.racecraft = _currentCareerDriver!.racecraft.clamp(50, 99);
-    _currentCareerDriver!.experience = _currentCareerDriver!.experience.clamp(50, 99);
+    _currentCareerDriver!.consistency =
+        _currentCareerDriver!.consistency.clamp(50, 99);
+    _currentCareerDriver!.tyreManagementSkill =
+        _currentCareerDriver!.tyreManagementSkill.clamp(50, 99);
+    _currentCareerDriver!.racecraft =
+        _currentCareerDriver!.racecraft.clamp(50, 99);
+    _currentCareerDriver!.experience =
+        _currentCareerDriver!.experience.clamp(50, 99);
   }
 
   // Calculate initial salary based on team tier
@@ -124,7 +132,8 @@ class CareerManager {
   }
 
   // Update team reputation based on race performance
-  static void _updateTeamReputation(int position, int points, bool beatTeammate) {
+  static void _updateTeamReputation(
+      int position, int points, bool beatTeammate) {
     if (_currentCareerDriver == null) return;
 
     String currentTeam = _currentCareerDriver!.team.name;
@@ -167,12 +176,15 @@ class CareerManager {
 
     // 🔧 FIX: Initialize fresh championship standings with season drivers
     debugPrint("🏆 Initializing fresh championship for new career");
-    ChampionshipManager.initializeChampionship(seasonDrivers: _currentSeasonDrivers);
+    ChampionshipManager.initializeChampionship(
+        seasonDrivers: _currentSeasonDrivers);
 
     debugPrint("✅ New career initialized completely fresh");
-    debugPrint("   Driver: ${careerDriver.name} (ID: ${careerDriver.careerId})");
+    debugPrint(
+        "   Driver: ${careerDriver.name} (ID: ${careerDriver.careerId})");
     debugPrint("   Season drivers: ${_currentSeasonDrivers.length}");
-    debugPrint("   Championship drivers: ${ChampionshipManager.isInitialized()}");
+    debugPrint(
+        "   Championship drivers: ${ChampionshipManager.isInitialized()}");
   }
 
 // 🔧 ADD this method to load existing careers without resetting calendar:
@@ -255,7 +267,9 @@ class CareerManager {
     _currentSeason++;
 
     // Check contract status
-    if (_currentCareerDriver!.currentContract?.isFinalYear(_currentSeason - 1) == true) {
+    if (_currentCareerDriver!.currentContract
+            ?.isFinalYear(_currentSeason - 1) ==
+        true) {
       // Contract has expired, need new contract for next season
       _currentCareerDriver!.currentContract?.expire();
       _currentCareerDriver!.currentContract = null;
@@ -278,7 +292,8 @@ class CareerManager {
 
       // Check if team will make an offer (based on reputation and team needs)
       if (_willTeamMakeOffer(team, reputation)) {
-        ContractOffer offer = _generateTeamOffer(team, reputation, expirationDate);
+        ContractOffer offer =
+            _generateTeamOffer(team, reputation, expirationDate);
         offers.add(offer);
       }
     }
@@ -318,7 +333,8 @@ class CareerManager {
   }
 
   // Generate a contract offer from a specific team
-  static ContractOffer _generateTeamOffer(Team team, int reputation, DateTime expiration) {
+  static ContractOffer _generateTeamOffer(
+      Team team, int reputation, DateTime expiration) {
     // Calculate salary based on team tier, reputation, and performance
     double baseSalary = _calculateOfferSalary(team, reputation);
 
@@ -358,7 +374,8 @@ class CareerManager {
     if (_currentCareerDriver!.careerRating > 85) performanceMultiplier += 0.2;
 
     // Apply multipliers
-    double finalSalary = baseSalary * reputationMultiplier * performanceMultiplier;
+    double finalSalary =
+        baseSalary * reputationMultiplier * performanceMultiplier;
 
     // Add some random variation (±20%)
     double variation = 0.8 + (Random().nextDouble() * 0.4);
@@ -406,21 +423,24 @@ class CareerManager {
     List<Driver> allF1Drivers = DriverData.createDefaultDrivers();
 
     // Find drivers from the same team as career driver
-    List<Driver> teamMates =
-        allF1Drivers.where((driver) => driver.team.name == _currentCareerDriver!.team.name).toList();
+    List<Driver> teamMates = allF1Drivers
+        .where((driver) => driver.team.name == _currentCareerDriver!.team.name)
+        .toList();
 
     Driver? driverToReplace;
     if (teamMates.isNotEmpty) {
       // Replace the first teammate
       driverToReplace = teamMates.first;
-      allF1Drivers.removeWhere((driver) => driver.name == driverToReplace?.name);
+      allF1Drivers
+          .removeWhere((driver) => driver.name == driverToReplace?.name);
 
       debugPrint(
           "🔄 Replacing ${driverToReplace.name} with ${_currentCareerDriver!.name} at ${_currentCareerDriver!.team.name}");
     } else {
       // Fallback: replace the last driver if no teammate found
       driverToReplace = allF1Drivers.removeLast();
-      debugPrint("⚠️ No teammate found, replacing ${driverToReplace.name} with ${_currentCareerDriver!.name}");
+      debugPrint(
+          "⚠️ No teammate found, replacing ${driverToReplace.name} with ${_currentCareerDriver!.name}");
     }
 
     // Create Driver version of career driver for season
@@ -439,8 +459,10 @@ class CareerManager {
     _currentSeasonDrivers = [careerDriverForSeason];
     _currentSeasonDrivers.addAll(allF1Drivers);
 
-    debugPrint("✅ Season drivers initialized: ${_currentSeasonDrivers.length} total drivers");
-    debugPrint("   Career driver: ${_currentCareerDriver!.name} (${_currentCareerDriver!.team.name})");
+    debugPrint(
+        "✅ Season drivers initialized: ${_currentSeasonDrivers.length} total drivers");
+    debugPrint(
+        "   Career driver: ${_currentCareerDriver!.name} (${_currentCareerDriver!.team.name})");
     debugPrint("   Replaced: ${driverToReplace.name}");
   }
 
@@ -453,7 +475,8 @@ class CareerManager {
   // Check if player needs a new contract
   static bool needsNewContract() {
     if (_currentCareerDriver?.currentContract == null) return true;
-    return !_currentCareerDriver!.currentContract!.isValidForYear(_currentSeason);
+    return !_currentCareerDriver!.currentContract!
+        .isValidForYear(_currentSeason);
   }
 
   // Get career summary for display
@@ -471,7 +494,8 @@ class CareerManager {
       'careerPoints': _currentCareerDriver!.careerPoints,
       'currentSeasonPoints': _currentCareerDriver!.currentSeasonPoints,
       'availableXP': _currentCareerDriver!.experiencePoints,
-      'contractInfo': _currentCareerDriver!.currentContract?.contractSummary ?? 'No contract',
+      'contractInfo': _currentCareerDriver!.currentContract?.contractSummary ??
+          'No contract',
     };
   }
 
@@ -509,14 +533,17 @@ class CareerManager {
       // STEP 2: Update championship standings with all race results
       if (allRaceResults != null && allRaceResults.isNotEmpty) {
         ChampionshipManager.updateRaceResults(allRaceResults);
-        int championshipPosition = ChampionshipManager.getCareerDriverPosition(_currentCareerDriver!.name);
-        debugPrint("✅ Championship updated - Career driver now P$championshipPosition");
+        int championshipPosition = ChampionshipManager.getCareerDriverPosition(
+            _currentCareerDriver!.name);
+        debugPrint(
+            "✅ Championship updated - Career driver now P$championshipPosition");
       } else {
         debugPrint("⚠️ No race results provided for championship update");
       }
 
       // 🔧 FIX: Use the new markRaceAsCompleted method
-      debugPrint("🔍 Marking race '${raceWeekend.name}' as completed in calendar...");
+      debugPrint(
+          "🔍 Marking race '${raceWeekend.name}' as completed in calendar...");
       CareerCalendar.instance.markRaceAsCompleted(raceWeekend.name);
 
       debugPrint("✅ Calendar advanced to next race");
@@ -538,8 +565,10 @@ class CareerManager {
 
       // 🔧 FIX: Log calendar state for debugging
       debugPrint("📅 Calendar state after completion:");
-      debugPrint("   Completed races: ${CareerCalendar.instance.getCompletedRaces().length}");
-      debugPrint("   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
+      debugPrint(
+          "   Completed races: ${CareerCalendar.instance.getCompletedRaces().length}");
+      debugPrint(
+          "   Next race: ${CareerCalendar.instance.nextRaceWeekend?.name ?? 'None'}");
     } catch (e) {
       debugPrint("❌ ERROR during race weekend completion: $e");
       try {
@@ -566,8 +595,10 @@ class CareerManager {
       if (_currentSeasonDrivers.isEmpty) {
         _initializeSeasonDrivers();
       }
-      ChampionshipManager.initializeChampionship(seasonDrivers: _currentSeasonDrivers);
-      debugPrint("✅ Fresh championship standings initialized with season drivers");
+      ChampionshipManager.initializeChampionship(
+          seasonDrivers: _currentSeasonDrivers);
+      debugPrint(
+          "✅ Fresh championship standings initialized with season drivers");
     }
   }
 
@@ -595,7 +626,8 @@ class CareerManager {
     // 🔧 FIX: Reset calendar data too
     CareerCalendar.instance.forceReset();
 
-    debugPrint("✅ Career manager reset - driver, season, championship, and calendar cleared");
+    debugPrint(
+        "✅ Career manager reset - driver, season, championship, and calendar cleared");
   }
 
   // Add this public setter for current season
@@ -621,38 +653,51 @@ class CareerManager {
       Map<String, dynamic> championshipData = saveData['championshipStandings'];
 
       // 🔧 FIX: Re-initialize championship with current season drivers first
-      ChampionshipManager.initializeChampionship(seasonDrivers: _currentSeasonDrivers);
+      ChampionshipManager.initializeChampionship(
+          seasonDrivers: _currentSeasonDrivers);
 
       // 🔧 FIX: Then apply saved points only for drivers that exist in current season
       _applySavedChampionshipPoints(championshipData);
 
-      debugPrint("✅ Championship standings loaded and synchronized with current season drivers");
+      debugPrint(
+          "✅ Championship standings loaded and synchronized with current season drivers");
     } else {
       // Initialize fresh championship if no saved data
-      ChampionshipManager.initializeChampionship(seasonDrivers: _currentSeasonDrivers);
-      debugPrint("✅ Fresh championship standings initialized with season drivers");
+      ChampionshipManager.initializeChampionship(
+          seasonDrivers: _currentSeasonDrivers);
+      debugPrint(
+          "✅ Fresh championship standings initialized with season drivers");
     }
   }
 
-  static void _applySavedChampionshipPoints(Map<String, dynamic> savedChampionshipData) {
+  static void _applySavedChampionshipPoints(
+      Map<String, dynamic> savedChampionshipData) {
     try {
-      Map<String, int> savedPoints = Map<String, int>.from(savedChampionshipData['driverPoints'] ?? {});
-      Map<String, int> savedWins = Map<String, int>.from(savedChampionshipData['driverWins'] ?? {});
-      Map<String, int> savedPodiums = Map<String, int>.from(savedChampionshipData['driverPodiums'] ?? {});
+      Map<String, int> savedPoints =
+          Map<String, int>.from(savedChampionshipData['driverPoints'] ?? {});
+      Map<String, int> savedWins =
+          Map<String, int>.from(savedChampionshipData['driverWins'] ?? {});
+      Map<String, int> savedPodiums =
+          Map<String, int>.from(savedChampionshipData['driverPodiums'] ?? {});
 
       debugPrint("🔧 Applying saved championship points...");
 
       // Get list of current season driver names
-      Set<String> currentDriverNames = _currentSeasonDrivers.map((d) => d.name).toSet();
+      Set<String> currentDriverNames =
+          _currentSeasonDrivers.map((d) => d.name).toSet();
 
       // Apply saved points only for drivers that exist in current season
       for (String driverName in currentDriverNames) {
         if (savedPoints.containsKey(driverName)) {
-          ChampionshipManager.setDriverPoints(driverName, savedPoints[driverName]!);
-          ChampionshipManager.setDriverWins(driverName, savedWins[driverName] ?? 0);
-          ChampionshipManager.setDriverPodiums(driverName, savedPodiums[driverName] ?? 0);
+          ChampionshipManager.setDriverPoints(
+              driverName, savedPoints[driverName]!);
+          ChampionshipManager.setDriverWins(
+              driverName, savedWins[driverName] ?? 0);
+          ChampionshipManager.setDriverPodiums(
+              driverName, savedPodiums[driverName] ?? 0);
 
-          debugPrint("   Applied for $driverName: ${savedPoints[driverName]} pts, ${savedWins[driverName] ?? 0} wins");
+          debugPrint(
+              "   Applied for $driverName: ${savedPoints[driverName]} pts, ${savedWins[driverName] ?? 0} wins");
         }
       }
 
@@ -661,5 +706,19 @@ class CareerManager {
       debugPrint("❌ Error applying saved championship points: $e");
       // If error, championship is already initialized with 0 points for all drivers
     }
+  }
+
+  static void resetCareerButKeepCalendar() {
+    debugPrint("=== RESETTING CAREER MANAGER (PRESERVING CALENDAR) ===");
+
+    _currentCareerDriver = null;
+    _currentSeason = 2025;
+    _currentSeasonDrivers.clear();
+
+    // Reset championship data but NOT calendar
+    ChampionshipManager.resetChampionship();
+
+    debugPrint(
+        "✅ Career manager reset - driver and championship cleared, calendar preserved");
   }
 }

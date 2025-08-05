@@ -84,7 +84,9 @@ class Driver {
 
   // Driver performance tier based on overall skills
   String get driverTier {
-    double overallRating = (speed + consistency + tyreManagementSkill + racecraft + experience) / 5.0;
+    double overallRating =
+        (speed + consistency + tyreManagementSkill + racecraft + experience) /
+            5.0;
 
     if (overallRating >= 95) return "GOAT";
     if (overallRating >= 90) return "Elite";
@@ -98,7 +100,9 @@ class Driver {
 
   // Overall performance combining driver skills and car
   double get overallPerformance {
-    double driverSkills = (speed + consistency + tyreManagementSkill + racecraft + experience) / 5.0;
+    double driverSkills =
+        (speed + consistency + tyreManagementSkill + racecraft + experience) /
+            5.0;
     double teamPerformance = (carPerformance + reliability) / 2.0;
 
     // 70% car, 30% driver (reflects F1 reality)
@@ -113,7 +117,8 @@ class Driver {
     List<String> statusList = [];
 
     if (hasActiveMechanicalIssue) {
-      statusList.add("⚠️ ${currentIssueDescription} (${mechanicalIssueLapsRemaining} laps)");
+      statusList.add(
+          "⚠️ ${currentIssueDescription} (${mechanicalIssueLapsRemaining} laps)");
     }
 
     if (errorCount > 0) {
@@ -121,7 +126,8 @@ class Driver {
     }
 
     if (mechanicalIssuesCount > 0) {
-      statusList.add("🔧 ${mechanicalIssuesCount} mechanical issue${mechanicalIssuesCount > 1 ? 's' : ''}");
+      statusList.add(
+          "🔧 ${mechanicalIssuesCount} mechanical issue${mechanicalIssuesCount > 1 ? 's' : ''}");
     }
 
     return statusList.join(" | ");
@@ -158,7 +164,9 @@ class Driver {
   String get compoundRuleInfo {
     List<TireCompound> dryCompoundsUsed = usedCompounds
         .where((compound) =>
-            compound == TireCompound.soft || compound == TireCompound.medium || compound == TireCompound.hard)
+            compound == TireCompound.soft ||
+            compound == TireCompound.medium ||
+            compound == TireCompound.hard)
         .toSet()
         .toList();
 
@@ -172,7 +180,8 @@ class Driver {
 
     String baseInfo;
     if (dryCompoundsUsed.length >= 2) {
-      baseInfo = "✅ Compound rule satisfied (${dryCompoundsUsed.length} compounds used)";
+      baseInfo =
+          "✅ Compound rule satisfied (${dryCompoundsUsed.length} compounds used)";
     } else if (dryCompoundsUsed.length == 1) {
       String usedCompound = dryCompoundsUsed.first.name;
       baseInfo = "⚠️ Must use 2nd compound (only used $usedCompound)";
@@ -193,7 +202,8 @@ class Driver {
     if (usedCompounds.isEmpty) {
       String baseInfo = "No compounds used yet";
       if (hasFreeTireChoice) {
-        baseInfo += " (Current: Free choice ${currentCompound.icon}${currentCompound.name})";
+        baseInfo +=
+            " (Current: Free choice ${currentCompound.icon}${currentCompound.name})";
       }
       return baseInfo;
     }
@@ -206,7 +216,8 @@ class Driver {
 
     String historyInfo = "Used: ${compoundStrings.join(" → ")}";
     if (hasFreeTireChoice && !usedCompounds.contains(currentCompound)) {
-      historyInfo += " → ${currentCompound.icon}${currentCompound.name} (Start)";
+      historyInfo +=
+          " → ${currentCompound.icon}${currentCompound.name} (Start)";
     }
 
     return historyInfo;
@@ -216,7 +227,9 @@ class Driver {
   bool get hasUsedTwoCompounds {
     List<TireCompound> dryCompoundsUsed = usedCompounds
         .where((compound) =>
-            compound == TireCompound.soft || compound == TireCompound.medium || compound == TireCompound.hard)
+            compound == TireCompound.soft ||
+            compound == TireCompound.medium ||
+            compound == TireCompound.hard)
         .toSet()
         .toList();
 
@@ -233,19 +246,28 @@ class Driver {
 
   /// Gets remaining compounds that can be used
   List<TireCompound> get availableDryCompounds {
-    List<TireCompound> allDryCompounds = [TireCompound.soft, TireCompound.medium, TireCompound.hard];
+    List<TireCompound> allDryCompounds = [
+      TireCompound.soft,
+      TireCompound.medium,
+      TireCompound.hard
+    ];
 
-    List<TireCompound> dryCompoundsUsed =
-        usedCompounds.where((compound) => allDryCompounds.contains(compound)).toSet().toList();
+    List<TireCompound> dryCompoundsUsed = usedCompounds
+        .where((compound) => allDryCompounds.contains(compound))
+        .toSet()
+        .toList();
 
     // Add current compound if not already tracked
-    if (!dryCompoundsUsed.contains(currentCompound) && allDryCompounds.contains(currentCompound)) {
+    if (!dryCompoundsUsed.contains(currentCompound) &&
+        allDryCompounds.contains(currentCompound)) {
       dryCompoundsUsed.add(currentCompound);
     }
 
     // If only used one compound type, must use different compounds
     if (dryCompoundsUsed.length == 1) {
-      return allDryCompounds.where((compound) => !dryCompoundsUsed.contains(compound)).toList();
+      return allDryCompounds
+          .where((compound) => !dryCompoundsUsed.contains(compound))
+          .toList();
     }
 
     // If already used 2+ compounds, can use any
@@ -260,11 +282,14 @@ class Driver {
     if (lapsOnCurrentTires <= 3) {
       factor = lapsOnCurrentTires * 0.005; // Minimal early wear (0-0.015s)
     } else if (lapsOnCurrentTires <= 10) {
-      factor = 0.015 + ((lapsOnCurrentTires - 3) * 0.015); // Gentle increase (0.015-0.12s)
+      factor = 0.015 +
+          ((lapsOnCurrentTires - 3) * 0.015); // Gentle increase (0.015-0.12s)
     } else if (lapsOnCurrentTires <= 20) {
-      factor = 0.12 + ((lapsOnCurrentTires - 10) * 0.04); // Moderate increase (0.12-0.52s)
+      factor = 0.12 +
+          ((lapsOnCurrentTires - 10) * 0.04); // Moderate increase (0.12-0.52s)
     } else if (lapsOnCurrentTires <= 30) {
-      factor = 0.52 + ((lapsOnCurrentTires - 20) * 0.08); // Steep increase (0.52-1.32s)
+      factor = 0.52 +
+          ((lapsOnCurrentTires - 20) * 0.08); // Steep increase (0.52-1.32s)
     } else {
       // EXPONENTIAL penalty for extreme stint lengths (1.32s+)
       double extremeLaps = (lapsOnCurrentTires - 30).toDouble();
@@ -359,13 +384,25 @@ class Driver {
   }
 
   TireCompound getWeatherAppropriateStartingCompound(WeatherCondition weather) {
+    print(
+        '🔧 DEBUG: getWeatherAppropriateStartingCompound called for ${this.name} with weather ${weather.name}');
+
     if (weather == WeatherCondition.rain) {
+      print('🔧 DEBUG: Rain detected, returning intermediate tires');
       return TireCompound.intermediate;
     } else {
+      print('🔧 DEBUG: Dry weather, selecting random dry compound');
       double random = Random().nextDouble();
-      if (random < 0.4) return TireCompound.soft;
-      if (random < 0.9) return TireCompound.medium;
-      return TireCompound.hard;
+      TireCompound compound;
+      if (random < 0.4) {
+        compound = TireCompound.soft;
+      } else if (random < 0.9) {
+        compound = TireCompound.medium;
+      } else {
+        compound = TireCompound.hard;
+      }
+      print('🔧 DEBUG: Selected ${compound.name} for dry weather');
+      return compound;
     }
   }
 
@@ -397,7 +434,8 @@ class Driver {
   void applyFreeTireChoice(TireCompound chosenTire) {
     currentCompound = chosenTire;
     hasFreeTireChoice = true;
-    recordIncident("FREE TIRE CHOICE: Starting on ${chosenTire.name} (P$startingPosition)");
+    recordIncident(
+        "FREE TIRE CHOICE: Starting on ${chosenTire.name} (P$startingPosition)");
   }
 
   /// Gets qualifying performance summary
@@ -463,7 +501,8 @@ class Driver {
   bool canUseCompound(TireCompound compound, WeatherCondition weather) {
     // In wet weather, only wet compounds are valid
     if (weather == WeatherCondition.rain) {
-      return compound == TireCompound.intermediate || compound == TireCompound.wet;
+      return compound == TireCompound.intermediate ||
+          compound == TireCompound.wet;
     }
 
     // In dry weather, check mandatory compound rule

@@ -32,10 +32,12 @@ class QualifyingTimingChallenge extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _QualifyingTimingChallengeState createState() => _QualifyingTimingChallengeState();
+  _QualifyingTimingChallengeState createState() =>
+      _QualifyingTimingChallengeState();
 }
 
-class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> with TickerProviderStateMixin {
+class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge>
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late AnimationController _fadeController;
   late Animation<double> _animation;
@@ -65,7 +67,8 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
   void _initializeAnimations() {
     // Timing bar animation
     _controller = AnimationController(
-      duration: Duration(milliseconds: (_settings.animationSpeed * 1000).round()),
+      duration:
+          Duration(milliseconds: (_settings.animationSpeed * 1000).round()),
       vsync: this,
     );
 
@@ -123,13 +126,16 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
     // Apply driver skills
     double speedFactor = (100 - widget.driver.speed) * 0.015;
     double consistencyFactor = (100 - widget.driver.consistency) * 0.008;
-    double carFactor = (100 - widget.driver.carPerformance) * 0.018;
+    // 🔧 FIX: Use correct team.carPerformance property
+    double carFactor = (100 - widget.driver.team.carPerformance) * 0.018;
 
-    double driverAdjustedTime = baseTime + speedFactor + consistencyFactor + carFactor;
+    double driverAdjustedTime =
+        baseTime + speedFactor + consistencyFactor + carFactor;
 
     // Apply weather penalty if any
     if (widget.weather == WeatherCondition.rain) {
-      double weatherPenalty = 2.5 + ((100 - widget.driver.consistency) / 100.0 * 1.5);
+      double weatherPenalty =
+          2.5 + ((100 - widget.driver.consistency) / 100.0 * 1.5);
       driverAdjustedTime += weatherPenalty;
     }
 
@@ -138,7 +144,20 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       driverAdjustedTime += _result!.timeModifier;
     }
 
+    // 🔧 FIX: Add expected tire penalty to match qualifying engine
+    driverAdjustedTime += _getExpectedTirePenalty(widget.weather);
+
     return driverAdjustedTime;
+  }
+
+  // 🔧 NEW: Helper method to get most likely tire penalty
+  double _getExpectedTirePenalty(WeatherCondition weather) {
+    if (weather == WeatherCondition.rain) {
+      // Use intermediate tire penalty (70% chance in qualifying)
+      // This matches what the qualifying engine most likely selects
+      return TireCompound.intermediate.lapTimeDelta; // 2.0s
+    }
+    return TireCompound.soft.lapTimeDelta; // -0.25s (dry qualifying)
   }
 
   QualifyingTimingResult _evaluateTiming(double position) {
@@ -155,7 +174,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       // Good zone (28% of bar) - GREEN
       return QualifyingTimingResult(
         quality: 'good',
-        timeModifier: -0.3,
+        timeModifier: -0.2,
         description: 'Good',
         color: Colors.green,
       );
@@ -163,7 +182,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       // Okay zone (50% of bar) - ORANGE
       return QualifyingTimingResult(
         quality: 'okay',
-        timeModifier: -0.2,
+        timeModifier: 0.0,
         description: 'Okay',
         color: Colors.orange,
       );
@@ -171,7 +190,7 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
       // Bad zone (rest of bar) - RED
       return QualifyingTimingResult(
         quality: 'bad',
-        timeModifier: -0.1,
+        timeModifier: 0.2,
         description: 'Missed',
         color: Colors.red,
       );
@@ -607,9 +626,11 @@ class _QualifyingTimingChallengeState extends State<QualifyingTimingChallenge> w
         width: double.infinity,
         height: 56,
         child: ElevatedButton(
-          onPressed: _hasAttempted ? () => Navigator.of(context).pop(_result) : _onTap,
+          onPressed:
+              _hasAttempted ? () => Navigator.of(context).pop(_result) : _onTap,
           style: ElevatedButton.styleFrom(
-            backgroundColor: _hasAttempted ? Colors.green[600] : Colors.red[600],
+            backgroundColor:
+                _hasAttempted ? Colors.green[600] : Colors.red[600],
             foregroundColor: Colors.white,
             elevation: 4,
             shape: RoundedRectangleBorder(
@@ -728,13 +749,20 @@ class TimingBarPainter extends CustomPainter {
     final double height = size.height;
 
     // Draw colored zones
-    _drawZone(canvas, 0.0, 0.25, Colors.red.withValues(alpha: 0.6), width, height);
-    _drawZone(canvas, 0.25, 0.36, Colors.orange.withValues(alpha: 0.6), width, height);
-    _drawZone(canvas, 0.36, 0.45, Colors.green.withValues(alpha: 0.6), width, height);
-    _drawZone(canvas, 0.45, 0.55, Colors.purple.withValues(alpha: 0.6), width, height);
-    _drawZone(canvas, 0.55, 0.64, Colors.green.withValues(alpha: 0.6), width, height);
-    _drawZone(canvas, 0.64, 0.75, Colors.orange.withValues(alpha: 0.6), width, height);
-    _drawZone(canvas, 0.75, 1.0, Colors.red.withValues(alpha: 0.6), width, height);
+    _drawZone(
+        canvas, 0.0, 0.25, Colors.red.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.25, 0.36, Colors.orange.withValues(alpha: 0.6), width,
+        height);
+    _drawZone(
+        canvas, 0.36, 0.45, Colors.green.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.45, 0.55, Colors.purple.withValues(alpha: 0.6), width,
+        height);
+    _drawZone(
+        canvas, 0.55, 0.64, Colors.green.withValues(alpha: 0.6), width, height);
+    _drawZone(canvas, 0.64, 0.75, Colors.orange.withValues(alpha: 0.6), width,
+        height);
+    _drawZone(
+        canvas, 0.75, 1.0, Colors.red.withValues(alpha: 0.6), width, height);
 
     // Draw moving indicator
     if (!hasAttempted) {
@@ -748,7 +776,8 @@ class TimingBarPainter extends CustomPainter {
     }
   }
 
-  void _drawZone(Canvas canvas, double start, double end, Color color, double width, double height) {
+  void _drawZone(Canvas canvas, double start, double end, Color color,
+      double width, double height) {
     final paint = Paint()..color = color;
     final rect = Rect.fromLTWH(
       start * width,
@@ -759,7 +788,8 @@ class TimingBarPainter extends CustomPainter {
     canvas.drawRect(rect, paint);
   }
 
-  void _drawIndicator(Canvas canvas, double position, Color color, double width, double height) {
+  void _drawIndicator(Canvas canvas, double position, Color color, double width,
+      double height) {
     final paint = Paint()
       ..color = color
       ..strokeWidth = 4

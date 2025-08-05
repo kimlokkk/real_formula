@@ -105,15 +105,13 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator>
     raceFinished = false;
     raceTimer?.cancel();
 
-    print('🏁 Qualifying Grid Setup:');
+    print(
+        '🔧 DEBUG: Preserving qualifying grid with weather ${currentWeather.name}');
+
     for (Driver driver in drivers) {
       print(
-          '   ${driver.name}: P${driver.position} (start P${driver.startingPosition})');
-    }
+          '🔧 DEBUG: ${driver.name} had ${driver.currentCompound.name} tires from qualifying');
 
-    drivers.sort((a, b) => a.startingPosition.compareTo(b.startingPosition));
-
-    for (Driver driver in drivers) {
       int savedStartingPosition = driver.startingPosition;
       int savedGridPosition = driver.position;
       TireCompound savedCompound = driver.currentCompound;
@@ -126,15 +124,12 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator>
       driver.currentCompound = savedCompound;
       driver.hasFreeTireChoice = savedFreeTireChoice;
       driver.positionChangeFromStart = 0;
+
+      print(
+          '🔧 DEBUG: ${driver.name} restored to ${driver.currentCompound.name} tires');
     }
 
     drivers.sort((a, b) => a.position.compareTo(b.position));
-
-    print('🏎️ Final Race Grid:');
-    for (int i = 0; i < drivers.length; i++) {
-      print(
-          '   P${i + 1}: ${drivers[i].name} (was P${drivers[i].startingPosition} in qualifying)');
-    }
   }
 
   void _simulateLap() {
@@ -296,10 +291,16 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator>
     raceFinished = false;
     raceTimer?.cancel();
 
+    print('🔧 DEBUG: Race weather is ${currentWeather.name}');
+
     for (Driver driver in drivers) {
+      print(
+          '🔧 DEBUG: ${driver.name} had ${driver.currentCompound.name} tires before reset');
       driver.resetForNewRace();
       driver.currentCompound =
           driver.getWeatherAppropriateStartingCompound(currentWeather);
+      print(
+          '🔧 DEBUG: ${driver.name} now has ${driver.currentCompound.name} tires');
     }
   }
 
