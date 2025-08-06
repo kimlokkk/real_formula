@@ -1,6 +1,7 @@
 // lib/models/driver.dart - Enhanced version with qualifying and realistic tire degradation
 
 import 'package:flutter/material.dart';
+import 'package:real_formula/models/race_strategy.dart';
 import 'dart:math';
 import 'enums.dart';
 import 'qualifying.dart';
@@ -23,6 +24,8 @@ class Driver {
   int startingPosition;
   int positionChangeFromStart;
   List<int> positionHistory;
+  // Add this to your Driver class
+  RaceStrategy? raceStrategy; // The driver's planned strategy for this race
 
   // Error and failure tracking
   int errorCount;

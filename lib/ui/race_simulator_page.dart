@@ -130,6 +130,29 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator>
     }
 
     drivers.sort((a, b) => a.position.compareTo(b.position));
+
+    _planRaceStrategies();
+  }
+
+  // 🆕 NEW: Plan race strategies for all drivers
+  void _planRaceStrategies() {
+    print('📋 Planning race strategies for all drivers...');
+
+    for (Driver driver in drivers) {
+      driver.raceStrategy = StrategyEngine.planOptimalStrategy(
+          driver,
+          currentTrack,
+          driver.startingPosition,
+          currentWeather, // YOUR EXISTING WEATHER VARIABLE
+          null // PASS NULL FOR NOW (no rain intensity)
+          );
+
+      // Optional: Log the planned strategy
+      print(
+          '   ${driver.name} (P${driver.startingPosition}): ${driver.raceStrategy!.reasoning}');
+    }
+
+    print('✅ All race strategies planned!');
   }
 
   void _simulateLap() {
@@ -281,6 +304,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator>
       driver.currentCompound =
           driver.getWeatherAppropriateStartingCompound(currentWeather);
     }
+
+    _planRaceStrategies();
   }
 
   void _resetRaceWithCurrentConfig() {
@@ -302,6 +327,8 @@ class _F1RaceSimulatorState extends State<F1RaceSimulator>
       print(
           '🔧 DEBUG: ${driver.name} now has ${driver.currentCompound.name} tires');
     }
+
+    _planRaceStrategies();
   }
 
   void _navigateToResults() {
