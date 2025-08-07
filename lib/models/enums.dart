@@ -31,19 +31,24 @@ enum WeatherCondition {
 // FIXED: Much more realistic tire compound differences
 enum TireCompound {
   // REALISTIC F1 compound differences (0.1-0.3s per step, not 0.8s!)
-  soft("Soft", "🔴", -0.25, 4.0, Colors.red), // Was -0.8s, now -0.25s (still fastest)
+  soft("Soft", "🔴", -0.25, 4.0,
+      Colors.red), // Was -0.8s, now -0.25s (still fastest)
   medium("Medium", "🟡", 0.0, 1.0, Colors.amber), // Baseline unchanged
-  hard("Hard", "⚪", 0.15, 0.3, Colors.white), // Was +0.6s, now +0.15s (more realistic)
-  intermediate("Inter", "🟢", 2.0, 1.5, Colors.green), // Wet conditions only
-  wet("Wet", "🔵", 4.0, 1.0, Colors.blue); // Heavy wet only
+  hard("Hard", "⚪", 0.15, 0.3,
+      Colors.white), // Was +0.6s, now +0.15s (more realistic)
+  intermediate("Inter", "🟢", 2.0, 0.8, Colors.green), // Wet conditions only
+  wet("Wet", "🔵", 4.0, 0.8, Colors.blue); // Heavy wet only
 
   // Now total gap between soft and hard is 0.4s instead of 1.4s - much more realistic!
 
-  const TireCompound(this.name, this.icon, this.lapTimeDelta, this.degradationMultiplier, this.color);
+  const TireCompound(this.name, this.icon, this.lapTimeDelta,
+      this.degradationMultiplier, this.color);
   final String name;
   final String icon;
-  final double lapTimeDelta; // FIXED: Realistic differences (0.25s max advantage)
-  final double degradationMultiplier; // Degradation rate vs medium - still extreme for strategy
+  final double
+      lapTimeDelta; // FIXED: Realistic differences (0.25s max advantage)
+  final double
+      degradationMultiplier; // Degradation rate vs medium - still extreme for strategy
   final Color color;
 }
 

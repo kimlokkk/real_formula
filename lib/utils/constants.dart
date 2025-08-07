@@ -37,34 +37,42 @@ class F1Constants {
   static const double midTireDegradation = 0.04; // Laps 11-20
   static const double lateTireDegradation = 0.08; // Laps 21-30
   static const double extremeTireDegradation = 0.15; // Laps 31+
-  static const double exponentialTireDegradation = 0.02; // Exponential factor for extreme stints
+  static const double exponentialTireDegradation =
+      0.02; // Exponential factor for extreme stints
 
   // Compound-specific cliff points (laps where performance drops dramatically)
   static const int softTireCliff = 15; // Soft tires fall off after 15 laps
   static const int mediumTireCliff = 25; // Medium tires fall off after 25 laps
   static const int hardTireCliff = 40; // Hard tires fall off after 40 laps
-  static const int intermediateTireCliff = 20; // Intermediate tires cliff
-  static const int wetTireCliff = 15; // Wet tires cliff
+  static const int intermediateTireCliff = 38; // Intermediate tires cliff
+  static const int wetTireCliff = 28; // Wet tires cliff
 
   // Cliff penalty multipliers
   static const double softCliffMultiplier = 2.5; // Massive penalty for softs
-  static const double mediumCliffMultiplier = 1.8; // Significant penalty for mediums
+  static const double mediumCliffMultiplier =
+      1.8; // Significant penalty for mediums
   static const double hardCliffMultiplier = 1.3; // Moderate penalty for hards
-  static const double interCliffMultiplier = 2.0; // High penalty for inters
-  static const double wetCliffMultiplier = 2.2; // High penalty for wets
+  static const double interCliffMultiplier = 1.3; // High penalty for inters
+  static const double wetCliffMultiplier = 1.4; // High penalty for wets
 
   // Strategy degradation thresholds (for pit decisions)
-  static const double softEmergencyThreshold = 1.2; // Emergency pit at 1.2s penalty
-  static const double mediumEmergencyThreshold = 1.5; // Emergency pit at 1.5s penalty
-  static const double hardEmergencyThreshold = 2.0; // Emergency pit at 2.0s penalty
+  static const double softEmergencyThreshold =
+      1.2; // Emergency pit at 1.2s penalty
+  static const double mediumEmergencyThreshold =
+      1.5; // Emergency pit at 1.5s penalty
+  static const double hardEmergencyThreshold =
+      2.0; // Emergency pit at 2.0s penalty
 
   static const double softAggressiveThreshold = 0.6; // Aggressive pit at 0.6s
   static const double mediumAggressiveThreshold = 0.8; // Aggressive pit at 0.8s
   static const double hardAggressiveThreshold = 1.0; // Aggressive pit at 1.0s
 
-  static const double softConservativeThreshold = 0.4; // Conservative pit at 0.4s
-  static const double mediumConservativeThreshold = 0.5; // Conservative pit at 0.5s
-  static const double hardConservativeThreshold = 0.7; // Conservative pit at 0.7s
+  static const double softConservativeThreshold =
+      0.4; // Conservative pit at 0.4s
+  static const double mediumConservativeThreshold =
+      0.5; // Conservative pit at 0.5s
+  static const double hardConservativeThreshold =
+      0.7; // Conservative pit at 0.7s
 
   // Weather constants
   static const double baseWetPenalty = 1.5;

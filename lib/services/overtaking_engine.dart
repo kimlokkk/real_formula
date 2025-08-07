@@ -7,8 +7,8 @@ import '../models/enums.dart';
 /// Comprehensive overtaking system for realistic F1 racing dynamics
 class OvertakingEngine {
   /// Process all potential overtaking opportunities for the current lap
-  static List<String> processOvertakingOpportunities(
-      List<Driver> drivers, int currentLap, Track track, WeatherCondition weather) {
+  static List<String> processOvertakingOpportunities(List<Driver> drivers,
+      int currentLap, Track track, WeatherCondition weather) {
     List<String> overtakingIncidents = [];
     List<Driver> sortedDrivers = List.from(drivers);
 
@@ -24,25 +24,31 @@ class OvertakingEngine {
       if (behindDriver.isDNF() || aheadDriver.isDNF()) continue;
 
       // Calculate overtaking probability
-      double overtakeChance = calculateOvertakingProbability(behindDriver, aheadDriver, track, weather, currentLap);
+      double overtakeChance = calculateOvertakingProbability(
+          behindDriver, aheadDriver, track, weather, currentLap);
 
       // Attempt overtake if probability is significant
       if (Random().nextDouble() < overtakeChance) {
-        OvertakingResult result = attemptOvertake(behindDriver, aheadDriver, track, weather, currentLap);
+        OvertakingResult result = attemptOvertake(
+            behindDriver, aheadDriver, track, weather, currentLap);
 
         if (result.successful) {
           _executeSuccessfulOvertake(behindDriver, aheadDriver, sortedDrivers);
-          overtakingIncidents
-              .add("Lap $currentLap: ${behindDriver.name} overtakes ${aheadDriver.name} ${result.method}");
+          overtakingIncidents.add(
+              "Lap $currentLap: ${behindDriver.name} overtakes ${aheadDriver.name} ${result.method}");
 
           // Record incidents for both drivers
-          behindDriver.recordIncident("Lap $currentLap: Overtook ${aheadDriver.name} ${result.method}");
-          aheadDriver.recordIncident("Lap $currentLap: Overtaken by ${behindDriver.name} ${result.method}");
+          behindDriver.recordIncident(
+              "Lap $currentLap: Overtook ${aheadDriver.name} ${result.method}");
+          aheadDriver.recordIncident(
+              "Lap $currentLap: Overtaken by ${behindDriver.name} ${result.method}");
         } else {
           // Failed overtaking attempt - potential incident
-          _processFailliedOvertake(behindDriver, aheadDriver, result, currentLap);
+          _processFailliedOvertake(
+              behindDriver, aheadDriver, result, currentLap);
           if (result.incidentDescription.isNotEmpty) {
-            overtakingIncidents.add("Lap $currentLap: ${result.incidentDescription}");
+            overtakingIncidents
+                .add("Lap $currentLap: ${result.incidentDescription}");
           }
         }
       }
@@ -56,7 +62,11 @@ class OvertakingEngine {
 
   /// Calculate the probability of a successful overtaking attempt
   static double calculateOvertakingProbability(
-      Driver behindDriver, Driver aheadDriver, Track track, WeatherCondition weather, int currentLap) {
+      Driver behindDriver,
+      Driver aheadDriver,
+      Track track,
+      WeatherCondition weather,
+      int currentLap) {
     double baseProbability = 0.0;
 
     // PERFORMANCE DIFFERENTIAL (most important factor)
@@ -83,15 +93,18 @@ class OvertakingEngine {
     baseProbability *= (1.0 + tireDelta * 0.6); // Reduced from 1.0 to 0.6
 
     // DRIVER SKILL FACTORS
-    double skillMultiplier = _calculateDriverSkillMultiplier(behindDriver, aheadDriver);
+    double skillMultiplier =
+        _calculateDriverSkillMultiplier(behindDriver, aheadDriver);
     baseProbability *= skillMultiplier;
 
     // EARLY RACE POSITION PROTECTION (NEW)
-    double positionProtection = _getPositionProtectionMultiplier(aheadDriver, behindDriver, currentLap);
+    double positionProtection =
+        _getPositionProtectionMultiplier(aheadDriver, behindDriver, currentLap);
     baseProbability *= positionProtection;
 
     // RACE SITUATION MODIFIERS
-    baseProbability *= _getRaceSituationMultiplier(behindDriver, aheadDriver, currentLap);
+    baseProbability *=
+        _getRaceSituationMultiplier(behindDriver, aheadDriver, currentLap);
 
     // WEATHER EFFECTS
     if (weather == WeatherCondition.rain) {
@@ -118,51 +131,68 @@ class OvertakingEngine {
     // Current lap pace differential based on multiple factors
 
     // Base car performance difference
-    double carGap = (behind.team.carPerformance - ahead.team.carPerformance) / 100.0;
+    double carGap =
+        (behind.team.carPerformance - ahead.team.carPerformance) / 100.0;
 
     // Driver skill difference (speed more important for overtaking)
     double speedGap = (behind.speed - ahead.speed) / 200.0;
     double consistencyGap = (behind.consistency - ahead.consistency) / 300.0;
 
     // Tire degradation difference (fresher tires = advantage)
-    double tireDeg = ahead.calculateTyreDegradation() - behind.calculateTyreDegradation();
+    double tireDeg =
+        ahead.calculateTyreDegradation() - behind.calculateTyreDegradation();
 
     // Mechanical issues impact
     double mechanicalImpact = 0.0;
     if (ahead.hasActiveMechanicalIssue) mechanicalImpact += 0.3;
     if (behind.hasActiveMechanicalIssue) mechanicalImpact -= 0.3;
 
-    return carGap + speedGap + consistencyGap + (tireDeg / 3.0) + mechanicalImpact;
+    return carGap +
+        speedGap +
+        consistencyGap +
+        (tireDeg / 3.0) +
+        mechanicalImpact;
   }
 
   /// Calculate tire advantage for overtaking (UPDATED with realistic values)
   static double _calculateTireAdvantage(Driver behind, Driver ahead) {
     // Fresher tires provide overtaking advantage (reduced impact)
-    double ageAdvantage = (ahead.lapsOnCurrentTires - behind.lapsOnCurrentTires) / 30.0; // Reduced from 20.0
+    double ageAdvantage =
+        (ahead.lapsOnCurrentTires - behind.lapsOnCurrentTires) /
+            30.0; // Reduced from 20.0
 
     // Compound advantage (UPDATED to match new realistic compound deltas)
     double compoundAdvantage = 0.0;
-    if (behind.currentCompound == TireCompound.soft && ahead.currentCompound == TireCompound.medium) {
+    if (behind.currentCompound == TireCompound.soft &&
+        ahead.currentCompound == TireCompound.medium) {
       compoundAdvantage = 0.06; // Reduced to match new 0.25s delta
-    } else if (behind.currentCompound == TireCompound.soft && ahead.currentCompound == TireCompound.hard) {
+    } else if (behind.currentCompound == TireCompound.soft &&
+        ahead.currentCompound == TireCompound.hard) {
       compoundAdvantage = 0.08; // Reduced to match new 0.4s total gap
-    } else if (behind.currentCompound == TireCompound.medium && ahead.currentCompound == TireCompound.hard) {
+    } else if (behind.currentCompound == TireCompound.medium &&
+        ahead.currentCompound == TireCompound.hard) {
       compoundAdvantage = 0.03; // Reduced to match new 0.15s delta
     }
 
-    return (ageAdvantage + compoundAdvantage).clamp(-0.15, 0.15); // Reduced max from 0.2 to 0.15
+    return (ageAdvantage + compoundAdvantage)
+        .clamp(-0.15, 0.15); // Reduced max from 0.2 to 0.15
   }
 
   /// Calculate driver skill multiplier for overtaking ability
   static double _calculateDriverSkillMultiplier(Driver behind, Driver ahead) {
     // Overtaking skill derived from speed and consistency
-    double behindOvertakingSkill = (behind.speed * 0.7 + behind.consistency * 0.3) / 100.0;
-    double aheadDefendingSkill = (ahead.consistency * 0.6 + ahead.speed * 0.4) / 100.0;
+    double behindOvertakingSkill =
+        (behind.speed * 0.7 + behind.consistency * 0.3) / 100.0;
+    double aheadDefendingSkill =
+        (ahead.consistency * 0.6 + ahead.speed * 0.4) / 100.0;
 
     // Racing craft - some drivers are naturally better at wheel-to-wheel combat
     double racecraft = _getDriverRacecraft(behind) - _getDriverRacecraft(ahead);
 
-    return (1.0 + (behindOvertakingSkill - aheadDefendingSkill) + racecraft * 0.2).clamp(0.3, 2.0);
+    return (1.0 +
+            (behindOvertakingSkill - aheadDefendingSkill) +
+            racecraft * 0.2)
+        .clamp(0.3, 2.0);
   }
 
   /// Get driver racecraft rating (wheel-to-wheel ability)
@@ -187,7 +217,8 @@ class OvertakingEngine {
   }
 
   /// Calculate race situation multiplier
-  static double _getRaceSituationMultiplier(Driver behind, Driver ahead, int currentLap) {
+  static double _getRaceSituationMultiplier(
+      Driver behind, Driver ahead, int currentLap) {
     double multiplier = 1.0;
 
     // Desperation factor - drivers behind their starting position are more aggressive
@@ -214,7 +245,8 @@ class OvertakingEngine {
   }
 
   /// NEW: Calculate position protection multiplier - heavily protects track position early in race
-  static double _getPositionProtectionMultiplier(Driver ahead, Driver behind, int currentLap) {
+  static double _getPositionProtectionMultiplier(
+      Driver ahead, Driver behind, int currentLap) {
     // Early race protection - track position is king
     if (currentLap <= 5) {
       // MASSIVE protection for pole position (P1)
@@ -269,13 +301,14 @@ class OvertakingEngine {
   }
 
   /// Attempt an overtaking maneuver
-  static OvertakingResult attemptOvertake(
-      Driver behind, Driver ahead, Track track, WeatherCondition weather, int currentLap) {
+  static OvertakingResult attemptOvertake(Driver behind, Driver ahead,
+      Track track, WeatherCondition weather, int currentLap) {
     // Determine overtaking method based on track and situation
     OvertakingMethod method = _selectOvertakingMethod(track, weather);
 
     // Calculate success probability for this specific method
-    double successProbability = _getMethodSuccessProbability(behind, ahead, method, track, weather);
+    double successProbability =
+        _getMethodSuccessProbability(behind, ahead, method, track, weather);
 
     bool successful = Random().nextDouble() < successProbability;
 
@@ -293,22 +326,29 @@ class OvertakingEngine {
   }
 
   /// Select overtaking method based on track characteristics
-  static OvertakingMethod _selectOvertakingMethod(Track track, WeatherCondition weather) {
+  static OvertakingMethod _selectOvertakingMethod(
+      Track track, WeatherCondition weather) {
     double random = Random().nextDouble();
 
     if (weather == WeatherCondition.rain) {
       // Wet weather favors late braking and opportunistic moves
-      return random < 0.6 ? OvertakingMethod.lateBraking : OvertakingMethod.cornerExit;
+      return random < 0.6
+          ? OvertakingMethod.lateBraking
+          : OvertakingMethod.cornerExit;
     }
 
     switch (track.type) {
       case TrackType.power:
         // Power tracks favor slipstream overtakes
-        return random < 0.7 ? OvertakingMethod.slipstream : OvertakingMethod.lateBraking;
+        return random < 0.7
+            ? OvertakingMethod.slipstream
+            : OvertakingMethod.lateBraking;
 
       case TrackType.street:
         // Street circuits - limited opportunities, mostly late braking
-        return random < 0.8 ? OvertakingMethod.lateBraking : OvertakingMethod.cornerExit;
+        return random < 0.8
+            ? OvertakingMethod.lateBraking
+            : OvertakingMethod.cornerExit;
 
       case TrackType.technical:
         // Technical tracks - various methods possible
@@ -325,8 +365,8 @@ class OvertakingEngine {
   }
 
   /// Get success probability for specific overtaking method
-  static double _getMethodSuccessProbability(
-      Driver behind, Driver ahead, OvertakingMethod method, Track track, WeatherCondition weather) {
+  static double _getMethodSuccessProbability(Driver behind, Driver ahead,
+      OvertakingMethod method, Track track, WeatherCondition weather) {
     double baseProbability = 0.5;
 
     switch (method) {
@@ -337,12 +377,15 @@ class OvertakingEngine {
 
       case OvertakingMethod.lateBraking:
         // Favor consistent drivers who can brake precisely
-        baseProbability = (behind.consistency * 0.6 + behind.speed * 0.4) / 100.0;
+        baseProbability =
+            (behind.consistency * 0.6 + behind.speed * 0.4) / 100.0;
         break;
 
       case OvertakingMethod.cornerExit:
         // Favor tire management and car balance
-        baseProbability = (behind.tyreManagementSkill * 0.4 + behind.carPerformance * 0.6) / 100.0;
+        baseProbability =
+            (behind.tyreManagementSkill * 0.4 + behind.carPerformance * 0.6) /
+                100.0;
         break;
 
       case OvertakingMethod.opportunistic:
@@ -383,16 +426,20 @@ class OvertakingEngine {
     if (Random().nextDouble() < 0.05) {
       if (Random().nextDouble() < 0.3) {
         // Contact/collision
-        incident = "${behind.name} and ${ahead.name} make contact in overtaking attempt";
+        incident =
+            "${behind.name} and ${ahead.name} make contact in overtaking attempt";
         timeLost = 3.0 + Random().nextDouble() * 5.0;
-        behind
-            .recordIncident("Contact with ${ahead.name} during overtaking attempt (+${timeLost.toStringAsFixed(1)}s)");
-        ahead.recordIncident("Contact with ${behind.name} during defensive move (+1.0s)");
+        behind.recordIncident(
+            "Contact with ${ahead.name} during overtaking attempt (+${timeLost.toStringAsFixed(1)}s)");
+        ahead.recordIncident(
+            "Contact with ${behind.name} during defensive move (+1.0s)");
       } else {
         // Lock-up or error
-        incident = "${behind.name} locks up attempting to overtake ${ahead.name}";
+        incident =
+            "${behind.name} locks up attempting to overtake ${ahead.name}";
         timeLost = 2.0 + Random().nextDouble() * 3.0;
-        behind.recordIncident("Lock-up during overtaking attempt (+${timeLost.toStringAsFixed(1)}s)");
+        behind.recordIncident(
+            "Lock-up during overtaking attempt (+${timeLost.toStringAsFixed(1)}s)");
       }
     }
 
@@ -405,7 +452,8 @@ class OvertakingEngine {
   }
 
   /// Execute successful overtaking move
-  static void _executeSuccessfulOvertake(Driver overtaker, Driver overtaken, List<Driver> sortedDrivers) {
+  static void _executeSuccessfulOvertake(
+      Driver overtaker, Driver overtaken, List<Driver> sortedDrivers) {
     // Swap positions
     int overtakerPos = overtaker.position;
     int overtakenPos = overtaken.position;
@@ -415,7 +463,8 @@ class OvertakingEngine {
   }
 
   /// Process failed overtaking attempt consequences
-  static void _processFailliedOvertake(Driver behind, Driver ahead, OvertakingResult result, int currentLap) {
+  static void _processFailliedOvertake(
+      Driver behind, Driver ahead, OvertakingResult result, int currentLap) {
     if (result.timeLost > 0) {
       behind.totalTime += result.timeLost;
     }
@@ -435,7 +484,9 @@ class OvertakingEngine {
         Driver driver = drivers[i];
         Driver driverAhead = drivers[i - 1];
 
-        if (_isWithinDRSRange(driver, driverAhead) && !driver.isDNF() && !driverAhead.isDNF()) {
+        if (_isWithinDRSRange(driver, driverAhead) &&
+            !driver.isDNF() &&
+            !driverAhead.isDNF()) {
           // Small lap time improvement for DRS (already factored into overtaking probability)
           // This could be used for general lap time improvement when not overtaking
         }
@@ -464,8 +515,11 @@ class OvertakingEngine {
       'totalOvertakes': totalOvertakes,
       'driverOvertakes': driverOvertakes,
       'driverOvertaken': driverOvertaken,
-      'mostOvertaker':
-          driverOvertakes.isNotEmpty ? driverOvertakes.entries.reduce((a, b) => a.value > b.value ? a : b).key : 'None',
+      'mostOvertaker': driverOvertakes.isNotEmpty
+          ? driverOvertakes.entries
+              .reduce((a, b) => a.value > b.value ? a : b)
+              .key
+          : 'None',
     };
   }
 }
@@ -525,13 +579,19 @@ class OvertakingConstants {
   static const double lockupTimeLoss = 3.0;
 
   // NEW: Position protection constants
-  static const double poleProtectionLap1to5 = 0.15; // Massive protection for pole
-  static const double frontRowProtectionLap1to5 = 0.25; // Strong protection for P2
+  static const double poleProtectionLap1to5 =
+      0.15; // Massive protection for pole
+  static const double frontRowProtectionLap1to5 =
+      0.25; // Strong protection for P2
   static const double topThreeProtectionLap1to5 = 0.4; // Good protection for P3
 
   // NEW: Tire advantage limits (UPDATED to match realistic compound deltas)
-  static const double maxTireAdvantage = 0.15; // Reduced further to match new 0.25s max compound delta
-  static const double softOverMediumAdvantage = 0.06; // Reduced to match new 0.25s delta
-  static const double softOverHardAdvantage = 0.08; // Reduced to match new 0.4s total gap
-  static const double mediumOverHardAdvantage = 0.03; // Reduced to match new 0.15s delta
+  static const double maxTireAdvantage =
+      0.15; // Reduced further to match new 0.25s max compound delta
+  static const double softOverMediumAdvantage =
+      0.06; // Reduced to match new 0.25s delta
+  static const double softOverHardAdvantage =
+      0.08; // Reduced to match new 0.4s total gap
+  static const double mediumOverHardAdvantage =
+      0.03; // Reduced to match new 0.15s delta
 }

@@ -51,9 +51,9 @@ class StrategyEngine {
       RainIntensity? rainIntensity) {
     // Calculate viability scores for both strategies
     double oneStopScore =
-        _calculateOneStopViability(track, driver, startPosition);
+        _calculateOneStopViability(track, driver, startPosition, weather);
     double twoStopScore =
-        _calculateTwoStopViability(track, driver, startPosition);
+        _calculateTwoStopViability(track, driver, startPosition, weather);
 
     // Add some randomness to prevent everyone choosing the same strategy (±0.08)
     double randomVariation =
@@ -78,7 +78,7 @@ class StrategyEngine {
   /// Calculates how viable a one-stop strategy is for this track and driver
   /// Returns a score from 0.0 (impossible) to 1.0 (perfect)
   static double _calculateOneStopViability(
-      Track track, Driver driver, int startPosition) {
+      Track track, Driver driver, int startPosition, WeatherCondition weather) {
     double viabilityScore = 0.5; // Start with neutral base
 
     // TRACK FACTORS (most important)
@@ -203,6 +203,11 @@ class StrategyEngine {
       viabilityScore += 0.1; // Short races favor one-stop
     }
 
+    if (weather == WeatherCondition.rain) {
+      viabilityScore += 0.4; // Major boost for wet one-stop viability
+      print("☔ One-stop viability boost: +0.4 for wet conditions");
+    }
+
     // Cap the score between 0.0 and 1.0
     return viabilityScore.clamp(0.0, 1.0);
   }
@@ -210,7 +215,7 @@ class StrategyEngine {
   /// Calculates how viable a two-stop strategy is for this track and driver
   /// Returns a score from 0.0 (terrible) to 1.0 (perfect)
   static double _calculateTwoStopViability(
-      Track track, Driver driver, int startPosition) {
+      Track track, Driver driver, int startPosition, WeatherCondition weather) {
     double viabilityScore =
         0.6; // Start with slightly higher base (2-stop is more common)
 
@@ -359,6 +364,11 @@ class StrategyEngine {
       viabilityScore += 0.1; // Tire-critical tracks
     }
 
+    if (weather == WeatherCondition.rain) {
+      viabilityScore -= 0.2; // Reduce two-stop attractiveness in wet
+      print("☔ Two-stop viability: -0.2 (one-stop more viable in wet)");
+    }
+
     // Cap the score between 0.0 and 1.0
     return viabilityScore.clamp(0.0, 1.0);
   }
@@ -424,6 +434,12 @@ class StrategyEngine {
     String reasoning = _getStrategyReasoning(
         track, driver, startPosition, true, viabilityScore);
 
+    if (weather == WeatherCondition.rain) {
+      basePitLap =
+          (track.totalLaps * 0.65).round(); // 65% for wet weather (much later!)
+      print("☔ WET ONE-STOP: Extended to lap $basePitLap (65% distance)");
+    }
+
     return RaceStrategy(
       type: StrategyType.oneStop,
       plannedPitLaps: [plannedPitLap],
@@ -448,6 +464,13 @@ class StrategyEngine {
         (track.totalLaps * 0.27).round(); // Around 27% through the race
     int secondPitLap =
         (track.totalLaps * 0.65).round(); // Around 65% through the race
+
+    if (weather == WeatherCondition.rain) {
+      firstPitLap = (track.totalLaps * 0.35).round(); // 35% instead of 27%
+      secondPitLap = (track.totalLaps * 0.75).round(); // 75% instead of 65%
+      print(
+          "☔ WET TWO-STOP: Extended windows - Lap $firstPitLap and $secondPitLap");
+    }
 
     // Adjust based on track characteristics
     if (track.tireDegradationMultiplier >= 1.4) {
@@ -663,23 +686,20 @@ class StrategyEngine {
     // Rain intensity-based compound selection for longer stints
     switch (rainIntensity) {
       case RainIntensity.light:
-        // Light rain: Start intermediate, stay intermediate
-        print("   Strategy: Conservative intermediate strategy");
+        print(
+            "   Strategy: Extended intermediate strategy (38+ laps possible)");
         return [TireCompound.intermediate, TireCompound.intermediate];
 
       case RainIntensity.moderate:
-        // Moderate rain: Intermediate throughout
-        print("   Strategy: Intermediate compounds throughout");
+        print("   Strategy: Long intermediate stints (can go 40+ laps)");
         return [TireCompound.intermediate, TireCompound.intermediate];
 
       case RainIntensity.heavy:
-        // Heavy rain: Progress to wet compounds
-        print("   Strategy: Start intermediate, switch to wet");
+        print("   Strategy: Inter to wet transition (28+ lap stints)");
         return [TireCompound.intermediate, TireCompound.wet];
 
       case RainIntensity.extreme:
-        // Extreme rain: Wet compounds for safety
-        print("   Strategy: Wet compounds for safety");
+        print("   Strategy: Wet compounds for safety (28+ lap capability)");
         return [TireCompound.wet, TireCompound.wet];
     }
   }
@@ -1163,9 +1183,9 @@ class StrategyEngine {
       case TireCompound.hard:
         return F1Constants.hardEmergencyThreshold * 1.1; // 2.2s instead of 2.0s
       case TireCompound.intermediate:
-        return 2.0;
+        return 3.5;
       case TireCompound.wet:
-        return 2.4;
+        return 4.0;
     }
   }
 
@@ -1181,9 +1201,9 @@ class StrategyEngine {
         return F1Constants.hardConservativeThreshold *
             1.5; // 1.05s instead of 0.7s
       case TireCompound.intermediate:
-        return 0.9;
+        return 1.8;
       case TireCompound.wet:
-        return 1.2;
+        return 2.0;
     }
   }
 
