@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:real_formula/services/career/career_manager.dart';
 import 'package:real_formula/services/career/save_manager.dart';
 import 'package:real_formula/ui/career/save_load_menu.dart';
+import 'package:real_formula/ui/race/interactive_race_demo.dart';
 
 class MainMenuPage extends StatefulWidget {
   @override
@@ -425,7 +426,26 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                     ),
                   ],
 
-                  SizedBox(height: 32),
+                  SizedBox(height: 16),
+
+                  _buildEnhancedButton(
+                    label: 'MINIGAMES',
+                    subtitle: 'Test new race engine',
+                    icon: Icons.sports_esports,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => InteractiveRaceDemo(),
+                        ),
+                      );
+                    },
+                    isPrimary: false,
+                    gradientColors: [Colors.purple[600]!, Colors.purple[800]!],
+                    isEnabled: true,
+                  ),
+
+                  /*SizedBox(height: 32),
 
                   // Secondary options
                   Row(
@@ -446,7 +466,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
                         ),
                       ),
                     ],
-                  ),
+                  ),*/
                 ],
               ),
             ),
@@ -467,7 +487,7 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
   }) {
     return Container(
       width: double.infinity,
-      height: 70,
+      height: 65,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
@@ -692,101 +712,6 @@ class _MainMenuPageState extends State<MainMenuPage> with TickerProviderStateMix
     if (CareerManager.currentCareerDriver != null) {
       Navigator.pushNamed(context, '/career_home');
     }
-  }
-
-// ADD this new method for building secondary buttons:
-  Widget _buildSecondaryButton({
-    required String label,
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    return Container(
-      height: 50,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'Formula1',
-            letterSpacing: 1,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white.withOpacity(0.1),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-// ADD these placeholder methods for settings and about:
-  void _handleSettings() {
-    // Placeholder for settings functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Settings coming soon'),
-        backgroundColor: Colors.grey[700],
-      ),
-    );
-  }
-
-  void _handleAbout() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: Text(
-          'F1 Career Simulator',
-          style: TextStyle(
-            color: Colors.white,
-            fontFamily: 'Formula1',
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Version 1.0',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontFamily: 'Formula1',
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Experience the thrill of Formula 1 career mode with realistic progression, championship battles, and career management.',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'Formula1',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[600],
-              foregroundColor: Colors.white,
-            ),
-            child: Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 }
 
